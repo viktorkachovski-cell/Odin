@@ -19,9 +19,11 @@ Confirmed product invariants are enforced in SQL: one nullable assignee, deadlin
 
 `001_schema.sql` checks tables, deadline/assignee nullability, RLS, direct-write denial and RPC presence. `002_behavior.sql` checks profile/household creation, one-household enforcement, input validation, idempotency mismatch, template copy/reset, invitations, claim/completion/progress, stale versions, member projection and cross-household denial. A Node regression suite checks critical SQL boundaries without requiring Docker.
 
-The database GitHub workflow generates the migration from declarative state with strict coverage using the current `db schema declarative sync` command, starts a disposable Supabase stack, runs database lint and pgTAP, and uploads the generated migration. This is needed because Docker or Podman is not installed on the current Windows machine. A local generation attempt confirmed that limitation; it did not change a database.
+The database GitHub workflow generates the migration from declarative state with strict coverage using the current `db schema declarative sync` command, starts a disposable Supabase stack, runs database lint with warnings configured to fail the job, runs pgTAP, and uploads the generated migration. This is needed because Docker or Podman is not installed on the current Windows machine. A local generation attempt confirmed that limitation; it did not change a database.
 
 The first CI execution generated the schema and passed database lint plus all 28 structural assertions. Its behavior suite exposed a missing EXECUTE grant on safe response helpers used by invoker read RPCs. The grants were narrowed to the four pure response/cursor helpers and a static regression check was added before rerunning the suite.
+
+A later lint review found an invalid cross-statement reference to the `get_home` page CTE and an overly strong `IMMUTABLE` declaration on cursor decoding. The page aggregation and last-row lookup now share one statement, cursor decoding is `STABLE`, regression checks cover both findings, and database lint warnings now fail CI.
 
 ## Compatibility note
 

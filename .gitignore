@@ -10,6 +10,7 @@ coverage/
 *.tsbuildinfo
 *.log
 .tmp/
+.ci-artifacts/
 supabase/.temp/
 supabase/.branches/
 *.jks

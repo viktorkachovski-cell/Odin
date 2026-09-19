@@ -10,7 +10,7 @@ $$;
 create or replace function private.decode_cursor(value text)
 returns jsonb
 language plpgsql
-immutable
+stable
 set search_path = ''
 as $$
 declare
@@ -108,9 +108,11 @@ begin
   ), visible as (
     select * from page order by id limit v_limit
   )
-  select coalesce(jsonb_agg(to_jsonb(visible) order by id), '[]'::jsonb)
-  into v_items from visible;
-  select id into v_last from visible order by id desc limit 1;
+  select
+    coalesce(jsonb_agg(to_jsonb(visible) order by id), '[]'::jsonb),
+    (select id from visible order by id desc limit 1)
+  into v_items, v_last
+  from visible;
 
   return private.ok_response(jsonb_build_object(
     'items', v_items,

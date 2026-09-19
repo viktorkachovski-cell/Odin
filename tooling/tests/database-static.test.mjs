@@ -60,3 +60,16 @@ test('idempotency, conflict and invitation secrecy controls exist', () => {
   assert.match(schema, /private\.invitation_secret\(\)/i);
   assert.doesNotMatch(schema, /raw_token/i);
 });
+
+test('read helpers keep cursor and CTE semantics valid', () => {
+  assert.match(
+    schema,
+    /function private\.decode_cursor\([\s\S]*?language plpgsql\s+stable\b/i,
+    'cursor decoding must not claim immutable volatility',
+  );
+  assert.doesNotMatch(
+    schema,
+    /into v_items from visible;\s*select id into v_last from visible/i,
+    'a CTE must not be referenced by a later SQL statement',
+  );
+});

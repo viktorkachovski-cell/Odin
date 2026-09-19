@@ -35,7 +35,7 @@ jobs:
           path: supabase/migrations/*.sql
           if-no-files-found: error
       - run: npx supabase start
-      - run: npx supabase db lint --local --level warning
+      - run: npx supabase db lint --local --level warning --fail-on warning
       - run: npx supabase test db
       - if: always()
         run: npx supabase stop --no-backup
