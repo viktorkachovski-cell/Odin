@@ -20,7 +20,8 @@
     "db:stop": "supabase stop",
     "db:diff": "supabase db schema declarative sync --strict-coverage --no-apply",
     "db:test": "supabase test db",
-    "db:lint": "supabase db lint --local --level warning",
+    "db:test:concurrency": "node supabase/tests/concurrency.mjs",
+    "db:lint": "supabase db lint --local --level warning --fail-on warning",
     "check": "npm run lint && npm run format:check && npm run test:tooling"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react-hooks": "7.0.1",
     "globals": "16.5.0",
+    "postgres": "3.4.9",
     "prettier": "3.6.2",
     "supabase": "2.117.0",
     "typescript": "5.9.3",

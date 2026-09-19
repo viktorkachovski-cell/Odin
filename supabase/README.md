@@ -24,6 +24,7 @@ npm run db:diff -- -f initial_odin_schema
 npm run db:start
 npm run db:lint
 npm run db:test
+npm run db:test:concurrency
 npm run db:stop -- --no-backup
 ```
 
