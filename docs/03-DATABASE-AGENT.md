@@ -2,7 +2,7 @@
 
 ## Implementation status September 19 2026
 
-The database foundation is implemented in `supabase/` and documented in `docs/12-DATABASE-IMPLEMENTATION.md`. Declarative schema, RPCs, RLS, grants, pgTAP suites, static checks and CI migration generation are present. Hosted provisioning, approved seed wording and generated client types remain pending for the reasons recorded there. Future agents must extend the existing schema rather than restart this workstream.
+The database foundation is implemented in `supabase/` and documented in `docs/12-DATABASE-IMPLEMENTATION.md`. Declarative schema, reviewed initial migration, RPCs, RLS, grants, pgTAP suites, live concurrency checks and CI migration replay are present. Hosted provisioning, approved seed wording and generated client types remain pending for the reasons recorded there. Future agents must extend the existing schema rather than restart this workstream.
 
 ## Mission and inputs
 
