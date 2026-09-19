@@ -1,5 +1,9 @@
 # Database implementation agent
 
+## Implementation status September 19 2026
+
+The database foundation is implemented in `supabase/` and documented in `docs/12-DATABASE-IMPLEMENTATION.md`. Declarative schema, RPCs, RLS, grants, pgTAP suites, static checks and CI migration generation are present. Hosted provisioning, approved seed wording and generated client types remain pending for the reasons recorded there. Future agents must extend the existing schema rather than restart this workstream.
+
 ## Mission and inputs
 
 Implement the Odin Supabase backend defined in `00-ARCHITECTURE.md`, `01-DECISIONS.md`, and `02-CONTRACT.md`. Read `06-CODE-STANDARDS.md` and `08-VERIFICATION.md`. Deliver executable schema, migrations, seed fixtures, RPCs, authorization tests, generated TypeScript types and a reproducible local setup. Do not deploy to Passport or create paid resources without the selected Odin organization/plan.

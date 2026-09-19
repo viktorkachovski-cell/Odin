@@ -1,0 +1,41 @@
+name: Database
+on:
+  push:
+    paths:
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/database.yml'
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/database.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Generate initial migration from declarative schema
+        if: ${{ hashFiles('supabase/migrations/*.sql') == '' }}
+        run: npx supabase db schema declarative sync --strict-coverage --no-apply -f initial_odin_schema
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('supabase/migrations/*.sql') != '' }}
+        with:
+          name: generated-migration
+          path: supabase/migrations/*.sql
+          if-no-files-found: error
+      - run: npx supabase start
+      - run: npx supabase db lint --local --level warning
+      - run: npx supabase test db
+      - if: always()
+        run: npx supabase stop --no-backup
