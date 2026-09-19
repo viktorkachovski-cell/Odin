@@ -125,6 +125,17 @@ export function asCommandResult<T>(
   return { ok: false, error: commandError('UNKNOWN') };
 }
 
+/**
+ * Reads return the same envelope as commands but throw on failure, because a
+ * failed read is an error state for the query layer rather than a value the UI
+ * renders inline.
+ */
+export function unwrapEnvelope<T>(payload: unknown, parse: (data: unknown) => T): T {
+  const result = asCommandResult(payload, parse);
+  if (result.ok) return result.data;
+  throw new OdinError(result.error);
+}
+
 /** Thrown by repositories so TanStack Query treats a failed read as an error. */
 export class OdinError extends Error {
   readonly info: CommandError;

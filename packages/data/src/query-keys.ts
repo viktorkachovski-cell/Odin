@@ -5,6 +5,7 @@
 
 export const queryKeys = {
   session: ['session'] as const,
+  profile: ['profile'] as const,
   household: ['household'] as const,
   members: ['members'] as const,
   home: ['home'] as const,
@@ -32,6 +33,7 @@ export function keysAffectedByListChange(listId?: string): readonly (readonly st
 
 export function keysAffectedByMembershipChange(): readonly (readonly string[])[] {
   return [
+    queryKeys.profile,
     queryKeys.household,
     queryKeys.members,
     queryKeys.home,

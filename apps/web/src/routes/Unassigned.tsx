@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { claimTask, keysAffectedByTaskChange } from '@odin/data';
-import { sortTasksByDue } from '@odin/domain';
+import { taskRowFromCrossList } from '@odin/contracts';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useUnassignedQuery } from '../app/queries.ts';
@@ -37,7 +37,8 @@ export function Unassigned(): ReactNode {
     );
   }
 
-  const tasks = sortTasksByDue(query.data.tasks);
+  // The server already returns due-ascending with undated last.
+  const tasks = query.data.items;
 
   return (
     <>
@@ -56,8 +57,7 @@ export function Unassigned(): ReactNode {
           {tasks.map((task) => (
             <TaskRow
               busy={claim.state.pending}
-              key={task.id}
-              listTitle={task.list_title}
+              key={task.task_id}
               locale={locale}
               members={members.data ?? []}
               onClaim={(selected) =>
@@ -67,7 +67,7 @@ export function Unassigned(): ReactNode {
                 })
               }
               t={t}
-              task={task}
+              task={taskRowFromCrossList(task, null)}
             />
           ))}
         </ul>

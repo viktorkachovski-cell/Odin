@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import type { TaskDto } from '@odin/contracts';
+import { taskRowFromTask } from '@odin/contracts';
 import {
   createTask,
   keysAffectedByListChange,
@@ -147,7 +148,7 @@ export function ListDetail(): ReactNode {
         )}
       </div>
 
-      {!isTemplate && <Progress completed={page.completed} t={t} total={page.total} />}
+      {!isTemplate && <Progress completed={page.completed_tasks} t={t} total={page.total_tasks} />}
 
       {completeCommand.state.error !== null && (
         <ErrorBanner
@@ -167,7 +168,12 @@ export function ListDetail(): ReactNode {
               key={task.id}
               locale={locale}
               members={members.data ?? []}
-              onEdit={isTemplate ? undefined : (selected) => setEditingTask(selected)}
+              onEdit={
+                isTemplate
+                  ? undefined
+                  : (selected) =>
+                      setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
+              }
               onToggleCompleted={
                 isTemplate
                   ? undefined
@@ -179,7 +185,7 @@ export function ListDetail(): ReactNode {
                       })
               }
               t={t}
-              task={task}
+              task={taskRowFromTask(task)}
             />
           ))}
         </ul>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CrossListTaskDto, TaskDto } from '@odin/contracts';
+import type { TaskDto } from '@odin/contracts';
 
 import { avatarHue, initialsOf } from './avatar.ts';
 import { isOverdue, localInputToUtcIso, utcIsoToLocalInput } from './dates.ts';
@@ -24,7 +24,6 @@ function task(overrides: Partial<TaskDto> & Pick<TaskDto, 'id'>): TaskDto {
     completed: false,
     assignee_id: null,
     due_at: null,
-    created_by: 'u1',
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
     version: 1,
@@ -32,10 +31,13 @@ function task(overrides: Partial<TaskDto> & Pick<TaskDto, 'id'>): TaskDto {
   };
 }
 
-function crossTask(
-  overrides: Partial<CrossListTaskDto> & Pick<CrossListTaskDto, 'id'>,
-): CrossListTaskDto {
-  return { ...task(overrides), list_title: 'List', ...overrides };
+/** The minimal shape the due ordering needs; see DueOrdered in sorting.ts. */
+function dueRow(
+  id: string,
+  list_id: string,
+  due_at: string | null,
+): { id: string; list_id: string; due_at: string | null } {
+  return { id, list_id, due_at };
 }
 
 describe('progressPercent', () => {
@@ -97,18 +99,18 @@ describe('sortTasksInList', () => {
 describe('sortTasksByDue', () => {
   it('orders by due date with undated last', () => {
     const sorted = sortTasksByDue([
-      crossTask({ id: 'none', due_at: null }),
-      crossTask({ id: 'late', due_at: '2026-03-02T10:00:00.000Z' }),
-      crossTask({ id: 'early', due_at: '2026-03-01T10:00:00.000Z' }),
+      dueRow('none', 'l1', null),
+      dueRow('late', 'l1', '2026-03-02T10:00:00.000Z'),
+      dueRow('early', 'l1', '2026-03-01T10:00:00.000Z'),
     ]);
     expect(sorted.map((entry) => entry.id)).toEqual(['early', 'late', 'none']);
   });
 
   it('uses list id then task id for undated ties', () => {
     const sorted = sortTasksByDue([
-      crossTask({ id: 'b', list_id: 'l2', due_at: null }),
-      crossTask({ id: 'a', list_id: 'l2', due_at: null }),
-      crossTask({ id: 'c', list_id: 'l1', due_at: null }),
+      dueRow('b', 'l2', null),
+      dueRow('a', 'l2', null),
+      dueRow('c', 'l1', null),
     ]);
     expect(sorted.map((entry) => entry.id)).toEqual(['c', 'a', 'b']);
   });

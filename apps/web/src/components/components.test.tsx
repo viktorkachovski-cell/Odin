@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { MemberDto, TaskDto } from '@odin/contracts';
+import type { MemberDto, TaskRowModel } from '@odin/contracts';
 import { createTranslator } from '@odin/i18n';
 
 import { Dialog } from './Dialog.tsx';
@@ -15,19 +15,14 @@ const tBg = createTranslator('bg');
 
 const members: MemberDto[] = [{ user_id: 'u1', display_name: 'Ana Petrova', avatar_ref: null }];
 
-function makeTask(overrides: Partial<TaskDto> = {}): TaskDto {
+function makeTask(overrides: Partial<TaskRowModel> = {}): TaskRowModel {
   return {
     id: 't1',
-    household_id: 'h1',
     list_id: 'l1',
     title: 'Empty the bins',
-    sort_order: 1,
     completed: false,
     assignee_id: null,
     due_at: null,
-    created_by: 'u1',
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
     version: 1,
     ...overrides,
   };

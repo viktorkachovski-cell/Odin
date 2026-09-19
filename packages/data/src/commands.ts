@@ -19,6 +19,7 @@ import {
   parseHouseholdId,
   parseInvitation,
   parseList,
+  parseInvitationId,
   parseListId,
   parseProfile,
   parseTask,
@@ -63,7 +64,7 @@ export function createHousehold(
   return command(
     client,
     'create_household',
-    { p_request_id: requestId, p_name: input.name, p_seed_locale: input.seedLocale },
+    { request_id: requestId, name: input.name, seed_locale: input.seedLocale },
     parseHouseholdId,
   );
 }
@@ -81,10 +82,10 @@ export function updateProfile(
     client,
     'update_profile',
     {
-      p_request_id: requestId,
-      p_display_name: input.displayName,
-      p_locale: input.locale,
-      p_avatar_ref: input.avatarRef ?? null,
+      request_id: requestId,
+      display_name: input.displayName,
+      locale: input.locale,
+      avatar_ref: input.avatarRef ?? null,
     },
     parseProfile,
   );
@@ -98,7 +99,7 @@ export function createList(
   return command(
     client,
     'create_list',
-    { p_request_id: requestId, p_title: input.title, p_subtitle: input.subtitle ?? null },
+    { request_id: requestId, title: input.title, subtitle: input.subtitle ?? null },
     (data) => parseList(data),
   );
 }
@@ -117,11 +118,11 @@ export function updateList(
     client,
     'update_list',
     {
-      p_request_id: requestId,
-      p_list_id: input.listId,
-      p_expected_version: input.expectedVersion,
-      p_title: input.title,
-      p_subtitle: input.subtitle ?? null,
+      request_id: requestId,
+      list_id: input.listId,
+      expected_version: input.expectedVersion,
+      title: input.title,
+      subtitle: input.subtitle ?? null,
     },
     (data) => parseList(data),
   );
@@ -136,7 +137,7 @@ export function copyTemplate(
   return command(
     client,
     'copy_template',
-    { p_request_id: requestId, p_template_id: templateId },
+    { request_id: requestId, template_id: templateId },
     parseListId,
   );
 }
@@ -155,11 +156,11 @@ export function createTask(
     client,
     'create_task',
     {
-      p_request_id: requestId,
-      p_list_id: input.listId,
-      p_title: input.title,
-      p_assignee_id: input.assigneeId ?? null,
-      p_due_at: input.dueAt ?? null,
+      request_id: requestId,
+      list_id: input.listId,
+      title: input.title,
+      assignee_id: input.assigneeId ?? null,
+      due_at: input.dueAt ?? null,
     },
     (data) => parseTask(data),
   );
@@ -180,12 +181,12 @@ export function updateTask(
     client,
     'update_task',
     {
-      p_request_id: requestId,
-      p_task_id: input.taskId,
-      p_expected_version: input.expectedVersion,
-      p_title: input.title,
-      p_assignee_id: input.assigneeId ?? null,
-      p_due_at: input.dueAt ?? null,
+      request_id: requestId,
+      task_id: input.taskId,
+      expected_version: input.expectedVersion,
+      title: input.title,
+      assignee_id: input.assigneeId ?? null,
+      due_at: input.dueAt ?? null,
     },
     (data) => parseTask(data),
   );
@@ -205,10 +206,10 @@ export function setTaskCompleted(
     client,
     'set_task_completed',
     {
-      p_request_id: requestId,
-      p_task_id: input.taskId,
-      p_expected_version: input.expectedVersion,
-      p_completed: input.completed,
+      request_id: requestId,
+      task_id: input.taskId,
+      expected_version: input.expectedVersion,
+      completed: input.completed,
     },
     (data) => parseTask(data),
   );
@@ -223,9 +224,9 @@ export function claimTask(
     client,
     'claim_task',
     {
-      p_request_id: requestId,
-      p_task_id: input.taskId,
-      p_expected_version: input.expectedVersion,
+      request_id: requestId,
+      task_id: input.taskId,
+      expected_version: input.expectedVersion,
     },
     (data) => parseTask(data),
   );
@@ -236,7 +237,7 @@ export function createInvitation(
   client: OdinSupabaseClient,
   requestId: string,
 ): Promise<CommandResult<InvitationDto>> {
-  return command(client, 'create_invitation', { p_request_id: requestId }, parseInvitation);
+  return command(client, 'create_invitation', { request_id: requestId }, parseInvitation);
 }
 
 export function redeemInvitation(
@@ -247,7 +248,7 @@ export function redeemInvitation(
   return command(
     client,
     'redeem_invitation',
-    { p_request_id: requestId, p_token: token },
+    { request_id: requestId, token: token },
     parseHouseholdId,
   );
 }
@@ -260,11 +261,7 @@ export function revokeInvitation(
   return command(
     client,
     'revoke_invitation',
-    { p_request_id: requestId, p_invitation_id: invitationId },
-    (data) => {
-      const raw = data as { invitation_id?: unknown };
-      if (typeof raw.invitation_id !== 'string') throw new Error('invitation_id');
-      return raw.invitation_id;
-    },
+    { request_id: requestId, invitation_id: invitationId },
+    parseInvitationId,
   );
 }

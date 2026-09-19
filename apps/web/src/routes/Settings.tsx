@@ -6,7 +6,7 @@ import { validateDisplayName } from '@odin/domain';
 import type { TranslationKey } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
-import { useHouseholdQuery, useMembersQuery } from '../app/queries.ts';
+import { useMembersQuery, useProfileQuery } from '../app/queries.ts';
 import { useCommand } from '../app/useCommand.ts';
 import { Avatar } from '../components/Avatar.tsx';
 import { ErrorBanner } from '../components/Banner.tsx';
@@ -54,10 +54,10 @@ function InvitationPanel({ invitation }: { readonly invitation: InvitationDto })
 
 export function Settings(): ReactNode {
   const { t, locale, setLocale, client, signOut } = useOdin();
-  const household = useHouseholdQuery();
+  const profile = useProfileQuery();
   const members = useMembersQuery(true);
 
-  const [displayName, setDisplayName] = useState(() => household.data?.profile?.display_name ?? '');
+  const [displayName, setDisplayName] = useState(() => profile.data?.display_name ?? '');
   const [nameIssue, setNameIssue] = useState<string | undefined>(undefined);
   const [saved, setSaved] = useState(false);
   const [invitation, setInvitation] = useState<InvitationDto | null>(null);

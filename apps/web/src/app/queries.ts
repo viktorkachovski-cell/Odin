@@ -1,10 +1,11 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import type {
-  HomeDto,
+  HomePageDto,
+  HouseholdDto,
   ListPageDto,
   MemberDto,
-  SessionContextDto,
+  ProfileDto,
   TaskPageDto,
 } from '@odin/contracts';
 import {
@@ -12,6 +13,7 @@ import {
   getList,
   getMembers,
   getMyHousehold,
+  getMyProfile,
   getMyTasks,
   getUnassigned,
   queryKeys,
@@ -25,7 +27,16 @@ import { useOdin } from './OdinContext.ts';
  * client-supplied id.
  */
 
-export function useHouseholdQuery(): UseQueryResult<SessionContextDto> {
+export function useProfileQuery(): UseQueryResult<ProfileDto | null> {
+  const { client, user } = useOdin();
+  return useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: () => getMyProfile(client, user?.id ?? ''),
+    enabled: user !== null,
+  });
+}
+
+export function useHouseholdQuery(): UseQueryResult<HouseholdDto | null> {
   const { client, user } = useOdin();
   return useQuery({
     queryKey: queryKeys.household,
@@ -43,7 +54,7 @@ export function useMembersQuery(enabled: boolean): UseQueryResult<MemberDto[]> {
   });
 }
 
-export function useHomeQuery(enabled: boolean): UseQueryResult<HomeDto> {
+export function useHomeQuery(enabled: boolean): UseQueryResult<HomePageDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.home,

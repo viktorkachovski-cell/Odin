@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { MemberDto, TaskDto } from '@odin/contracts';
+import type { MemberDto, TaskRowModel } from '@odin/contracts';
 import { isOverdue } from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
 
@@ -10,18 +10,20 @@ import { Avatar } from './Avatar.tsx';
  * A task row is a flat set of sibling controls, never a clickable card with
  * buttons nested inside it. Toggling completion and opening the editor are
  * separate targets, so completing a task can never open the editor by accident.
+ *
+ * It renders a `TaskRowModel`, so the full list-detail task and the narrower
+ * My Tasks / Unassigned projection share one component.
  */
 
 export interface TaskRowProps {
-  readonly task: TaskDto;
+  readonly task: TaskRowModel;
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
   readonly busy?: boolean;
-  readonly listTitle?: string | undefined;
-  readonly onToggleCompleted?: ((task: TaskDto, completed: boolean) => void) | undefined;
-  readonly onEdit?: ((task: TaskDto) => void) | undefined;
-  readonly onClaim?: ((task: TaskDto) => void) | undefined;
+  readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
+  readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
+  readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
 }
 
 function formatDue(due_at: string, locale: Locale): string {
@@ -37,7 +39,6 @@ export function TaskRow({
   locale,
   t,
   busy = false,
-  listTitle,
   onToggleCompleted,
   onEdit,
   onClaim,
@@ -72,7 +73,9 @@ export function TaskRow({
         </span>
 
         <div className="task-row__meta">
-          {listTitle !== undefined && <span>{t('task.in_list', { list: listTitle })}</span>}
+          {task.list_title !== undefined && (
+            <span>{t('task.in_list', { list: task.list_title })}</span>
+          )}
 
           {assignee === undefined ? (
             <span className="chip">{t('task.assignee.unassigned')}</span>

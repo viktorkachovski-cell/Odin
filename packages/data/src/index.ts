@@ -23,11 +23,11 @@ export {
 export { OdinError } from './error-mapping.ts';
 
 export {
-  getAllPages,
   getHome,
   getList,
   getMembers,
   getMyHousehold,
+  getMyProfile,
   getMyTasks,
   getSession,
   getUnassigned,

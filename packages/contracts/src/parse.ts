@@ -7,7 +7,7 @@
 
 import type {
   CrossListTaskDto,
-  HomeDto,
+  HomePageDto,
   HouseholdDto,
   InvitationDto,
   ListDto,
@@ -18,7 +18,6 @@ import type {
   Locale,
   MemberDto,
   ProfileDto,
-  SessionContextDto,
   TaskDto,
   TaskPageDto,
 } from './dto.ts';
@@ -111,17 +110,8 @@ export function parseHousehold(value: unknown): HouseholdDto {
     id: str(raw['id'], 'household.id'),
     name: str(raw['name'], 'household.name'),
     seed_locale: parseLocale(raw['seed_locale'], 'household.seed_locale'),
+    created_by: str(raw['created_by'], 'household.created_by'),
     created_at: str(raw['created_at'], 'household.created_at'),
-  };
-}
-
-export function parseSessionContext(value: unknown): SessionContextDto {
-  const raw = obj(value, 'session');
-  const household = raw['household'];
-  const profile = raw['profile'];
-  return {
-    household: household === null || household === undefined ? null : parseHousehold(household),
-    profile: profile === null || profile === undefined ? null : parseProfile(profile),
   };
 }
 
@@ -150,24 +140,19 @@ function parseListSummary(value: unknown, field: string): ListSummaryDto {
     title: str(raw['title'], `${field}.title`),
     subtitle: nullableStr(raw['subtitle'], `${field}.subtitle`),
     status: parseListStatus(raw['status'], `${field}.status`),
-    seed_key: nullableStr(raw['seed_key'], `${field}.seed_key`),
     version: num(raw['version'], `${field}.version`),
-    created_at: str(raw['created_at'], `${field}.created_at`),
-    updated_at: str(raw['updated_at'], `${field}.updated_at`),
-    total: num(raw['total'], `${field}.total`),
-    completed: num(raw['completed'], `${field}.completed`),
+    total_tasks: num(raw['total_tasks'], `${field}.total_tasks`),
+    completed_tasks: num(raw['completed_tasks'], `${field}.completed_tasks`),
   };
 }
 
-export function parseHome(value: unknown): HomeDto {
+export function parseHomePage(value: unknown): HomePageDto {
   const raw = obj(value, 'home');
   return {
-    templates: arr(raw['templates'], 'home.templates').map((entry, index) =>
-      parseListSummary(entry, `home.templates[${index}]`),
+    items: arr(raw['items'], 'home.items').map((entry, index) =>
+      parseListSummary(entry, `home.items[${index}]`),
     ),
-    active: arr(raw['active'], 'home.active').map((entry, index) =>
-      parseListSummary(entry, `home.active[${index}]`),
-    ),
+    next_cursor: nullableStr(raw['next_cursor'], 'home.next_cursor'),
   };
 }
 
@@ -182,7 +167,6 @@ export function parseTask(value: unknown, field = 'task'): TaskDto {
     completed: bool(raw['completed'], `${field}.completed`),
     assignee_id: nullableStr(raw['assignee_id'], `${field}.assignee_id`),
     due_at: nullableStr(raw['due_at'], `${field}.due_at`),
-    created_by: str(raw['created_by'], `${field}.created_by`),
     created_at: str(raw['created_at'], `${field}.created_at`),
     updated_at: str(raw['updated_at'], `${field}.updated_at`),
     version: num(raw['version'], `${field}.version`),
@@ -192,8 +176,13 @@ export function parseTask(value: unknown, field = 'task'): TaskDto {
 function parseCrossListTask(value: unknown, field: string): CrossListTaskDto {
   const raw = obj(value, field);
   return {
-    ...parseTask(value, field),
+    task_id: str(raw['task_id'], `${field}.task_id`),
+    list_id: str(raw['list_id'], `${field}.list_id`),
     list_title: str(raw['list_title'], `${field}.list_title`),
+    title: str(raw['title'], `${field}.title`),
+    due_at: nullableStr(raw['due_at'], `${field}.due_at`),
+    has_no_due: bool(raw['has_no_due'], `${field}.has_no_due`),
+    version: num(raw['version'], `${field}.version`),
   };
 }
 
@@ -201,11 +190,12 @@ export function parseListPage(value: unknown): ListPageDto {
   const raw = obj(value, 'listPage');
   return {
     list: parseList(raw['list']),
+    total_tasks: num(raw['total_tasks'], 'listPage.total_tasks'),
+    completed_tasks: num(raw['completed_tasks'], 'listPage.completed_tasks'),
+    progress_percent: num(raw['progress_percent'], 'listPage.progress_percent'),
     tasks: arr(raw['tasks'], 'listPage.tasks').map((entry, index) =>
       parseTask(entry, `listPage.tasks[${index}]`),
     ),
-    total: num(raw['total'], 'listPage.total'),
-    completed: num(raw['completed'], 'listPage.completed'),
     next_cursor: nullableStr(raw['next_cursor'], 'listPage.next_cursor'),
   };
 }
@@ -213,8 +203,8 @@ export function parseListPage(value: unknown): ListPageDto {
 export function parseTaskPage(value: unknown): TaskPageDto {
   const raw = obj(value, 'taskPage');
   return {
-    tasks: arr(raw['tasks'], 'taskPage.tasks').map((entry, index) =>
-      parseCrossListTask(entry, `taskPage.tasks[${index}]`),
+    items: arr(raw['items'], 'taskPage.items').map((entry, index) =>
+      parseCrossListTask(entry, `taskPage.items[${index}]`),
     ),
     next_cursor: nullableStr(raw['next_cursor'], 'taskPage.next_cursor'),
   };
@@ -235,4 +225,8 @@ export function parseHouseholdId(value: unknown): string {
 
 export function parseListId(value: unknown): string {
   return str(obj(value, 'result')['list_id'], 'result.list_id');
+}
+
+export function parseInvitationId(value: unknown): string {
+  return str(obj(value, 'result')['invitation_id'], 'result.invitation_id');
 }

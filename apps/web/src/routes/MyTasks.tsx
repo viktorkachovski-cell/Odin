@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { keysAffectedByTaskChange, setTaskCompleted } from '@odin/data';
-import { sortTasksByDue } from '@odin/domain';
+import { taskRowFromCrossList } from '@odin/contracts';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useMyTasksQuery } from '../app/queries.ts';
@@ -17,7 +17,7 @@ import { TaskRow } from '../components/TaskRow.tsx';
  */
 
 export function MyTasks(): ReactNode {
-  const { t, locale, client } = useOdin();
+  const { t, locale, client, user } = useOdin();
   const query = useMyTasksQuery(true);
   const members = useMembersQuery(true);
 
@@ -44,7 +44,8 @@ export function MyTasks(): ReactNode {
     );
   }
 
-  const tasks = sortTasksByDue(query.data.tasks);
+  // The server already returns due-ascending with undated last.
+  const tasks = query.data.items;
 
   return (
     <>
@@ -63,7 +64,7 @@ export function MyTasks(): ReactNode {
           {tasks.map((task) => (
             <TaskRow
               busy={complete.state.pending}
-              key={task.id}
+              key={task.task_id}
               locale={locale}
               members={members.data ?? []}
               onToggleCompleted={(selected, completed) =>
@@ -74,7 +75,7 @@ export function MyTasks(): ReactNode {
                 })
               }
               t={t}
-              task={task}
+              task={taskRowFromCrossList(task, user?.id ?? null)}
             />
           ))}
         </ul>

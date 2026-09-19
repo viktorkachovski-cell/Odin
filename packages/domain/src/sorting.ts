@@ -4,7 +4,17 @@
  * server page.
  */
 
-import type { CrossListTaskDto, TaskDto } from '@odin/contracts';
+import type { TaskDto } from '@odin/contracts';
+
+/**
+ * The minimum a row needs to take part in the due ordering. Both the full task
+ * and the cross-list projection satisfy it once normalised.
+ */
+export interface DueOrdered {
+  readonly id: string;
+  readonly list_id: string;
+  readonly due_at: string | null;
+}
 
 /** Undated tasks sort last; the server uses coalesce(due_at, 'infinity') for the same effect. */
 const NEVER_DUE = Number.POSITIVE_INFINITY;
@@ -27,7 +37,7 @@ export function compareTasksInList(a: TaskDto, b: TaskDto): number {
 }
 
 /** My Tasks and Unassigned: due ascending with undated last, then list id, then task id. */
-export function compareTasksByDue(a: CrossListTaskDto, b: CrossListTaskDto): number {
+export function compareTasksByDue(a: DueOrdered, b: DueOrdered): number {
   const left = dueKey(a.due_at);
   const right = dueKey(b.due_at);
   if (left !== right) return left - right;
@@ -40,6 +50,6 @@ export function sortTasksInList(tasks: readonly TaskDto[]): TaskDto[] {
   return [...tasks].sort(compareTasksInList);
 }
 
-export function sortTasksByDue(tasks: readonly CrossListTaskDto[]): CrossListTaskDto[] {
+export function sortTasksByDue<T extends DueOrdered>(tasks: readonly T[]): T[] {
   return [...tasks].sort(compareTasksByDue);
 }

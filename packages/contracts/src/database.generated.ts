@@ -152,12 +152,10 @@ export type Database = {
           assignee_id: string | null
           completed: boolean
           created_at: string
-          created_by: string
           due_at: string | null
           household_id: string
           id: string
           list_id: string
-          list_kind: string
           sort_order: number
           title: string
           updated_at: string
@@ -167,12 +165,10 @@ export type Database = {
           assignee_id?: string | null
           completed?: boolean
           created_at?: string
-          created_by: string
           due_at?: string | null
           household_id: string
           id?: string
           list_id: string
-          list_kind: string
           sort_order: number
           title: string
           updated_at?: string
@@ -182,12 +178,10 @@ export type Database = {
           assignee_id?: string | null
           completed?: boolean
           created_at?: string
-          created_by?: string
           due_at?: string | null
           household_id?: string
           id?: string
           list_id?: string
-          list_kind?: string
           sort_order?: number
           title?: string
           updated_at?: string
@@ -195,18 +189,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "tasks_assignee_same_household"
+            foreignKeyName: "tasks_assignee_membership_fk"
             columns: ["household_id", "assignee_id"]
             isOneToOne: false
             referencedRelation: "memberships"
             referencedColumns: ["household_id", "user_id"]
           },
           {
-            foreignKeyName: "tasks_list_same_household"
-            columns: ["household_id", "list_id", "list_kind"]
+            foreignKeyName: "tasks_list_fk"
+            columns: ["household_id", "list_id"]
             isOneToOne: false
             referencedRelation: "lists"
-            referencedColumns: ["household_id", "id", "kind"]
+            referencedColumns: ["household_id", "id"]
           },
         ]
       }
@@ -216,37 +210,33 @@ export type Database = {
     }
     Functions: {
       claim_task: {
-        Args: {
-          p_expected_version: number
-          p_request_id: string
-          p_task_id: string
-        }
+        Args: { expected_version: number; request_id: string; task_id: string }
         Returns: Json
       }
       copy_template: {
-        Args: { p_request_id: string; p_template_id: string }
+        Args: { request_id: string; template_id: string }
         Returns: Json
       }
       create_household: {
-        Args: { p_name: string; p_request_id: string; p_seed_locale: string }
+        Args: { name: string; request_id: string; seed_locale: string }
         Returns: Json
       }
-      create_invitation: { Args: { p_request_id: string }; Returns: Json }
+      create_invitation: { Args: { request_id: string }; Returns: Json }
       create_list: {
-        Args: { p_request_id: string; p_subtitle?: string; p_title: string }
+        Args: { request_id: string; subtitle?: string; title: string }
         Returns: Json
       }
       create_task: {
         Args: {
-          p_assignee_id?: string
-          p_due_at?: string
-          p_list_id: string
-          p_request_id: string
-          p_title: string
+          assignee_id?: string
+          due_at?: string
+          list_id: string
+          request_id: string
+          title: string
         }
         Returns: Json
       }
-      get_home: { Args: never; Returns: Json }
+      get_home: { Args: { p_cursor?: string; p_limit?: number }; Returns: Json }
       get_list: {
         Args: { p_cursor?: string; p_limit?: number; p_list_id: string }
         Returns: Json
@@ -262,49 +252,49 @@ export type Database = {
         Returns: Json
       }
       redeem_invitation: {
-        Args: { p_request_id: string; p_token: string }
+        Args: { request_id: string; token: string }
         Returns: Json
       }
       revoke_invitation: {
-        Args: { p_invitation_id: string; p_request_id: string }
+        Args: { invitation_id: string; request_id: string }
         Returns: Json
       }
       set_task_completed: {
         Args: {
-          p_completed: boolean
-          p_expected_version: number
-          p_request_id: string
-          p_task_id: string
+          completed: boolean
+          expected_version: number
+          request_id: string
+          task_id: string
         }
         Returns: Json
       }
       update_list: {
         Args: {
-          p_expected_version: number
-          p_list_id: string
-          p_request_id: string
-          p_subtitle?: string
-          p_title: string
+          expected_version: number
+          list_id: string
+          request_id: string
+          subtitle?: string
+          title: string
         }
         Returns: Json
       }
       update_profile: {
         Args: {
-          p_avatar_ref?: string
-          p_display_name: string
-          p_locale: string
-          p_request_id: string
+          avatar_ref?: string
+          display_name: string
+          locale: string
+          request_id: string
         }
         Returns: Json
       }
       update_task: {
         Args: {
-          p_assignee_id?: string
-          p_due_at?: string
-          p_expected_version: number
-          p_request_id: string
-          p_task_id: string
-          p_title: string
+          assignee_id?: string
+          due_at?: string
+          expected_version: number
+          request_id: string
+          task_id: string
+          title: string
         }
         Returns: Json
       }

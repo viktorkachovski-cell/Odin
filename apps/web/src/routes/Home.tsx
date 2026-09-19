@@ -18,9 +18,12 @@ import { ListEditor } from '../components/ListEditor.tsx';
 import { Progress } from '../components/Progress.tsx';
 
 /**
- * Home shows two clearly labelled sections. Template cards keep their border
- * and active list cards do not, matching the source design; the copy control is
- * a sibling of the card's link rather than a button nested inside a button.
+ * Home shows two clearly labelled sections. `get_home` returns both kinds in one
+ * id-ordered page, so the split into Templates and Active lists happens here.
+ *
+ * Template cards keep their border and active list cards do not, matching the
+ * source design; the copy control is a sibling of the card's link rather than a
+ * button nested inside a button.
  */
 
 function TemplateCard({
@@ -65,7 +68,7 @@ function ActiveCard({
         {summary.title}
       </Link>
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
-      <Progress completed={summary.completed} t={t} total={summary.total} />
+      <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
     </li>
   );
 }
@@ -108,7 +111,8 @@ export function Home(): ReactNode {
     );
   }
 
-  const data = home.data;
+  const templates = home.data.items.filter((item) => item.kind === 'template');
+  const active = home.data.items.filter((item) => item.kind === 'active');
 
   return (
     <>
@@ -125,11 +129,11 @@ export function Home(): ReactNode {
         <h2 className="section__heading" id="templates-heading">
           {t('home.templates.heading')}
         </h2>
-        {data.templates.length === 0 ? (
+        {templates.length === 0 ? (
           <p className="empty">{t('home.templates.empty')}</p>
         ) : (
           <ul className="card-grid">
-            {data.templates.map((summary) => (
+            {templates.map((summary) => (
               <TemplateCard
                 busy={copy.state.pending}
                 key={summary.id}
@@ -146,11 +150,11 @@ export function Home(): ReactNode {
         <h2 className="section__heading" id="active-heading">
           {t('home.active.heading')}
         </h2>
-        {data.active.length === 0 ? (
+        {active.length === 0 ? (
           <p className="empty">{t('home.active.empty')}</p>
         ) : (
           <ul className="card-grid">
-            {data.active.map((summary) => (
+            {active.map((summary) => (
               <ActiveCard key={summary.id} summary={summary} t={t} />
             ))}
           </ul>

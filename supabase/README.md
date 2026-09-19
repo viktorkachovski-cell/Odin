@@ -67,4 +67,26 @@ Before creating or linking a hosted project, select the Odin Supabase organizati
 5. Run database tests and security/performance advisors; resolve or document every finding.
 6. Configure production SMTP, exact Auth redirects and OTP delivery tests before release.
 
-No hosted database was created or mutated by this implementation.
+### Staging status
+
+A hosted **staging** project has since been created and this schema applied to it,
+on the user's explicit instruction, so the web client has a backend to run
+against. Recorded for the next agent:
+
+- Supabase project `Odin`, region `eu-central-1`, in the only available
+  organization. Passport was not touched.
+- `schemas/00_core.sql` … `04_grants_and_realtime.sql` were applied in order as
+  migrations of the same names. The deployed function set was verified against
+  these files afterwards: 18 public RPCs with matching argument names and
+  security modes, and the privileged helpers (`invitation_token`,
+  `invitation_secret`, `save_command`, `replay_command`, `normalized_text`,
+  `command_hash`) not executable by `authenticated`.
+- Types were regenerated into `packages/contracts/src/database.generated.ts`.
+- `seed.sql` stays empty, so a new household starts with no templates until the
+  English/Bulgarian wording is approved.
+- Verification fixtures (three `@example.invalid` accounts and their data) were
+  created and then deleted; the project currently holds zero rows.
+
+Still outstanding before production: a separate production project, SMTP and
+OTP delivery configuration, exact Auth redirect allowlists, and the two-backend
+concurrency suite (see `tests/README.md`).
