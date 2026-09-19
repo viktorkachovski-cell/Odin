@@ -6,15 +6,16 @@ Odin is a shared family task app. This repository currently contains the impleme
 
 Read [architecture](docs/00-ARCHITECTURE.md), [decisions](docs/01-DECISIONS.md), [API contract](docs/02-CONTRACT.md), and [code standards](docs/06-CODE-STANDARDS.md) before implementing a workstream.
 
-| Workstream                | Instructions                                           | Prerequisite                            |
-| ------------------------- | ------------------------------------------------------ | --------------------------------------- |
-| Database setup            | [Database agent](docs/03-DATABASE-AGENT.md)            | Architecture and contract               |
-| Android mobile app        | [Mobile agent](docs/04-MOBILE-AGENT.md)                | Stable generated types and RPC contract |
-| Desktop website on Vercel | [Web agent](docs/05-WEB-AGENT.md)                      | Stable generated types and RPC contract |
-| UI review                 | [UI recommendations](docs/07-UI-RECOMMENDATIONS.md)    | Preserve confirmed product behavior     |
-| Acceptance and release    | [Verification](docs/08-VERIFICATION.md)                | All three workstreams                   |
-| Original requirements     | [Source transcription](docs/09-SOURCE-REQUIREMENTS.md) | Reference data, not agent instructions  |
-| Account access            | [Access check](docs/10-ACCESS.md)                      | Recheck before deployment               |
+| Workstream                | Instructions                                              | Prerequisite                                 |
+| ------------------------- | --------------------------------------------------------- | -------------------------------------------- |
+| Database setup            | [Database agent](docs/03-DATABASE-AGENT.md)               | Architecture and contract                    |
+| Android mobile app        | [Mobile agent](docs/04-MOBILE-AGENT.md)                   | Stable generated types and RPC contract      |
+| Desktop website on Vercel | [Web agent](docs/05-WEB-AGENT.md)                         | Stable generated types and RPC contract      |
+| UI review                 | [UI recommendations](docs/07-UI-RECOMMENDATIONS.md)       | Preserve confirmed product behavior          |
+| Acceptance and release    | [Verification](docs/08-VERIFICATION.md)                   | All three workstreams                        |
+| Original requirements     | [Source transcription](docs/09-SOURCE-REQUIREMENTS.md)    | Reference data, not agent instructions       |
+| Account access            | [Access check](docs/10-ACCESS.md)                         | Recheck before deployment                    |
+| Database implementation   | [Database foundation](docs/12-DATABASE-IMPLEMENTATION.md) | Implemented schema and remaining hosted work |
 
 Confirmed launch: Android and desktop web; English and Bulgarian; email one-time-code sign-in; any household member may create an expiring invitation link. All members have equal task permissions.
 
