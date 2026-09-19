@@ -8,6 +8,10 @@ import tseslint from 'typescript-eslint';
 const source = ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'];
 
 export default tseslint.config(
+  // A config object containing ONLY `ignores` is a global ignore. Combining it
+  // with another key (as this block previously did with `linterOptions`) turns
+  // it into a per-object filter, which let build output and generated types
+  // reach the linter.
   {
     ignores: [
       '**/node_modules/**',
@@ -19,6 +23,8 @@ export default tseslint.config(
       '**/.tmp/**',
       '**/database.generated.ts',
     ],
+  },
+  {
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
   js.configs.recommended,

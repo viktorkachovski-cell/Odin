@@ -1,0 +1,19 @@
+{
+  "name": "@odin/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@odin/contracts": "*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

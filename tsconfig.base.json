@@ -8,6 +8,7 @@
     "forceConsistentCasingInFileNames": true,
     "useUnknownInCatchVariables": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "skipLibCheck": true

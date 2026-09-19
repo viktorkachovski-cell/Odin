@@ -15,8 +15,11 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "vitest run",
     "test:tooling": "node --test tooling/tests/*.test.mjs",
-    "check": "npm run lint && npm run format:check && npm run test:tooling"
+    "build": "npm run build --workspace @odin/web",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:tooling && npm run test"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
