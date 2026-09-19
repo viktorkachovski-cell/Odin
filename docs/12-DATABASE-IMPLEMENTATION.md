@@ -21,6 +21,8 @@ Confirmed product invariants are enforced in SQL: one nullable assignee, deadlin
 
 The database GitHub workflow generates the migration from declarative state with strict coverage using the current `db schema declarative sync` command, starts a disposable Supabase stack, runs database lint and pgTAP, and uploads the generated migration. This is needed because Docker or Podman is not installed on the current Windows machine. A local generation attempt confirmed that limitation; it did not change a database.
 
+The first CI execution generated the schema and passed database lint plus all 28 structural assertions. Its behavior suite exposed a missing EXECUTE grant on safe response helpers used by invoker read RPCs. The grants were narrowed to the four pure response/cursor helpers and a static regression check was added before rerunning the suite.
+
 ## Compatibility note
 
 The shared contract remains behaviorally unchanged. Invitation generation was resolved inside Postgres rather than requiring an Edge Function: `create_invitation(request_id)` returns the opaque token, while the database stores only its hash and a rederivable invitation ID. Clients still receive one expiring link and retry the same request safely.

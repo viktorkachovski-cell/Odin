@@ -43,6 +43,13 @@ test('RPC and privileged helper boundaries are explicit', () => {
   }
   assert.doesNotMatch(schema, /grant[^;]+to anon/i);
   assert.doesNotMatch(schema, /service_role/i);
+  for (const helper of ['error_response', 'ok_response', 'encode_cursor', 'decode_cursor']) {
+    assert.match(
+      schema,
+      new RegExp(`grant execute on function private\\.${helper}\\(`, 'i'),
+      `${helper} must be callable through invoker reads`,
+    );
+  }
 });
 
 test('idempotency, conflict and invitation secrecy controls exist', () => {
