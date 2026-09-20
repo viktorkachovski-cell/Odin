@@ -58,23 +58,28 @@ Invitation raw tokens are never stored. A private random HMAC key is generated i
 
 ## Hosted rollout
 
-Before creating or linking a hosted project, select the Odin Supabase organization, region, plan and staging/production arrangement. Then:
+Before creating or linking a hosted project, select the Odin Supabase organization, region and plan. The environment arrangement is settled: one hosted project, treated as production. Then:
 
 1. Recheck current Supabase access and cost.
-2. Create a separate Odin staging project; never link to Passport.
+2. Create the Odin project; never link to Passport. (Done: `mvltbhtsukorspmpyhpw`.)
 3. Apply the committed migration with `supabase db push`.
 4. Generate types into `packages/contracts/src/database.generated.ts` and commit them without hand edits.
 5. Run database tests and security/performance advisors; resolve or document every finding.
 6. Configure production SMTP, exact Auth redirects and OTP delivery tests before release.
 
-### Staging status
+### Hosted status
 
-A hosted **staging** project has since been created and this schema applied to it,
-on the user's explicit instruction, so the web client has a backend to run
-against. Recorded for the next agent:
+A hosted project has since been created and this schema applied to it, on the
+user's explicit instruction, so the clients have a backend to run against.
 
-- Supabase project `Odin`, region `eu-central-1`, in the only available
-  organization. Passport was not touched.
+**Owner decision (2026-09-20): this is the production database.** Odin runs a
+single hosted environment because it is a private, single-owner hobby project;
+see `docs/00-ARCHITECTURE.md`. Vercel previews therefore read and write the same
+data as production, which is an accepted trade, not an oversight. Recorded for
+the next agent:
+
+- Supabase project `Odin` (`mvltbhtsukorspmpyhpw`), region `eu-central-1`, in the
+  only available organization. Passport was not touched, and must never be.
 - `schemas/00_core.sql` … `04_grants_and_realtime.sql` were applied in order as
   migrations of the same names. The deployed function set was verified against
   these files afterwards: 18 public RPCs with matching argument names and
@@ -99,5 +104,6 @@ alongside `supabase db lint` and the pgTAP suite. Three races from
 membership revocation, two concurrent `create_household` calls for one account,
 and two accounts redeeming one invitation simultaneously.
 
-Still outstanding before production: a separate production project, SMTP and OTP
-delivery configuration, and exact Auth redirect allowlists.
+Still outstanding: SMTP and OTP delivery configuration, and exact Auth redirect
+allowlists. A separate production project is no longer outstanding -- it was
+deliberately ruled out above.

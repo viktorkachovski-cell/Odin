@@ -67,16 +67,33 @@ repositories and query keys.
 
 These are proposals, not settled product scope (`docs/01-DECISIONS.md` item 5):
 
-| Topic                | Proposed                       | Needs                                                                                                |
-| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Package identifier   | `app.odin.household`           | Owner approval before any store listing or signed build                                              |
-| Distribution         | Private APK first              | Owner choice; no keystore exists and none may be committed                                           |
-| Invitation link base | `EXPO_PUBLIC_WEB_ORIGIN`       | Unset, links fall back to `odin://invite`, which is useless to a recipient without the app installed |
-| Deep links           | `odin://invite#token=…` scheme | Verified Android App Links need a domain and `assetlinks.json`                                       |
+| Topic                | Proposed                       | Needs                                                                                                                                                                                          |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package identifier   | `app.odin.household`           | Owner approval before any store listing or signed build                                                                                                                                        |
+| Distribution         | Private APK first              | Owner choice; no keystore exists and none may be committed                                                                                                                                     |
+| Invitation link base | `EXPO_PUBLIC_WEB_ORIGIN`       | **Settled**: point it at the deployed web client, `https://odin-ten-tau.vercel.app`. Left unset, links fall back to `odin://invite`, which is useless to a recipient without the app installed |
+| Deep links           | `odin://invite#token=…` scheme | Verified Android App Links need a domain and `assetlinks.json`                                                                                                                                 |
 
 The token is read only from the link fragment. A query parameter is deliberately
 rejected so the contract's "keep tokens out of request paths" rule cannot be
 undone by accident.
+
+## Build-time configuration
+
+Odin runs a single hosted environment, treated as production (see
+`docs/00-ARCHITECTURE.md`). An Android build therefore takes the same Supabase
+project the web client uses:
+
+```sh
+EXPO_PUBLIC_SUPABASE_URL=https://mvltbhtsukorspmpyhpw.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from the Supabase dashboard>
+EXPO_PUBLIC_WEB_ORIGIN=https://odin-ten-tau.vercel.app
+```
+
+Expo inlines these at build time, so a binary carries whatever was set when it
+was built. The publishable key is public by design -- it ships inside every
+client bundle -- but it still belongs in the build environment, never in a
+committed file. `apps/mobile/.env.example` holds the names and placeholders only.
 
 ## Verified in this pass
 
