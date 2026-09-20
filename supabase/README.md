@@ -87,6 +87,17 @@ against. Recorded for the next agent:
 - Verification fixtures (three `@example.invalid` accounts and their data) were
   created and then deleted; the project currently holds zero rows.
 
-Still outstanding before production: a separate production project, SMTP and
-OTP delivery configuration, exact Auth redirect allowlists, and the two-backend
-concurrency suite (see `tests/README.md`).
+This project is the backend for the Vercel preview deployments of the web
+client. A build logs the host it targets (`[odin] building against
+<project-ref>.supabase.co`), so the Vercel build log shows which project a given
+deployment talks to; see `docs/13-WEB-DEPLOYMENT.md`.
+
+The two-backend concurrency suite does run: `npm run db:test:concurrency`
+executes in the `Database` workflow's `verify` job against a real local stack,
+alongside `supabase db lint` and the pgTAP suite. Three races from
+`docs/02-CONTRACT.md` are nonetheless still uncovered — assignment racing
+membership revocation, two concurrent `create_household` calls for one account,
+and two accounts redeeming one invitation simultaneously.
+
+Still outstanding before production: a separate production project, SMTP and OTP
+delivery configuration, and exact Auth redirect allowlists.
