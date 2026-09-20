@@ -91,10 +91,14 @@ Commands and results, run at the repository root unless noted:
 - `npm run build:check --workspace @odin/mobile` — Android export succeeds,
   producing a 4.7MB Hermes bundle from the full graph including every shared
   workspace package.
-- `npx expo-doctor` (in `apps/mobile`) — 19 of 21 checks pass. The two failures
-  are the config-schema check and the React Native Directory check, both of
-  which call external services the build sandbox blocks. They need re-running on
-  a networked machine.
+- `npx expo-doctor` (in `apps/mobile`) — cannot fully run in the build sandbox,
+  which blocks the external services the config-schema and React Native
+  Directory checks call. It is a CI step for exactly that reason, and on its
+  first CI run it earned its place: it rejected `newArchEnabled` and
+  `android.edgeToEdgeEnabled` in `app.json`. Both were removed from the Expo
+  config schema by SDK 55+, where the new architecture and Android edge-to-edge
+  are unconditional, so deleting the keys changes no behaviour. Neither appears
+  in `@expo/config-types` for SDK 57.
 
 ## NOT verified — required before any release claim
 

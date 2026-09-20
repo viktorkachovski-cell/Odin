@@ -7,11 +7,9 @@
     "scheme": "odin",
     "userInterfaceStyle": "automatic",
     "platforms": ["android"],
-    "newArchEnabled": true,
     "android": {
       "package": "app.odin.household",
       "versionCode": 1,
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#1f5fbf"
       },
@@ -19,7 +17,12 @@
         {
           "action": "VIEW",
           "autoVerify": false,
-          "data": [{ "scheme": "odin", "host": "invite" }],
+          "data": [
+            {
+              "scheme": "odin",
+              "host": "invite"
+            }
+          ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
@@ -32,7 +35,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#f6f7f9",
-          "dark": { "backgroundColor": "#101317" }
+          "dark": {
+            "backgroundColor": "#101317"
+          }
         }
       ]
     ]
