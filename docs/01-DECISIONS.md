@@ -40,7 +40,7 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 ## Decisions still required before release
 
 1. Approve invitation lifetime, bearer-link behavior and onboarding defaults above; expiry value can be configuration, not hardcoded in clients.
-2. Select Odin Supabase organization/region/plan and staging/production budget; select SMTP sender and provider. No reuse of LARP resources.
+2. ~~Select Odin Supabase organization/region/plan and staging/production budget~~ — **settled 2026-09-20**: one hosted environment, the `mvltbhtsukorspmpyhpw` project in eu-central-1, treated as production (see `00-ARCHITECTURE.md`). Still open: select the SMTP sender and provider. No reuse of LARP resources.
 3. Decide member removal/household exit, account deletion and recovery policy. Equal task permissions do not imply authority to expel people. Until approved, do not expose removal UI. Backend design must still handle revoked membership safely.
 4. Approve template seed titles/content in both languages. User template creation/editing remains deferred.
 5. Choose Android distribution (private APK initially or Play Store), package identifier, signing ownership and exact supported Android/browser versions after Expo selection.

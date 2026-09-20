@@ -1,0 +1,566 @@
+/*
+ * Design tokens are mirrored into custom properties by `theme.ts` at startup, so
+ * the values here stay in one shared place rather than being duplicated per
+ * platform. Only layout and state styling lives in this file.
+ *
+ * Every interactive target is at least 44x44 CSS pixels, per the source
+ * requirement, with a mouse as well as with touch.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: var(--line-height-tight);
+  /* Long Bulgarian headings wrap instead of forcing horizontal scroll. */
+  overflow-wrap: anywhere;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-md);
+  top: -4rem;
+  z-index: 20;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  transition: top 120ms ease-in-out;
+}
+
+.skip-link:focus {
+  top: var(--space-md);
+}
+
+/* ---------- App shell ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 17rem 1fr;
+  min-height: 100%;
+}
+
+.shell__nav {
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.shell__brand {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.shell__nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.shell__main {
+  padding: var(--space-xl);
+  max-width: 76rem;
+  width: 100%;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.nav-link:hover {
+  background: var(--color-surface-muted);
+}
+
+.nav-link[aria-current='page'] {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.nav-link__glyph {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  width: 1.5rem;
+  text-align: center;
+}
+
+/* Compact viewports use the source-specified bottom navigation. */
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .shell__nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    border-right: 0;
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-xs) var(--space-sm);
+    gap: 0;
+    transition: transform 160ms ease-in-out;
+    z-index: 10;
+  }
+
+  .shell__nav--hidden {
+    transform: translateY(100%);
+  }
+
+  .shell__brand {
+    display: none;
+  }
+
+  .shell__nav-list {
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-around;
+  }
+
+  .nav-link {
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--font-size-xs);
+    min-width: 44px;
+    text-align: center;
+  }
+
+  .shell__main {
+    padding: var(--space-lg) var(--space-lg) 6rem;
+  }
+}
+
+/* Users who prefer reduced motion keep the navigation visible and still. */
+@media (prefers-reduced-motion: reduce) {
+  .shell__nav,
+  .skip-link {
+    transition: none;
+  }
+
+  .shell__nav--hidden {
+    transform: none;
+  }
+}
+
+/* ---------- Cards and sections ---------- */
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.section {
+  margin-bottom: var(--space-xxl);
+}
+
+.section__heading {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-md);
+}
+
+.card-grid {
+  display: grid;
+  /* Constrained readable cards rather than stretched text. */
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 24rem));
+  gap: var(--space-lg);
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Template cards are bordered; active list cards are not. */
+.card--template {
+  border: 2px solid var(--color-border-strong);
+}
+
+.card--active {
+  border: 0;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.card__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.card__subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: auto;
+}
+
+/* ---------- Progress ---------- */
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.progress__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.progress__track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--color-accent);
+}
+
+/* ---------- Buttons and fields ---------- */
+
+.button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.button--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.button--quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+
+.field__label {
+  font-weight: var(--font-weight-medium);
+}
+
+.field__control {
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  width: 100%;
+}
+
+.field__error {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.field__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.field__row > * {
+  flex: 1 1 10rem;
+}
+
+/* ---------- Task rows ---------- */
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.task-row__toggle {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+}
+
+.task-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.task-row__title {
+  overflow-wrap: anywhere;
+}
+
+.task-row__title--done {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+/* Metadata wraps rather than scrolling horizontally on narrow widths. */
+.task-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.task-row__actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* Overdue carries visible text, never colour alone. */
+.overdue {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-bold);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  /* The name is never truncated away behind the avatar. */
+  overflow-wrap: anywhere;
+}
+
+.avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: #10131a;
+}
+
+/* ---------- Dialog ---------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+  display: grid;
+  place-items: center;
+  padding: var(--space-lg);
+  z-index: 30;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  width: min(34rem, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.dialog__title {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-md);
+}
+
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
+}
+
+/* ---------- Banners and states ---------- */
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-muted);
+  margin-bottom: var(--space-lg);
+}
+
+.banner--danger {
+  border-color: var(--color-danger);
+}
+
+.empty {
+  color: var(--color-text-muted);
+  padding: var(--space-lg);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.auth-shell {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--space-lg);
+}
+
+.auth-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  width: min(28rem, 100%);
+  border: 1px solid var(--color-border);
+}
+
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.invite-link {
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-sm);
+  background: var(--color-surface-muted);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}

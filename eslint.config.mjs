@@ -8,6 +8,10 @@ import tseslint from 'typescript-eslint';
 const source = ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'];
 
 export default tseslint.config(
+  // A config object containing ONLY `ignores` is a global ignore. Combining it
+  // with another key (as this block previously did with `linterOptions`) turns
+  // it into a per-object filter, which let build output and generated types
+  // reach the linter.
   {
     ignores: [
       '**/node_modules/**',
@@ -19,6 +23,8 @@ export default tseslint.config(
       '**/.tmp/**',
       '**/database.generated.ts',
     ],
+  },
+  {
     linterOptions: { reportUnusedDisableDirectives: 'error' },
   },
   js.configs.recommended,
@@ -64,6 +70,12 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // Metro and Babel load these synchronously through CommonJS before any
+    // bundler transform runs, so they cannot use ESM import syntax.
+    files: ['apps/mobile/metro.config.js', 'apps/mobile/babel.config.js'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],

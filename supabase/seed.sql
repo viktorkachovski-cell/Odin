@@ -1,0 +1,3 @@
+-- Production template wording is awaiting product-owner approval.
+-- Keep this file empty in shared environments. Database tests insert synthetic seeds
+-- inside transactions and roll them back.

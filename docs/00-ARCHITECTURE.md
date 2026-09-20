@@ -60,7 +60,9 @@ Persist only a small pending operation envelope when necessary to retry an ambig
 
 ## Environments and release
 
-Local Supabase is disposable development. Odin staging and production must be separate from Passport and preferably separate from each other; project count, plan cost, region and email provider require selection before provisioning. Vercel previews use staging credentials only; production uses production. A preview must never write production family data.
+Local Supabase is disposable development. Odin must stay separate from Passport; that is not negotiable.
+
+**Owner decision (2026-09-20): Odin runs a single hosted environment.** This is a private, single-owner hobby project, so the separate staging and production projects this section originally assumed are not worth their cost and upkeep. The Odin Supabase project `mvltbhtsukorspmpyhpw` (eu-central-1) and the Vercel project `odin` are production. The accepted consequence is that pull-request previews read and write the same database as production; with one owner and no other members' data at stake, that is a deliberate trade rather than an oversight. Revisit it before anyone outside the owner's household joins.
 
 Choose a region near the intended users when provisioning and record it. No paid provisioning occurred in this planning pass. Native releases require a new signed APK/AAB for native changes; deploying web does not update Android installs.
 

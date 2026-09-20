@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Odin",
+    "slug": "odin",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "odin",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["android"],
+    "android": {
+      "package": "app.odin.household",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#1f5fbf"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "odin",
+              "host": "invite"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f6f7f9",
+          "dark": {
+            "backgroundColor": "#101317"
+          }
+        }
+      ]
+    ]
+  }
+}

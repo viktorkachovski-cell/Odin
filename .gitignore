@@ -10,9 +10,16 @@ coverage/
 *.tsbuildinfo
 *.log
 .tmp/
+.ci-artifacts/
 supabase/.temp/
 supabase/.branches/
 *.jks
 *.keystore
 google-services.json
 shared_family_tasks_app_requirements.docx
+.vercel/
+.env.local
+
+# Expo prebuild output. Native projects are generated, not tracked.
+apps/mobile/android/
+apps/mobile/ios/

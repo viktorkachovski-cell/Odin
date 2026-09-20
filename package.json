@@ -15,8 +15,18 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "vitest run",
+    "test:mobile": "npm run test --workspace @odin/mobile",
     "test:tooling": "node --test tooling/tests/*.test.mjs",
-    "check": "npm run lint && npm run format:check && npm run test:tooling"
+    "build": "npm run build --workspace @odin/web",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:diff": "supabase db schema declarative sync --strict-coverage --no-apply",
+    "db:test": "supabase test db",
+    "db:test:concurrency": "node supabase/tests/concurrency.mjs",
+    "db:lint": "supabase db lint --local --level warning --fail-on warning",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:tooling && npm run test && npm run test:mobile"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
@@ -25,8 +35,15 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react-hooks": "7.0.1",
     "globals": "16.5.0",
+    "postgres": "3.4.9",
     "prettier": "3.6.2",
+    "supabase": "2.117.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-test-renderer": "19.2.3"
   }
 }
