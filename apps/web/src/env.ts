@@ -9,6 +9,8 @@ export interface WebEnv {
   readonly supabasePublishableKey: string;
 }
 
+type WebEnvSource = Partial<Record<'VITE_SUPABASE_URL' | 'VITE_SUPABASE_PUBLISHABLE_KEY', string>>;
+
 export class MissingEnvError extends Error {
   readonly missing: readonly string[];
 
@@ -19,9 +21,9 @@ export class MissingEnvError extends Error {
   }
 }
 
-export function readEnv(source: ImportMetaEnv = import.meta.env): WebEnv {
-  const url = source.VITE_SUPABASE_URL ?? '';
-  const key = source.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
+export function readEnv(source: WebEnvSource = import.meta.env): WebEnv {
+  const url = (source.VITE_SUPABASE_URL ?? '').trim();
+  const key = (source.VITE_SUPABASE_PUBLISHABLE_KEY ?? '').trim();
 
   const missing: string[] = [];
   if (url.length === 0) missing.push('VITE_SUPABASE_URL');

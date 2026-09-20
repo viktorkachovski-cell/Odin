@@ -17,3 +17,5 @@ supabase/.branches/
 *.keystore
 google-services.json
 shared_family_tasks_app_requirements.docx
+.vercel/
+.env.local
