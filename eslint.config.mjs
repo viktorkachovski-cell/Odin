@@ -72,6 +72,12 @@ export default tseslint.config(
     },
   },
   {
+    // Metro and Babel load these synchronously through CommonJS before any
+    // bundler transform runs, so they cannot use ESM import syntax.
+    files: ['apps/mobile/metro.config.js', 'apps/mobile/babel.config.js'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     plugins: { 'jsx-a11y': jsxA11y },

@@ -63,3 +63,25 @@ jobs:
           # supplied by the hosting project; neither is a secret.
           VITE_SUPABASE_URL: https://placeholder.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+
+  mobile:
+    name: Android checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # React Native source ships untranspiled, so the mobile suite runs on the
+      # Expo Jest preset rather than the root Vitest runner.
+      - run: npm run test:mobile
+      - run: npx expo-doctor
+        working-directory: apps/mobile
+      - run: npm run build:check --workspace @odin/mobile
+        env:
+          # Build-time placeholders only. Real, environment-scoped values are
+          # supplied by the release build; neither is a secret.
+          EXPO_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder

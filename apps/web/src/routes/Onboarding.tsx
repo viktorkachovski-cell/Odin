@@ -1,12 +1,16 @@
 import { useState, type ReactNode } from 'react';
 
 import type { Locale } from '@odin/contracts';
-import { createHousehold, keysAffectedByMembershipChange, updateProfile } from '@odin/data';
+import {
+  createHousehold,
+  keysAffectedByMembershipChange,
+  updateProfile,
+  useCommand,
+} from '@odin/data';
 import { validateDisplayName, validateHouseholdName } from '@odin/domain';
 import type { TranslationKey } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { errorMessage } from '../components/Banner.tsx';
 import { Field } from '../components/Field.tsx';
 

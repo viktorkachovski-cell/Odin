@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { keysAffectedByTaskChange, setTaskCompleted } from '@odin/data';
+import { keysAffectedByTaskChange, setTaskCompleted, useCommand } from '@odin/data';
 import { taskRowFromCrossList } from '@odin/contracts';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useMyTasksQuery } from '../app/queries.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 

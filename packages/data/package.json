@@ -16,6 +16,13 @@
     "@supabase/supabase-js": "2.116.0"
   },
   "devDependencies": {
+    "@tanstack/react-query": "5.103.1",
+    "@types/react": "19.2.18",
+    "react": "19.2.3",
     "vitest": "5.0.1"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "5.103.1",
+    "react": "19.2.3"
   }
 }

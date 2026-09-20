@@ -7,12 +7,12 @@ import {
   createList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  useCommand,
 } from '@odin/data';
 import type { Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useHomeQuery } from '../app/queries.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
 import { Progress } from '../components/Progress.tsx';

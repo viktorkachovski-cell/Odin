@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
-import { keysAffectedByMembershipChange, redeemInvitation } from '@odin/data';
+import { keysAffectedByMembershipChange, redeemInvitation, useCommand } from '@odin/data';
 
 import { useOdin } from '../app/OdinContext.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { errorMessage } from '../components/Banner.tsx';
 import { captureInviteToken } from '../routing.ts';
 

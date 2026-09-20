@@ -1,13 +1,17 @@
 import { useState, type ReactNode } from 'react';
 
 import type { InvitationDto, Locale } from '@odin/contracts';
-import { createInvitation, keysAffectedByMembershipChange, updateProfile } from '@odin/data';
+import {
+  createInvitation,
+  keysAffectedByMembershipChange,
+  updateProfile,
+  useCommand,
+} from '@odin/data';
 import { validateDisplayName } from '@odin/domain';
 import type { TranslationKey } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useProfileQuery } from '../app/queries.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { Avatar } from '../components/Avatar.tsx';
 import { ErrorBanner } from '../components/Banner.tsx';
 import { Field } from '../components/Field.tsx';

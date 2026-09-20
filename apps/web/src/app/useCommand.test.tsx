@@ -4,8 +4,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import type { CommandResult } from '@odin/contracts';
-
-import { useCommand } from './useCommand.ts';
+import { useCommand } from '@odin/data';
 
 /**
  * The request ID rule is the subtlest correctness property on the client:

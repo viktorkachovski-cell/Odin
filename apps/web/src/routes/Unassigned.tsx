@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
 
-import { claimTask, keysAffectedByTaskChange } from '@odin/data';
+import { claimTask, keysAffectedByTaskChange, useCommand } from '@odin/data';
 import { taskRowFromCrossList } from '@odin/contracts';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useUnassignedQuery } from '../app/queries.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 

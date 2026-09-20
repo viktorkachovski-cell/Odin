@@ -58,3 +58,6 @@ export {
 
 export type { ChangeKind, Subscription, SubscriptionHandlers } from './realtime.ts';
 export { subscribeToHousehold } from './realtime.ts';
+
+export type { CommandState, UseCommandResult } from './use-command.ts';
+export { useCommand } from './use-command.ts';

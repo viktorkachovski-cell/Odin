@@ -2,7 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState } from 'react';
 
 import type { CommandError, CommandResult } from '@odin/contracts';
-import { newRequestId } from '@odin/data';
+
+import { newRequestId } from './commands.ts';
 
 /**
  * Runs a command while holding one request ID for the whole attempt, including

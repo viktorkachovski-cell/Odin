@@ -10,12 +10,12 @@ import {
   setTaskCompleted,
   updateList,
   updateTask,
+  useCommand,
 } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../app/queries.ts';
-import { useCommand } from '../app/useCommand.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
 import { Progress } from '../components/Progress.tsx';

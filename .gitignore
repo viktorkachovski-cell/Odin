@@ -19,3 +19,7 @@ google-services.json
 shared_family_tasks_app_requirements.docx
 .vercel/
 .env.local
+
+# Expo prebuild output. Native projects are generated, not tracked.
+apps/mobile/android/
+apps/mobile/ios/

@@ -1,0 +1,16 @@
+{
+  "extends": ["expo/tsconfig.base", "../../tsconfig.base.json"],
+  "compilerOptions": {
+    "lib": ["esnext", "dom"],
+    "types": ["jest", "expo"],
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "expo-env.d.ts",
+    "jest.setup.ts"
+  ]
+}

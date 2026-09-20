@@ -83,3 +83,35 @@ export function isOverdue(
   const due = Date.parse(task.due_at);
   return !Number.isNaN(due) && due < now.getTime();
 }
+
+export interface TaskDueDraft {
+  /** `YYYY-MM-DD`, or empty when no deadline is being set. */
+  readonly dueDate: string;
+  /** `HH:MM`, or empty when no deadline is being set. */
+  readonly dueTime: string;
+}
+
+export type DueResolution =
+  | { readonly ok: true; readonly dueAt: string | null }
+  | { readonly ok: false; readonly reason: 'invalid_format' | 'nonexistent_local_time' };
+
+/**
+ * Both date and time, or neither. A half-filled deadline is rejected rather
+ * than completed with an implicit end-of-day, which `01-DECISIONS.md` rules
+ * out. Shared so the Android and web editors cannot drift apart on it.
+ */
+export function resolveDueInput(draft: TaskDueDraft): DueResolution {
+  const hasDate = draft.dueDate.length > 0;
+  const hasTime = draft.dueTime.length > 0;
+  if (!hasDate && !hasTime) return { ok: true, dueAt: null };
+  if (!hasDate || !hasTime) return { ok: false, reason: 'invalid_format' };
+
+  const parsed = localInputToUtcIso({ date: draft.dueDate, time: draft.dueTime });
+  return parsed.ok ? { ok: true, dueAt: parsed.iso } : { ok: false, reason: parsed.reason };
+}
+
+/** Splits a stored instant back into the editor's local date and time fields. */
+export function dueDraftFromIso(dueAt: string | null | undefined): TaskDueDraft {
+  const local = dueAt === null || dueAt === undefined ? null : utcIsoToLocalInput(dueAt);
+  return { dueDate: local?.date ?? '', dueTime: local?.time ?? '' };
+}

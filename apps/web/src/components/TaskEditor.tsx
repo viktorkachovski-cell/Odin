@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
-import { localInputToUtcIso, utcIsoToLocalInput, validateTitle } from '@odin/domain';
+import { dueDraftFromIso, resolveDueInput, validateTitle } from '@odin/domain';
 import type { Translator, TranslationKey } from '@odin/i18n';
 
 import { Dialog } from './Dialog.tsx';
@@ -22,13 +22,10 @@ export interface TaskDraft {
 }
 
 export function draftFromTask(task: TaskDto | null): TaskDraft {
-  const local =
-    task?.due_at === null || task?.due_at === undefined ? null : utcIsoToLocalInput(task.due_at);
   return {
     title: task?.title ?? '',
     assigneeId: task?.assignee_id ?? null,
-    dueDate: local?.date ?? '',
-    dueTime: local?.time ?? '',
+    ...dueDraftFromIso(task?.due_at),
   };
 }
 
@@ -48,26 +45,10 @@ export interface TaskEditorProps {
   }) => void;
 }
 
-/** Both date and time, or neither: there is no implicit end-of-day deadline. */
-function resolveDue(
-  draft: TaskDraft,
-):
-  | { readonly ok: true; readonly dueAt: string | null }
-  | { readonly ok: false; readonly key: TranslationKey } {
-  const hasDate = draft.dueDate.length > 0;
-  const hasTime = draft.dueTime.length > 0;
-  if (!hasDate && !hasTime) return { ok: true, dueAt: null };
-  if (!hasDate || !hasTime) return { ok: false, key: 'validation.due.invalid_format' };
-
-  const parsed = localInputToUtcIso({ date: draft.dueDate, time: draft.dueTime });
-  if (parsed.ok) return { ok: true, dueAt: parsed.iso };
-  return {
-    ok: false,
-    key:
-      parsed.reason === 'nonexistent_local_time'
-        ? 'validation.due.nonexistent_local_time'
-        : 'validation.due.invalid_format',
-  };
+function dueIssueKey(reason: 'invalid_format' | 'nonexistent_local_time'): TranslationKey {
+  return reason === 'nonexistent_local_time'
+    ? 'validation.due.nonexistent_local_time'
+    : 'validation.due.invalid_format';
 }
 
 export function TaskEditor({
@@ -87,9 +68,9 @@ export function TaskEditor({
 
   const submit = (): void => {
     const issue = validateTitle(draft.title);
-    const due = resolveDue(draft);
+    const due = resolveDueInput(draft);
     setTitleIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
-    setDueIssue(due.ok ? undefined : t(due.key));
+    setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
     if (issue !== null || !due.ok) return;
     onSubmit({ title: draft.title.trim(), assigneeId: draft.assigneeId, dueAt: due.dueAt });
   };
