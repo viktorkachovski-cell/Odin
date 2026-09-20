@@ -6,7 +6,7 @@ import { createOdinClient } from '@odin/data';
 
 import { App } from './App.tsx';
 import { OdinProvider } from './app/OdinProvider.tsx';
-import { MissingEnvError, readEnv } from './env.ts';
+import { InvalidEnvError, MissingEnvError, readEnv } from './env.ts';
 import './styles.css';
 import { applyTheme, watchColorScheme } from './theme.ts';
 
@@ -16,18 +16,15 @@ if (container === null) throw new Error('Missing #root container');
 applyTheme();
 watchColorScheme();
 
-function renderConfigurationError(missing: readonly string[]): void {
+function renderConfigurationError(variables: readonly string[], detail: string): void {
   const root = createRoot(container as HTMLElement);
   root.render(
     <div className="auth-shell">
       <div className="auth-card">
         <h1>Configuration required</h1>
-        <p>
-          This deployment is missing required client configuration. Set the following environment
-          variables and redeploy.
-        </p>
+        <p>{detail}</p>
         <ul>
-          {missing.map((name) => (
+          {variables.map((name) => (
             <li key={name}>
               <code>{name}</code>
             </li>
@@ -57,7 +54,15 @@ try {
   );
 } catch (cause) {
   if (cause instanceof MissingEnvError) {
-    renderConfigurationError(cause.missing);
+    renderConfigurationError(
+      cause.missing,
+      'This deployment is missing required client configuration. Set the following environment variables and redeploy.',
+    );
+  } else if (cause instanceof InvalidEnvError) {
+    renderConfigurationError(
+      [cause.variable],
+      `This deployment has invalid client configuration (${cause.reason}). Correct the following environment variable and redeploy.`,
+    );
   } else {
     throw cause;
   }
