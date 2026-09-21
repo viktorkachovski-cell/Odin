@@ -1,4 +1,4 @@
-import { safeInternalPath, tokenFromDeepLink } from './routing.ts';
+import { safeAuthDestination, safeInternalPath, tokenFromDeepLink } from './routing.ts';
 
 describe('safeInternalPath', () => {
   it('keeps an ordinary in-app destination', () => {
@@ -19,6 +19,32 @@ describe('safeInternalPath', () => {
   it('falls back to Home when no destination was supplied', () => {
     expect(safeInternalPath(undefined)).toBe('/');
     expect(safeInternalPath(null)).toBe('/');
+  });
+});
+
+describe('safeAuthDestination', () => {
+  it('keeps a genuine destination so a deep link still lands where it meant to', () => {
+    expect(safeAuthDestination('/invite')).toBe('/invite');
+    expect(safeAuthDestination('/list/abc?filter=mine')).toBe('/list/abc?filter=mine');
+  });
+
+  it.each([
+    ['/sign-in', 'the form just completed'],
+    ['/SIGN-IN/', 'a differently cased and trailing-slashed variant'],
+    ['/register', 'registration'],
+    ['/forgot-password', 'recovery request'],
+    ['/reset-password', 'the browser reset page'],
+    ['/verify-code', 'the retired code screen'],
+    ['/%73ign-in', 'a percent-encoded spelling'],
+  ])('refuses %s (%s) so login cannot loop', (candidate) => {
+    expect(safeAuthDestination(candidate)).toBe('/');
+  });
+
+  it('still rejects everything an unsafe path rejects', () => {
+    expect(safeAuthDestination('//evil.example')).toBe('/');
+    expect(safeAuthDestination('https://evil.example')).toBe('/');
+    expect(safeAuthDestination('/bad%ZZ')).toBe('/');
+    expect(safeAuthDestination(undefined)).toBe('/');
   });
 });
 

@@ -29,6 +29,36 @@ export function safeInternalPath(candidate: string | undefined | null): Internal
 }
 
 /**
+ * The authentication routes themselves are never a valid post-login
+ * destination: carrying `/sign-in` through a successful sign-in bounces the
+ * person straight back to the form they just completed. Anything else that
+ * survives `safeInternalPath` is kept as-is.
+ */
+const AUTH_ROUTES: readonly string[] = [
+  '/sign-in',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-code',
+];
+
+export function safeAuthDestination(candidate: string | undefined | null): InternalPath {
+  const path = safeInternalPath(candidate);
+  const [rawPathname = ''] = path.split(/[?#]/);
+
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(rawPathname);
+  } catch {
+    // A malformed percent-escape is not a path we are willing to navigate to.
+    return '/';
+  }
+
+  const normalised = pathname.replace(/\/+$/, '').toLowerCase();
+  return AUTH_ROUTES.includes(normalised) ? '/' : path;
+}
+
+/**
  * Extracts an invitation token from a deep link's fragment (`odin://invite#token=...`).
  * A query parameter is deliberately not accepted: the contract keeps the token
  * out of request paths, and honouring both would quietly undo that.

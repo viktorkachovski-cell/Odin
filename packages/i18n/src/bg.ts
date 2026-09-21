@@ -50,6 +50,11 @@ export const bg: Record<TranslationKey, string> = {
   'auth.password.too_short': 'Използвайте поне 8 знака за новата парола.',
   'auth.password.mismatch': 'Паролите не съвпадат.',
   'auth.password.offline': 'Нямате интернет връзка. Свържете се, за да продължите.',
+  'auth.password.browser_confirm':
+    'Потвърдете имейла си в браузъра, след което се върнете в Odin и влезте с паролата си.',
+  'auth.password.browser_reset':
+    'Връзката се отваря в браузъра. Задайте новата си парола там, след което се върнете в Odin и влезте.',
+  'auth.password.back_to_sign_in': 'Назад към вход',
 
   'nav.home': 'Начало',
   'nav.unassigned': 'Незаети',

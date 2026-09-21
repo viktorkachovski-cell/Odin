@@ -63,6 +63,52 @@ repositories and query keys.
   the routes root, which silently captured the state modules until the export
   surfaced it.
 
+## Email and password sign-in
+
+Implements `docs/16-MOBILE-PASSWORD-AUTH-AGENT.md`. Android now registers and
+signs in with the same Supabase accounts as the web client, through the shared
+`registerWithPassword` / `signInWithPassword` / `requestPasswordReset` /
+`resendConfirmation` wrappers in `@odin/data`. No authentication rule is
+reimplemented here, and no schema change was needed.
+
+- **Confirmation and recovery open the web pages**, not a native screen.
+  `src/auth-urls.ts` holds the two allowlisted URLs as fixed constants, never
+  derived from an email, an invitation, a route parameter or a preview
+  deployment, because that input decides where a bearer token is delivered.
+  After confirming or resetting in a browser the person returns to Odin and
+  signs in; the two sessions stay independent, which is what makes this work
+  when the mail is opened on another device. A native recovery deep link would
+  need its own design and is explicitly out of scope.
+- **No password policy on an existing account.** `validateNewPassword` guards
+  registration only. An account created before the minimum length existed still
+  signs in, so a migrating user is never locked out by a rule their password
+  predates.
+- **Existing one-time-code accounts migrate through Forgot password**, which
+  keeps the same user, profile and household. Registering again would not, so
+  the sign-in screen points at recovery rather than registration.
+- **One in-flight request.** `useAuthRequest` holds a ref as well as disabling
+  the button: two fast taps both run before React re-renders, and a second tap
+  must never send a second confirmation email. Anything that sends mail also
+  takes a 60-second visible cooldown, on top of the server's own limit.
+- **The resend control is latched, not derived** from the live error. Starting a
+  resend clears the error, which would otherwise take the resend button and its
+  cooldown out of the tree mid-press. A test covers it because the first
+  implementation had exactly that bug.
+- **Identity changes clear the cache.** `OdinProvider` funnels every auth
+  transition through one place that drops all household queries, drafts and
+  subscriptions before publishing a different user, so one account cannot flash
+  the previous account's household. A slow initial session lookup can no longer
+  overwrite a newer auth event.
+- **The pending invitation survives login** in `src/state/pending-invitation.ts`,
+  in memory only. It is never written to SecureStore, a route parameter, the
+  query cache or a log. Signing in to redeem keeps it; changing account or
+  signing out discards it. Killing the app drops it, and the invite screen then
+  asks the person to reopen the original invitation. Confirming an email never
+  redeems an invitation or creates a household on its own.
+- **`/verify-code` still resolves**, redirecting to sign-in, so an older build
+  or a back-stack entry does not hit an unresolvable route. The OTP exports in
+  `@odin/data` are left in place for builds still on the old flow.
+
 ## Owner decisions still required
 
 These are proposals, not settled product scope (`docs/01-DECISIONS.md` item 5):
@@ -101,10 +147,13 @@ Commands and results, run at the repository root unless noted:
 
 - `npm run lint` — clean, zero warnings.
 - `npm run typecheck` — clean across all workspaces.
-- `npm run test` — 95 Vitest tests over 8 files (shared packages and web).
-- `npm run test:mobile` — 38 Jest tests over 5 suites: environment contract,
-  chunked secure storage, deep-link and redirect safety, `TaskRow` behaviour,
-  and the bottom-navigation visibility rule.
+- `npm run test` — 124 Vitest tests over 10 files (shared packages and web).
+- `npm run test:mobile` — 72 Jest tests over 8 suites: environment contract,
+  chunked secure storage, deep-link and redirect safety (including the
+  post-login destination rules), `TaskRow` behaviour, the bottom-navigation
+  visibility rule, the three password screens, the auth-request guards, and
+  provider identity handling.
+- `npm run build` — web production build succeeds.
 - `npm run build:check --workspace @odin/mobile` — Android export succeeds,
   producing a 4.7MB Hermes bundle from the full graph including every shared
   workspace package.
@@ -126,14 +175,19 @@ outstanding:
 1. `npx expo run:android` or an EAS build, installed on a device/emulator.
 2. Secure-store session persistence across app restarts, including token
    refresh and the chunked-value path, on real hardware.
-3. Email OTP sign-in end to end. SMTP is still unconfigured, so no code can be
-   received.
-4. Deep-link redemption of a real invitation.
-5. TalkBack traversal, dynamic font scaling, long Bulgarian labels and contrast
-   on a device.
-6. One Android client against one web client as two members of one household,
+3. Registration, email confirmation and password recovery end to end. SMTP is
+   still unconfigured, so no confirmation or recovery mail can be delivered.
+   Every test here mocks the auth calls and proves client-side behaviour
+   only; none of them is evidence that mail arrives.
+4. One account signing in on Android and on web with the same password, and an
+   existing one-time-code account gaining a password through recovery with its
+   user ID and household unchanged.
+5. Deep-link redemption of a real invitation.
+6. TalkBack traversal, password-manager autofill, paste, dynamic font scaling,
+   long Bulgarian labels and contrast on a device.
+7. One Android client against one web client as two members of one household,
    including disconnect/reconnect.
-7. Screen sizes, OS/API levels, build identifier and screenshots recorded per
+8. Screen sizes, OS/API levels, build identifier and screenshots recorded per
    `docs/08-VERIFICATION.md`.
 
 Native dependency changes require rebuilding the Android binary; deploying the

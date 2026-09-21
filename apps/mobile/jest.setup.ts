@@ -22,3 +22,21 @@ jest.mock('expo-secure-store', () => {
 jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageTag: 'en-GB', languageCode: 'en' }],
 }));
+
+/**
+ * Safe-area insets come from a native module. The library's own mock returns
+ * fixed insets so screens that frame themselves with them still render.
+ */
+jest.mock('react-native-safe-area-context', () => {
+  // The library ships its mock as a default export that already re-exports the
+  // real components; spreading the module namespace instead would drop them.
+  const mocked = jest.requireActual<{ default: object }>(
+    'react-native-safe-area-context/jest/mock',
+  );
+  return mocked.default;
+});
+
+jest.mock('@react-native-community/netinfo', () => ({
+  addEventListener: jest.fn(() => jest.fn()),
+  fetch: jest.fn(() => Promise.resolve({ isConnected: true, isInternetReachable: true })),
+}));

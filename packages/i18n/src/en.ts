@@ -50,6 +50,11 @@ export const en = {
   'auth.password.too_short': 'Use at least 8 characters for your new password.',
   'auth.password.mismatch': 'The passwords do not match.',
   'auth.password.offline': 'You are offline. Connect to the internet to continue.',
+  'auth.password.browser_confirm':
+    'Confirm your email in the browser, then return to Odin and sign in with your password.',
+  'auth.password.browser_reset':
+    'The link opens in your browser. Set your new password there, then return to Odin and sign in.',
+  'auth.password.back_to_sign_in': 'Back to sign in',
 
   'nav.home': 'Home',
   'nav.unassigned': 'Unassigned',

@@ -8,6 +8,7 @@ import { getCurrentUser, onAuthStateChange, signOut as signOutUser } from '@odin
 import { createTranslator, resolveLocale, type Locale } from '@odin/i18n';
 
 import { OdinContext, type OdinContextValue } from './OdinContext.ts';
+import { clearPendingInvitation } from './pending-invitation.ts';
 
 /**
  * The language preference lives on the server profile rather than in device
@@ -49,6 +50,11 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const online = useOnlineStatus();
 
+  // The identity the cache currently belongs to, and whether a live auth event
+  // has already superseded the initial session lookup.
+  const identityRef = useRef<string | null>(null);
+  const authEventSeen = useRef(false);
+
   const queryClientRef = useRef<QueryClient | null>(queryClient ?? null);
   queryClientRef.current ??= new QueryClient({
     defaultOptions: {
@@ -62,39 +68,66 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
   });
   const activeQueryClient = queryClientRef.current;
 
+  /**
+   * Every identity change funnels through here so no screen can render one
+   * account's cached data while another account is signed in. Switching users
+   * -- and signing out -- drops every household query, draft and subscription
+   * before the new user is published to the tree.
+   */
+  const applyUser = useCallback(
+    (next: AuthUser | null) => {
+      const nextId = next?.id ?? null;
+      if (identityRef.current !== nextId) {
+        activeQueryClient.clear();
+        setLastSyncedAt(null);
+        // Only a change away from a signed-in account discards the invitation;
+        // signing in to redeem one must keep it.
+        if (identityRef.current !== null) clearPendingInvitation();
+        identityRef.current = nextId;
+      }
+      setUser(next);
+    },
+    [activeQueryClient],
+  );
+
   useEffect(() => {
     let cancelled = false;
+
+    // Subscribing before the lookup means no event can slip through the gap.
+    const unsubscribe = onAuthStateChange(client, (next) => {
+      authEventSeen.current = true;
+      applyUser(next);
+      setAuthReady(true);
+    });
+
     getCurrentUser(client)
       .then((current) => {
-        if (!cancelled) setUser(current);
+        // An auth event that landed while this lookup was in flight is the
+        // newer truth; applying a slow lookup now would resurrect the identity
+        // the event just replaced.
+        if (!cancelled && !authEventSeen.current) applyUser(current);
       })
       .catch(() => {
-        if (!cancelled) setUser(null);
+        if (!cancelled && !authEventSeen.current) applyUser(null);
       })
       .finally(() => {
         if (!cancelled) setAuthReady(true);
       });
 
-    const unsubscribe = onAuthStateChange(client, (next) => {
-      setUser(next);
-      setAuthReady(true);
-    });
-
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [client]);
+  }, [client, applyUser]);
 
   const markSynced = useCallback(() => setLastSyncedAt(Date.now()), []);
 
-  /** Signing out clears every cached household query, draft and subscription. */
+  /** An explicit sign-out also drops any invitation captured before logging in. */
   const signOut = useCallback(async () => {
     await signOutUser(client);
-    activeQueryClient.clear();
-    setUser(null);
-    setLastSyncedAt(null);
-  }, [client, activeQueryClient]);
+    clearPendingInvitation();
+    applyUser(null);
+  }, [client, applyUser]);
 
   const value = useMemo<OdinContextValue>(
     () => ({

@@ -10,6 +10,11 @@ import { ErrorBanner } from '../src/components/Banner.tsx';
 import { PrimaryButton } from '../src/components/Button.tsx';
 import { LoadingState, Screen } from '../src/components/Screen.tsx';
 import { tokenFromDeepLink } from '../src/routing.ts';
+import {
+  clearPendingInvitation,
+  getPendingInvitation,
+  rememberInvitation,
+} from '../src/state/pending-invitation.ts';
 
 /**
  * Invitation redemption. The token travels in the deep link's fragment so it
@@ -17,20 +22,21 @@ import { tokenFromDeepLink } from '../src/routing.ts';
  * memory -- never persisted, never rendered, never logged.
  *
  * A signed-out visitor is sent to sign-in with `/invite` preserved as the
- * destination; the captured token survives that round trip in this module.
+ * destination. The token survives that round trip -- and the registration and
+ * browser-confirmation detour -- in `pending-invitation`, which holds it in
+ * memory only. Confirming an email never redeems an invitation or creates a
+ * household on its own; the person still presses Join here.
  */
-
-let capturedToken: string | null = null;
 
 export default function InviteScreen(): ReactNode {
   const { t, user, authReady, client } = useOdin();
   const url = useURL();
-  const [token, setToken] = useState<string | null>(capturedToken);
+  const [token, setToken] = useState<string | null>(getPendingInvitation);
 
   useEffect(() => {
     const found = tokenFromDeepLink(url);
     if (found === null) return;
-    capturedToken = found;
+    rememberInvitation(found);
     setToken(found);
   }, [url]);
 
@@ -45,7 +51,7 @@ export default function InviteScreen(): ReactNode {
     {
       invalidate: keysAffectedByMembershipChange(),
       onSuccess: () => {
-        capturedToken = null;
+        clearPendingInvitation();
         router.replace('/');
       },
     },
@@ -58,6 +64,7 @@ export default function InviteScreen(): ReactNode {
     return (
       <Screen title={t('invite.title')}>
         <Text>{t('invite.missing')}</Text>
+        <Text>{t('auth.password.reopen_invite')}</Text>
       </Screen>
     );
   }
