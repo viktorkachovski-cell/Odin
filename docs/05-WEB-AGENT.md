@@ -1,5 +1,7 @@
 # Vercel desktop web implementation agent
 
+Authentication update (2026-09-21): [email/password authentication](15-EMAIL-PASSWORD-AUTH.md) supersedes the original OTP instructions. Registration, confirmation links, password login and recovery use the shared `@odin/data` APIs.
+
 ## Mission and ownership
 
 Build the full desktop version of Odin in `apps/web` using React, Vite and TypeScript. This is an authenticated working app with feature parity for the confirmed task flows, not a marketing page or mock dashboard. Read architecture, decisions, contract, code standards and verification docs first.
@@ -9,7 +11,7 @@ Own `apps/web/**`, web behavior/end-to-end tests, web hosting configuration and 
 ## Implementation order
 
 1. Bootstrap Vite in the npm workspace using the React version aligned with the selected Expo stack. Add React Router, shared data/query adapters, localization, strict typecheck and testing scripts.
-2. Implement email OTP sign-in and onboarding/invitation routes. Preserve destination safely through authentication; allow only internal redirect paths. Clear invite tokens from history after capture. Handle used/expired/revoked links and existing-household users explicitly.
+2. Implement email/password sign-in, registration, email confirmation and password recovery, plus onboarding/invitation routes. Preserve destination safely through authentication; allow only internal redirect paths. Clear invite tokens from history after capture. Handle used/expired/revoked links and existing-household users explicitly.
 3. Build the same Home, list/editor, Unassigned, My Tasks and Settings flows specified in the mobile brief and source requirements. All actions call the shared commands, use request IDs and handle version conflicts.
 4. Add a desktop layout with persistent left navigation, content panel and optional side editor. On small viewports, use source-specified bottom navigation. Persistent desktop navigation is a proposed desktop adaptation; keep core destinations and actions identical and record for UI review.
 5. Add loading/empty/offline/retry/conflict states and two-client realtime invalidation. Verify route refresh, browser back/forward, signed-out deep links and account switching.

@@ -6,6 +6,11 @@ import { keysAffectedByMembershipChange, redeemInvitation, useCommand } from '@o
 import { useOdin } from '../app/OdinContext.ts';
 import { errorMessage } from '../components/Banner.tsx';
 import { captureInviteToken } from '../routing.ts';
+import {
+  clearPendingInvitation,
+  getPendingInvitation,
+  rememberInvitation,
+} from '../pending-invitation.ts';
 
 /**
  * Invitation redemption. The token arrives in the URL fragment so it never
@@ -23,7 +28,9 @@ export function Invite(): ReactNode {
   const [captured, setCaptured] = useState(false);
 
   if (tokenRef.current === null && !captured) {
-    tokenRef.current = captureInviteToken(window.location, window.history);
+    const capturedToken = captureInviteToken(window.location, window.history);
+    if (capturedToken !== null) rememberInvitation(capturedToken);
+    tokenRef.current = getPendingInvitation();
   }
 
   useEffect(() => {
@@ -36,6 +43,7 @@ export function Invite(): ReactNode {
     {
       invalidate: keysAffectedByMembershipChange(),
       onSuccess: () => {
+        clearPendingInvitation();
         void navigate('/', { replace: true });
       },
     },

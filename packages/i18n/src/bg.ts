@@ -7,6 +7,49 @@ import type { TranslationKey } from './keys.ts';
 
 export const bg: Record<TranslationKey, string> = {
   'app.name': 'Odin',
+  'auth.password.label': 'Парола',
+  'auth.password.confirm': 'Повторете паролата',
+  'auth.password.hint': 'Използвайте поне 8 знака. По-дългите фрази се помнят по-лесно.',
+  'auth.password.show': 'Покажи паролата',
+  'auth.password.hide': 'Скрий паролата',
+  'auth.password.intro': 'Влезте с имейл адрес и парола.',
+  'auth.password.sign_in': 'Вход',
+  'auth.password.register': 'Създай профил',
+  'auth.password.forgot': 'Забравена парола?',
+  'auth.password.working': 'Моля, изчакайте…',
+  'auth.password.check_inbox':
+    'Проверете пощата си за връзка за потвърждение. Отворете я, за да потвърдите имейл адреса си.',
+  'auth.password.existing_account': 'Вече имате профил? Влезте или възстановете паролата си.',
+  'auth.password.existing_otp':
+    'Използвали сте код по имейл? Изберете „Забравена парола?“, за да зададете парола за съществуващия профил.',
+  'auth.password.reopen_invite':
+    'Присъединявате се към домакинство? Отворете отново първоначалната покана след потвърждаване на имейла.',
+  'auth.password.resend': 'Изпрати отново потвърждение',
+  'auth.password.recovery_intro':
+    'Ще изпратим връзка за нова парола. Това важи и за профили, използвали кодове по имейл.',
+  'auth.password.reset_sent':
+    'Ако съществува подходящ профил, скоро ще получите връзка. Проверете пощата и папката за спам.',
+  'auth.password.send_reset': 'Изпрати връзка за нова парола',
+  'auth.password.reset': 'Задайте нова парола',
+  'auth.password.save': 'Запази паролата',
+  'auth.password.updated': 'Паролата е променена',
+  'auth.password.updated_intro': 'Новата ви парола е готова. Използвайте я при следващото влизане.',
+  'auth.password.confirmed': 'Имейлът е потвърден',
+  'auth.password.confirmed_intro': 'Имейлът ви е потвърден и сте влезли. Продължете към Odin.',
+  'auth.password.confirmation_help':
+    'Ако вече потвърдихте имейла си, влезте с паролата си. Иначе отворете последната връзка за потвърждение от пощата.',
+  'auth.password.invalid_credentials': 'Имейлът или паролата са грешни.',
+  'auth.password.unconfirmed': 'Потвърдете имейла си, преди да влезете.',
+  'auth.password.weak': 'Изберете по-сигурна парола, която отговаря на изискванията.',
+  'auth.password.same': 'Изберете парола, различна от сегашната.',
+  'auth.password.invalid_email': 'Въведете валиден имейл адрес.',
+  'auth.password.email_unavailable':
+    'Изпращането на имейл до този адрес не е достъпно. Свържете се със собственика на проекта.',
+  'auth.password.invalid_link':
+    'Тази връзка е невалидна или изтекла. Поискайте ново потвърждение или връзка за възстановяване на парола.',
+  'auth.password.too_short': 'Използвайте поне 8 знака за новата парола.',
+  'auth.password.mismatch': 'Паролите не съвпадат.',
+  'auth.password.offline': 'Нямате интернет връзка. Свържете се, за да продължите.',
 
   'nav.home': 'Начало',
   'nav.unassigned': 'Незаети',

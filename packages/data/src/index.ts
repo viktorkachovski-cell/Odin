@@ -21,6 +21,14 @@ export {
 } from './auth.ts';
 
 export { OdinError } from './error-mapping.ts';
+export {
+  registerWithPassword,
+  signInWithPassword,
+  requestPasswordReset,
+  resendConfirmation,
+  updatePassword,
+  restoreEmailSession,
+} from './password-auth.ts';
 
 export {
   getHome,
