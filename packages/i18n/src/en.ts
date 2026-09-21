@@ -6,6 +6,50 @@
 
 export const en = {
   'app.name': 'Odin',
+  'auth.password.label': 'Password',
+  'auth.password.confirm': 'Confirm password',
+  'auth.password.hint': 'Use at least 8 characters. Longer passphrases are easier to remember.',
+  'auth.password.show': 'Show password',
+  'auth.password.hide': 'Hide password',
+  'auth.password.intro': 'Sign in with your email address and password.',
+  'auth.password.sign_in': 'Sign in',
+  'auth.password.register': 'Create account',
+  'auth.password.forgot': 'Forgot password?',
+  'auth.password.working': 'Please wait…',
+  'auth.password.check_inbox':
+    'Check your inbox for a confirmation link. Open it to confirm your email address.',
+  'auth.password.existing_account': 'Already registered? Sign in or reset your password instead.',
+  'auth.password.existing_otp':
+    'Previously used an email code? Choose “Forgot password?” to set a password for your existing account.',
+  'auth.password.reopen_invite':
+    'Joining a household? Reopen the original invitation after confirming your email.',
+  'auth.password.resend': 'Resend confirmation email',
+  'auth.password.recovery_intro':
+    'We will send a link to set a new password. This also works for accounts previously using email codes.',
+  'auth.password.reset_sent':
+    'If an eligible account exists, a reset link will arrive shortly. Check your inbox and spam folder.',
+  'auth.password.send_reset': 'Send reset link',
+  'auth.password.reset': 'Set a new password',
+  'auth.password.save': 'Save password',
+  'auth.password.updated': 'Password updated',
+  'auth.password.updated_intro': 'Your new password is ready. Use it the next time you sign in.',
+  'auth.password.confirmed': 'Email confirmed',
+  'auth.password.confirmed_intro':
+    'Your email is confirmed and you are signed in. Continue to Odin.',
+  'auth.password.confirmation_help':
+    'If you already confirmed your email, sign in with your password. Otherwise open the latest confirmation link from your inbox.',
+  'auth.password.invalid_credentials': 'Email or password is incorrect.',
+  'auth.password.unconfirmed': 'Confirm your email before signing in.',
+  'auth.password.weak': 'Choose a stronger password that meets the account security requirements.',
+  'auth.password.same': 'Choose a password different from your current one.',
+  'auth.password.invalid_email': 'Enter a valid email address.',
+  'auth.password.email_unavailable':
+    'Email delivery is not available for this address. Contact the project owner.',
+  'auth.password.invalid_link':
+    'This email link is invalid or expired. Request a new confirmation or password reset link.',
+  'auth.password.too_short': 'Use at least 8 characters for your new password.',
+  'auth.password.mismatch': 'The passwords do not match.',
+  'auth.password.offline': 'You are offline. Connect to the internet to continue.',
 
   'nav.home': 'Home',
   'nav.unassigned': 'Unassigned',

@@ -31,10 +31,10 @@ The project currently enables Vercel Authentication for every deployment except 
 
 After redeployment, verify:
 
-1. The build log names the expected Supabase project, and `/` renders the email one-time-code sign-in form instead of `Configuration required`.
+1. The build log names the expected Supabase project, and `/` renders the email/password sign-in form instead of `Configuration required`. Registration, confirmation and recovery are documented in `15-EMAIL-PASSWORD-AUTH.md`.
 2. Refreshing `/invite` and `/lists/<uuid>` returns the SPA and preserves the internal redirect to sign-in.
 3. Browser console and page-error capture are empty.
-4. Supabase Auth accepts the exact preview callback origin.
+4. Supabase Auth uses `https://odin-ten-tau.vercel.app` as its Site URL, and permits the exact `/auth/confirmed` and `/reset-password` URLs on that origin. Preview callback URLs require an explicit allowlist entry; never add a wildcard for all Vercel projects.
 5. A normal authenticated user can create a household, list and task and a second browser observes the Realtime invalidation.
 
 The Vercel project uses the repository-root `vercel.json`, builds `@odin/web`, emits `apps/web/dist`, rewrites SPA routes to `index.html`, and applies the checked-in security headers.

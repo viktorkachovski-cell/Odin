@@ -9,5 +9,7 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(?:.pnpm/)?((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@odin/.*))',
   ],
-  testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/src/**/*.test.tsx'],
+  // Jest's rootDir interpolation can produce mixed separators in Windows
+  // worktrees containing a dot-directory. Discovery is already rooted here.
+  testMatch: ['**/src/**/*.test.ts', '**/src/**/*.test.tsx'],
 };

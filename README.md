@@ -1,6 +1,6 @@
 # Odin implementation handoff
 
-Odin is a shared family task app. This repository currently contains the implementation plan and tested code-quality tooling, not a working application. The requested outcome of this planning task is an executable handoff for subsequent agents.
+Odin is a shared family task app with a Supabase backend, a Vercel web client and an Expo Android client. The original implementation briefs remain below. Current authentication: [web email/password implementation](docs/15-EMAIL-PASSWORD-AUTH.md) and [draft Android migration guide](docs/16-MOBILE-PASSWORD-AUTH-AGENT.md).
 
 ## Start here
 
@@ -17,7 +17,7 @@ Read [architecture](docs/00-ARCHITECTURE.md), [decisions](docs/01-DECISIONS.md),
 | Account access            | [Access check](docs/10-ACCESS.md)                         | Recheck before deployment                    |
 | Database implementation   | [Database foundation](docs/12-DATABASE-IMPLEMENTATION.md) | Implemented schema and remaining hosted work |
 
-Confirmed launch: Android and desktop web; English and Bulgarian; email one-time-code sign-in; any household member may create an expiring invitation link. All members have equal task permissions.
+Confirmed launch: Android and desktop web; English and Bulgarian; email/password web authentication, with Android migration planned; any household member may create an expiring invitation link. All members have equal task permissions.
 
 ## Run the delivered tooling
 
@@ -30,13 +30,13 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-`check` currently covers ESLint, formatting, and linter regression checks. It does not claim to test an unbuilt application. Each agent must add its application tests and typecheck/build scripts to CI before completing its workstream.
+`check` covers ESLint, formatting, workspace typechecks, linter regression checks, Vitest and mobile Jest tests. CI also builds web and Android bundles. See the implementation notes for hosted acceptance limitations.
 
 ## Execution order
 
 1. Bootstrap shared workspaces and freeze the contract; implement database rules and tests locally.
 2. Build mobile and web against that contract. Share domain rules, data access and translations, not platform widgets.
-3. Integrate with a separate Odin staging project, prove cross-client synchronization and household isolation.
+3. Integrate with the owner-approved single Odin production project; prove cross-client synchronization and household isolation using controlled test data.
 4. Review results and outstanding release decisions, then provision/promote only the specifically approved Odin production resources.
 
-Never reuse or modify the Passport database or LARP Vercel project. The source DOCX is retained locally; a text transcription is included for future agents. No application deployment was requested as the deliverable of this planning pass.
+Never reuse or modify the Passport database or LARP Vercel project. The source DOCX is retained locally; a text transcription is included for future agents. Later owner instructions authorized Odin production deployment and testing.

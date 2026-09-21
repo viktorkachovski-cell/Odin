@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react';
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { useOdin } from './app/OdinContext.ts';
+import { isRecoveryUser } from './auth-links.ts';
+import { Register } from './routes/Register.tsx';
+import { ForgotPassword, ResetPassword } from './routes/PasswordRecovery.tsx';
+import { EmailConfirmed } from './routes/EmailConfirmed.tsx';
 
 import { AuthGate } from './app/AuthGate.tsx';
 import { AppLayout } from './components/AppLayout.tsx';
@@ -17,9 +22,18 @@ import { Unassigned } from './routes/Unassigned.tsx';
  */
 
 export function App(): ReactNode {
+  const { user, authReady } = useOdin();
+  const location = useLocation();
+  if (authReady && isRecoveryUser(user?.id) && location.pathname !== '/reset-password') {
+    return <Navigate to="/reset-password" replace />;
+  }
   return (
     <Routes>
       <Route element={<SignIn />} path="/sign-in" />
+      <Route element={<Register />} path="/register" />
+      <Route element={<ForgotPassword />} path="/forgot-password" />
+      <Route element={<ResetPassword />} path="/reset-password" />
+      <Route element={<EmailConfirmed />} path="/auth/confirmed" />
       <Route element={<Invite />} path="/invite" />
       <Route
         element={

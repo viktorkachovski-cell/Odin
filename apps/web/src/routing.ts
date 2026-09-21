@@ -6,6 +6,27 @@
 
 const DEFAULT_DESTINATION = '/';
 
+export function safeAuthDestination(candidate: string | null | undefined): string {
+  const path = safeInternalPath(candidate);
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(new URL(path, 'https://odin.invalid').pathname)
+      .replace(/\/+$/, '')
+      .toLowerCase();
+  } catch {
+    return DEFAULT_DESTINATION;
+  }
+  return [
+    '/sign-in',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/auth/confirmed',
+  ].includes(pathname)
+    ? '/'
+    : path;
+}
+
 function hasControlCharacter(value: string): boolean {
   for (const character of value) {
     const code = character.codePointAt(0) ?? 0;

@@ -1,5 +1,7 @@
 # Android implementation agent
 
+Authentication update (2026-09-21): the OTP screen instructions below describe the previous implementation. For the next mobile release, follow [the email/password migration guide](16-MOBILE-PASSWORD-AUTH-AGENT.md). The shared APIs are implemented; mobile screen changes are still a draft workstream.
+
 ## Mission and prerequisites
 
 Build the functional Android application using Expo React Native and TypeScript. Read architecture, decisions, contract, code standards and verification docs first. Use a stable database contract and generated types. Mocked UI work may begin before the backend exists, but mocked data does not satisfy integration acceptance.

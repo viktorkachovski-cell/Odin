@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 
 import { createOdinClient } from '@odin/data';
+import { createTranslator, resolveLocale } from '@odin/i18n';
 
 import { App } from './App.tsx';
+import { captureEmailLink, completeEmailLink } from './auth-links.ts';
 import { OdinProvider } from './app/OdinProvider.tsx';
 import { InvalidEnvError, MissingEnvError, readEnv } from './env.ts';
 import './styles.css';
@@ -15,6 +17,7 @@ if (container === null) throw new Error('Missing #root container');
 
 applyTheme();
 watchColorScheme();
+const emailLink = captureEmailLink(window.location, window.history);
 
 function renderConfigurationError(variables: readonly string[], detail: string): void {
   const root = createRoot(container as HTMLElement);
@@ -39,18 +42,27 @@ try {
   const env = readEnv();
   const client = createOdinClient(
     { url: env.supabaseUrl, publishableKey: env.supabasePublishableKey },
-    // The browser uses the normal Supabase session mechanism.
-    { detectSessionInUrl: true },
+    // Explicit callback handling runs once, before StrictMode mounts providers.
+    { detectSessionInUrl: false },
   );
 
-  createRoot(container).render(
-    <StrictMode>
-      <OdinProvider client={client}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </OdinProvider>
-    </StrictMode>,
+  const root = createRoot(container);
+  const t = createTranslator(resolveLocale(navigator.language));
+  root.render(
+    <div className="auth-shell">
+      <p role="status">{t('auth.password.working')}</p>
+    </div>,
+  );
+  void completeEmailLink(client, emailLink, window.history).then(() =>
+    root.render(
+      <StrictMode>
+        <OdinProvider client={client}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </OdinProvider>
+      </StrictMode>,
+    ),
   );
 } catch (cause) {
   if (cause instanceof MissingEnvError) {

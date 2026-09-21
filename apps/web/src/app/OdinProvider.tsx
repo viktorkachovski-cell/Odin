@@ -6,6 +6,8 @@ import { getCurrentUser, onAuthStateChange, signOut as signOutUser } from '@odin
 import { createTranslator, resolveLocale, type Locale } from '@odin/i18n';
 
 import { OdinContext, type OdinContextValue } from './OdinContext.ts';
+import { setRecoveryUser } from '../auth-links.ts';
+import { clearPendingInvitation } from '../pending-invitation.ts';
 
 const LOCALE_STORAGE_KEY = 'odin.locale';
 
@@ -46,6 +48,7 @@ export interface OdinProviderProps {
 
 export function OdinProvider({ client, children, queryClient }: OdinProviderProps): ReactNode {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const userId = useRef<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [locale, setLocaleState] = useState<Locale>(
     () => readStoredLocale() ?? resolveLocale(navigator.language),
@@ -69,19 +72,26 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
 
   useEffect(() => {
     let cancelled = false;
+    let receivedEvent = false;
+    const acceptUser = (next: AuthUser | null): void => {
+      if (userId.current !== (next?.id ?? null)) activeQueryClient.clear();
+      userId.current = next?.id ?? null;
+      setUser(next);
+    };
     getCurrentUser(client)
       .then((current) => {
-        if (!cancelled) setUser(current);
+        if (!cancelled && !receivedEvent) acceptUser(current);
       })
       .catch(() => {
-        if (!cancelled) setUser(null);
+        if (!cancelled && !receivedEvent) acceptUser(null);
       })
       .finally(() => {
         if (!cancelled) setAuthReady(true);
       });
 
     const unsubscribe = onAuthStateChange(client, (next) => {
-      setUser(next);
+      receivedEvent = true;
+      acceptUser(next);
       setAuthReady(true);
     });
 
@@ -89,7 +99,7 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
       cancelled = true;
       unsubscribe();
     };
-  }, [client]);
+  }, [client, activeQueryClient]);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
@@ -103,6 +113,8 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
   /** Signing out clears every cached household query, draft and subscription. */
   const signOut = useCallback(async () => {
     await signOutUser(client);
+    setRecoveryUser(null);
+    clearPendingInvitation();
     activeQueryClient.clear();
     setUser(null);
   }, [client, activeQueryClient]);

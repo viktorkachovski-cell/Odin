@@ -2,14 +2,14 @@
 
 ## Confirmed by the user in this task
 
-| Topic               | Decision                                                                         |
-| ------------------- | -------------------------------------------------------------------------------- |
-| Launch              | Android and desktop web                                                          |
-| Languages           | English and Bulgarian                                                            |
-| Sign-in             | Email one-time code                                                              |
-| Invitations         | Any household member may invite through an expiring link                         |
-| Backend and hosting | Supabase Postgres; Vercel desktop website                                        |
-| Deliverable now     | Markdown execution briefs, linter and handling rules, uploaded to Odin on GitHub |
+| Topic               | Decision                                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Launch              | Android and desktop web                                                                                                           |
+| Languages           | English and Bulgarian                                                                                                             |
+| Sign-in             | Email registration, confirmation link and password login on web; mobile migration specified in `16-MOBILE-PASSWORD-AUTH-AGENT.md` |
+| Invitations         | Any household member may invite through an expiring link                                                                          |
+| Backend and hosting | Supabase Postgres; Vercel desktop website                                                                                         |
+| Deliverable now     | Markdown execution briefs, linter and handling rules, uploaded to Odin on GitHub                                                  |
 
 ## Confirmed by the source requirements
 
@@ -21,21 +21,21 @@ Home keeps bordered template cards and unbordered active cards in separately lab
 
 These fill technical gaps without redefining confirmed task rules. Record deviations before implementation; do not silently treat proposed lifecycle policy as approved product scope.
 
-| Topic                 | Proposed default and consequence                                                                                             |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| New household         | A signed-in account with no active household may create one or redeem an invitation; no public household directory           |
-| Invitation lifetime   | 72 hours, one redemption, opaque high-entropy token stored only as a hash; expired/revoked/used links cannot join            |
-| Invitation recipient  | Bearer link usable by a signed-in person; not email-bound; show household name only after secure token validation            |
-| Invitation revocation | Creator may revoke their outstanding invitations; broader moderation remains undecided                                       |
-| Email delivery        | Custom SMTP needed for a release-ready OTP flow; verify provider limits, delivery and OTP template before launch             |
-| Task time             | Optional explicit local date and time converted to UTC instant; no implicit end-of-day or date-only deadlines                |
-| Text limits           | Trimmed title 1–160 characters, subtitle up to 300, display name 1–80; enforce consistently using Unicode code points        |
-| List task ordering    | Append at end, stable ordering; no drag-and-drop editing in MVP                                                              |
-| Avatars               | Initials and deterministic accessible colors satisfy fallback requirement; uploads deferred                                  |
-| Templates             | Versioned, reviewed English/Bulgarian seed content copied into each household; immutable in normal client UI                 |
-| Seed selection        | Household chooses seed language during creation; UI language changes never translate existing user content                   |
-| Offline               | Visible stale data and retained in-session drafts; no automatic offline write queue                                          |
-| Sorting               | My Tasks: due timestamp ascending, nulls last, then stable list/task ID tie-breaker; Unassigned uses same deterministic sort |
+| Topic                 | Proposed default and consequence                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| New household         | A signed-in account with no active household may create one or redeem an invitation; no public household directory                 |
+| Invitation lifetime   | 72 hours, one redemption, opaque high-entropy token stored only as a hash; expired/revoked/used links cannot join                  |
+| Invitation recipient  | Bearer link usable by a signed-in person; not email-bound; show household name only after secure token validation                  |
+| Invitation revocation | Creator may revoke their outstanding invitations; broader moderation remains undecided                                             |
+| Email delivery        | Custom SMTP required for general-user confirmation and recovery email delivery; preserve default confirmation/reset link templates |
+| Task time             | Optional explicit local date and time converted to UTC instant; no implicit end-of-day or date-only deadlines                      |
+| Text limits           | Trimmed title 1–160 characters, subtitle up to 300, display name 1–80; enforce consistently using Unicode code points              |
+| List task ordering    | Append at end, stable ordering; no drag-and-drop editing in MVP                                                                    |
+| Avatars               | Initials and deterministic accessible colors satisfy fallback requirement; uploads deferred                                        |
+| Templates             | Versioned, reviewed English/Bulgarian seed content copied into each household; immutable in normal client UI                       |
+| Seed selection        | Household chooses seed language during creation; UI language changes never translate existing user content                         |
+| Offline               | Visible stale data and retained in-session drafts; no automatic offline write queue                                                |
+| Sorting               | My Tasks: due timestamp ascending, nulls last, then stable list/task ID tie-breaker; Unassigned uses same deterministic sort       |
 
 ## Decisions still required before release
 
@@ -44,7 +44,13 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 3. Decide member removal/household exit, account deletion and recovery policy. Equal task permissions do not imply authority to expel people. Until approved, do not expose removal UI. Backend design must still handle revoked membership safely.
 4. Approve template seed titles/content in both languages. User template creation/editing remains deferred.
 5. Choose Android distribution (private APK initially or Play Store), package identifier, signing ownership and exact supported Android/browser versions after Expo selection.
-6. Decide whether children need accounts without email. The selected email OTP model assumes each member can receive email; agents must not invent shared logins or child/guardian roles.
+6. Decide whether children need accounts without email. Email registration assumes each member can receive email; agents must not invent shared logins or child/guardian roles.
+
+## Authentication amendment — 2026-09-21
+
+The owner requested email registration and password login on the Vercel app, plus a draft Android implementation guide. This supersedes the original web OTP decision. Confirm email remains enabled. Confirmation links establish a session; subsequent sign-ins use email/password. Password recovery also lets existing OTP users set a password without replacing their account. New passwords require at least eight characters; existing passwords are never rejected by new client-side registration rules at login.
+
+This release adds shared APIs and preserves the old mobile OTP API and translations. Android screen implementation is a separate workstream, described in `16-MOBILE-PASSWORD-AUTH-AGENT.md`. No household rules or database identities change.
 
 Notifications, automatic recurrence, destructive deletion, archive/recovery workflows, iOS release, comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Add none as hidden convenience features.
 
