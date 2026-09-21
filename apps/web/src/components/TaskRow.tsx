@@ -5,6 +5,7 @@ import { isOverdue } from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
 
 import { Avatar } from './Avatar.tsx';
+import { OverflowMenu, type OverflowItem } from './OverflowMenu.tsx';
 
 /**
  * A task row is a flat set of sibling controls, never a clickable card with
@@ -13,6 +14,10 @@ import { Avatar } from './Avatar.tsx';
  *
  * It renders a `TaskRowModel`, so the full list-detail task and the narrower
  * My Tasks / Unassigned projection share one component.
+ *
+ * Claim and Edit stay visible; Unassign and Delete live in the row's overflow.
+ * A row used to end in four equal-weight buttons, which put Delete at the same
+ * visual weight as Edit on the densest surface in the product.
  */
 
 export interface TaskRowProps {
@@ -40,44 +45,57 @@ function TaskActions({
   TaskRowProps,
   'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
 >): ReactNode {
+  const overflowItems: OverflowItem[] = [];
+
+  if (onUnassign !== undefined && task.assignee_id !== null) {
+    overflowItems.push({
+      key: 'unassign',
+      label: t('task.unassign.short'),
+      glyph: '↺',
+      onSelect: () => onUnassign(task),
+    });
+  }
+  if (onDelete !== undefined) {
+    overflowItems.push({
+      key: 'delete',
+      label: t('task.delete.short'),
+      glyph: '⌫',
+      danger: true,
+      onSelect: () => onDelete(task),
+    });
+  }
+
+  if (onClaim === undefined && onEdit === undefined && overflowItems.length === 0) return null;
+
   return (
     <div className="task-row__actions">
       {onClaim !== undefined && (
-        <button className="button" disabled={busy} onClick={() => onClaim(task)} type="button">
+        <button
+          className="button button--accent"
+          disabled={busy}
+          onClick={() => onClaim(task)}
+          type="button"
+        >
           {t('task.claim', { title: task.title })}
         </button>
       )}
       {onEdit !== undefined && (
         <button
+          aria-label={t('task.edit_action', { title: task.title })}
           className="button button--quiet"
           disabled={busy}
           onClick={() => onEdit(task)}
           type="button"
         >
-          {t('task.edit_action', { title: task.title })}
+          {t('task.edit_action.short')}
         </button>
       )}
-      {onUnassign !== undefined && task.assignee_id !== null && (
-        <button
-          aria-label={t('task.unassign', { title: task.title })}
-          className="button button--quiet"
+      {overflowItems.length > 0 && (
+        <OverflowMenu
           disabled={busy}
-          onClick={() => onUnassign(task)}
-          type="button"
-        >
-          {t('task.unassign.short')}
-        </button>
-      )}
-      {onDelete !== undefined && (
-        <button
-          aria-label={t('task.delete', { title: task.title })}
-          className="button button--quiet"
-          disabled={busy}
-          onClick={() => onDelete(task)}
-          type="button"
-        >
-          {t('task.delete.short')}
-        </button>
+          items={overflowItems}
+          label={t('task.actions', { title: task.title })}
+        />
       )}
     </div>
   );
@@ -106,7 +124,7 @@ export function TaskRow({
   const overdue = isOverdue(task);
 
   return (
-    <li className="task-row">
+    <li className={task.completed ? 'task-row task-row--done' : 'task-row'}>
       {onToggleCompleted !== undefined && (
         <button
           aria-pressed={task.completed}
@@ -115,7 +133,7 @@ export function TaskRow({
           onClick={() => onToggleCompleted(task, !task.completed)}
           type="button"
         >
-          <span aria-hidden="true">{task.completed ? '☑' : '☐'}</span>
+          <span aria-hidden="true">{task.completed ? '✓' : '☐'}</span>
           <span className="visually-hidden">
             {task.completed
               ? t('task.incomplete', { title: task.title })

@@ -5,6 +5,7 @@ import { breakpoints } from '@odin/design-tokens';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { StaleBanner } from './Banner.tsx';
+import { useCompactChromeVisible } from './useCompactChrome.ts';
 
 /**
  * Desktop keeps a persistent left rail; compact viewports fall back to the
@@ -22,58 +23,9 @@ const DESTINATIONS = [
   { to: '/settings', glyph: '⚙', key: 'nav.settings' },
 ] as const;
 
-/**
- * Hides the bottom bar on downward scroll and reveals it on upward scroll. It
- * stays visible at the top and bottom of the content, whenever focus is inside
- * it, and whenever the user prefers reduced motion.
- */
-function useBottomNavVisibility(): boolean {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setVisible(true);
-      return;
-    }
-
-    let previous = window.scrollY;
-
-    const onScroll = (): void => {
-      const current = window.scrollY;
-      const atTop = current <= 0;
-      const atEnd = window.innerHeight + current >= document.documentElement.scrollHeight - 2;
-
-      if (atTop || atEnd) {
-        setVisible(true);
-      } else if (current > previous + 4) {
-        setVisible(false);
-      } else if (current < previous - 4) {
-        setVisible(true);
-      }
-      previous = current;
-    };
-
-    const onFocusIn = (event: FocusEvent): void => {
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest('.shell__nav') !== null) {
-        setVisible(true);
-      }
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    document.addEventListener('focusin', onFocusIn);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      document.removeEventListener('focusin', onFocusIn);
-    };
-  }, []);
-
-  return visible;
-}
-
 export function AppLayout(): ReactNode {
   const { t, online, realtimeHealthy } = useOdin();
-  const navVisible = useBottomNavVisibility();
+  const navVisible = useCompactChromeVisible();
   const [compact, setCompact] = useState(() => window.innerWidth <= breakpoints.compact);
 
   useEffect(() => {

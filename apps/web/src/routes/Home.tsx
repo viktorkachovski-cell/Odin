@@ -15,7 +15,10 @@ import type { Translator } from '@odin/i18n';
 import { useOdin } from '../app/OdinContext.ts';
 import { useHomeQuery } from '../app/queries.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
+import { ConfirmDialog } from '../components/ConfirmDialog.tsx';
+import { Fab } from '../components/Fab.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
+import { OverflowMenu } from '../components/OverflowMenu.tsx';
 import { Progress } from '../components/Progress.tsx';
 
 /**
@@ -25,6 +28,11 @@ import { Progress } from '../components/Progress.tsx';
  * Template cards keep their border and active list cards do not, matching the
  * source design; the copy control is a sibling of the card's link rather than a
  * button nested inside a button.
+ *
+ * The copy control is an outlined accent button rather than a solid primary:
+ * one per template card meant Home previously had as many primary buttons as it
+ * had templates. The card's green border carries the emphasis instead, and the
+ * screen's single solid primary is Create list in the header.
  */
 
 function TemplateCard({
@@ -44,7 +52,7 @@ function TemplateCard({
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
       <div className="card__actions">
         <button
-          className="button button--primary"
+          className="button button--accent"
           disabled={busy}
           onClick={() => onCopy(summary.id)}
           type="button"
@@ -64,7 +72,7 @@ function ActiveCard({
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
-  readonly onDelete: (id: string, expectedVersion: number) => void;
+  readonly onDelete: () => void;
   readonly busy: boolean;
 }): ReactNode {
   return (
@@ -75,14 +83,19 @@ function ActiveCard({
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
       <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
       <div className="card__actions">
-        <button
-          className="button button--quiet"
+        <OverflowMenu
           disabled={busy}
-          onClick={() => onDelete(summary.id, summary.version)}
-          type="button"
-        >
-          {t('list.delete')}
-        </button>
+          items={[
+            {
+              key: 'delete',
+              label: t('list.delete'),
+              glyph: '⌫',
+              danger: true,
+              onSelect: onDelete,
+            },
+          ]}
+          label={t('list.actions')}
+        />
       </div>
     </li>
   );
@@ -93,6 +106,7 @@ export function Home(): ReactNode {
   const navigate = useNavigate();
   const home = useHomeQuery(true);
   const [creating, setCreating] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ListSummaryDto | null>(null);
 
   const copy = useCommand(
     (requestId, input: { readonly templateId: string }) =>
@@ -139,7 +153,11 @@ export function Home(): ReactNode {
     <>
       <div className="page-header">
         <h1>{t('home.title')}</h1>
-        <button className="button button--primary" onClick={() => setCreating(true)} type="button">
+        <button
+          className="button button--primary page-header__primary"
+          onClick={() => setCreating(true)}
+          type="button"
+        >
           {t('home.create_list')}
         </button>
       </div>
@@ -180,11 +198,7 @@ export function Home(): ReactNode {
               <ActiveCard
                 busy={remove.state.pending}
                 key={summary.id}
-                onDelete={(listId, expectedVersion) => {
-                  if (window.confirm(t('list.delete.confirm'))) {
-                    void remove.run({ listId, expectedVersion });
-                  }
-                }}
+                onDelete={() => setPendingDelete(summary)}
                 summary={summary}
                 t={t}
               />
@@ -192,6 +206,26 @@ export function Home(): ReactNode {
           </ul>
         )}
       </section>
+
+      <Fab label={t('home.create_list')} onClick={() => setCreating(true)} />
+
+      {pendingDelete !== null && (
+        <ConfirmDialog
+          body={t('list.delete.confirm')}
+          confirmLabel={t('list.delete')}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            void remove.run({
+              listId: pendingDelete.id,
+              expectedVersion: pendingDelete.version,
+            });
+            setPendingDelete(null);
+          }}
+          pending={remove.state.pending}
+          t={t}
+          title={t('list.delete.title')}
+        />
+      )}
 
       {creating && (
         <ListEditor

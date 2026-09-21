@@ -4,7 +4,13 @@
  * platform. Only layout and state styling lives in this file.
  *
  * Every interactive target is at least 44x44 CSS pixels, per the source
- * requirement, with a mouse as well as with touch.
+ * requirement, with a mouse as well as with touch. To lower a control's weight,
+ * change its tier -- never its box.
+ *
+ * The palette comes from the Markovo Homes apartment: warm near-white walls,
+ * oak and ivory, and a deep fern green on 1.6 m2 of tile. Green is spent here
+ * the same way -- the primary action, progress, the current destination and
+ * completion, and nothing else.
  */
 
 *,
@@ -38,10 +44,23 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+h1 {
+  font-size: var(--font-size-xl);
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+/*
+ * One ring everywhere. The radius is inherited so a pill, a chip or an avatar
+ * keeps its own shape rather than being squared off by the outline.
+ */
 :focus-visible {
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: inherit;
 }
 
 .visually-hidden {
@@ -65,6 +84,7 @@ h3 {
   background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
   transition: top 120ms ease-in-out;
 }
 
@@ -76,7 +96,7 @@ h3 {
 
 .shell {
   display: grid;
-  grid-template-columns: 17rem 1fr;
+  grid-template-columns: var(--size-rail) 1fr;
   min-height: 100%;
 }
 
@@ -95,6 +115,8 @@ h3 {
 .shell__brand {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  letter-spacing: -0.01em;
 }
 
 .shell__nav-list {
@@ -108,33 +130,53 @@ h3 {
 
 .shell__main {
   padding: var(--space-xl);
-  max-width: 76rem;
+  max-width: var(--size-content-max);
   width: 100%;
 }
 
 .nav-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  min-height: 44px;
+  min-height: var(--size-control-min);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
   color: var(--color-text);
   text-decoration: none;
   font-weight: var(--font-weight-medium);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .nav-link:hover {
   background: var(--color-surface-muted);
 }
 
+/*
+ * The current destination is a tint, a weight and a marker rather than a solid
+ * accent slab: persistent chrome should not compete with the primary action.
+ */
 .nav-link[aria-current='page'] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.nav-link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--space-sm);
+  bottom: var(--space-sm);
+  width: 3px;
+  border-radius: var(--radius-pill);
   background: var(--color-accent);
-  color: var(--color-accent-text);
 }
 
 .nav-link__glyph {
-  font-size: var(--font-size-lg);
+  font-size: var(--size-icon);
   line-height: 1;
   width: 1.5rem;
   text-align: center;
@@ -179,8 +221,15 @@ h3 {
     flex-direction: column;
     gap: 2px;
     font-size: var(--font-size-xs);
-    min-width: 44px;
+    min-width: var(--size-control-min);
     text-align: center;
+  }
+
+  .nav-link[aria-current='page']::before {
+    inset: auto var(--space-sm) 2px;
+    top: auto;
+    width: auto;
+    height: 3px;
   }
 
   .shell__main {
@@ -191,11 +240,22 @@ h3 {
 /* Users who prefer reduced motion keep the navigation visible and still. */
 @media (prefers-reduced-motion: reduce) {
   .shell__nav,
-  .skip-link {
+  .skip-link,
+  .nav-link,
+  .button,
+  .card,
+  .task-row,
+  .field__control,
+  .fab {
     transition: none;
   }
 
   .shell__nav--hidden {
+    transform: none;
+  }
+
+  .button:active:not(:disabled),
+  .fab:active {
     transform: none;
   }
 }
@@ -211,13 +271,31 @@ h3 {
   margin-bottom: var(--space-xl);
 }
 
+/*
+ * The primary action stays reachable down a long list rather than scrolling
+ * away with the title.
+ */
+.page-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  align-items: flex-end;
+  padding: var(--space-md) 0;
+  margin-bottom: var(--space-lg);
+  background: var(--color-background);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .section {
   margin-bottom: var(--space-xxl);
 }
 
+/* The oak rule is where most of the palette's warmth shows up. */
 .section__heading {
   font-size: var(--font-size-lg);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--color-oak);
 }
 
 .card-grid {
@@ -234,16 +312,30 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  transition:
+    box-shadow 120ms ease,
+    border-color 120ms ease;
 }
 
-/* Template cards are bordered; active list cards are not. */
+/*
+ * A card is raised or enclosed, never both. Template cards carry the green
+ * border; active list cards are raised instead.
+ */
 .card--template {
-  border: 2px solid var(--color-border-strong);
+  border: 2px solid var(--color-accent);
+}
+
+.card--template:hover {
+  border-color: var(--color-accent-hover);
 }
 
 .card--active {
   border: 0;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+  box-shadow: var(--shadow-sm);
+}
+
+.card--active:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .card__title {
@@ -258,10 +350,29 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+/* ---------- Action groups ---------- */
+
+/*
+ * One class for every row of controls -- page headers, card footers, task rows.
+ * Destructive first or hidden in the overflow, primary always last.
+ */
+.action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.action-group--end {
+  justify-content: flex-end;
+}
+
 .card__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-sm);
+  justify-content: flex-end;
   margin-top: auto;
 }
 
@@ -281,37 +392,66 @@ h3 {
 .progress__track {
   height: 8px;
   border-radius: var(--radius-pill);
-  background: var(--color-surface-muted);
+  background: var(--color-accent-soft);
   border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
 .progress__fill {
   height: 100%;
+  border-radius: var(--radius-pill);
   background: var(--color-accent);
 }
 
-/* ---------- Buttons and fields ---------- */
+/* ---------- Buttons ---------- */
 
+/*
+ * Four tiers separated by weight, never by size: primary, secondary (the
+ * default), quiet, and the danger modifier. Every tier keeps the 44px box.
+ */
 .button {
-  min-height: 44px;
-  min-width: 44px;
-  padding: var(--space-sm) var(--space-lg);
+  min-height: var(--size-control-min);
+  min-width: var(--size-control-min);
+  padding: var(--space-md) var(--space-lg);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   font-weight: var(--font-weight-medium);
+  line-height: 1;
+  letter-spacing: 0.005em;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
 }
 
 .button:hover:not(:disabled) {
   background: var(--color-surface-muted);
 }
 
+/* The press has somewhere to land rather than changing instantly. */
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-press);
+}
+
+/*
+ * Explicit disabled colours rather than opacity, which dragged a pending
+ * button's label below the contrast minimum.
+ */
 .button:disabled {
-  opacity: 0.55;
+  background: var(--color-disabled-surface);
+  border-color: transparent;
+  color: var(--color-disabled-text);
   cursor: not-allowed;
 }
 
@@ -319,16 +459,191 @@ h3 {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-accent-text);
+  box-shadow: var(--shadow-sm);
 }
 
 .button--primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.button--primary:active:not(:disabled) {
+  background: var(--color-accent-active);
+  border-color: var(--color-accent-active);
+}
+
+/*
+ * An outlined green action for the one case a screen has a second green thing
+ * to do that is not its single primary -- copying a template, once per card.
+ */
+.button--accent {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.button--accent:hover:not(:disabled) {
+  background: var(--color-accent-soft);
 }
 
 .button--quiet {
   border-color: transparent;
   background: transparent;
 }
+
+.button--quiet:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.button--danger {
+  color: var(--color-danger);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+}
+
+.button--primary.button--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-accent-text);
+}
+
+.button--primary.button--danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+}
+
+.button__glyph {
+  font-size: var(--size-icon);
+  line-height: 1;
+}
+
+/*
+ * The compact-viewport primary action. The Android client has had one since
+ * launch; without it the web primary scrolls out of reach on a phone.
+ */
+.fab {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .fab {
+    position: fixed;
+    right: var(--space-lg);
+    bottom: var(--space-xxxl);
+    z-index: 9;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    min-height: var(--size-control-lg);
+    padding: 0 var(--space-xl);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+    box-shadow: var(--shadow-lg);
+    font: inherit;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      transform 160ms ease-in-out;
+  }
+
+  .fab:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .fab:active {
+    transform: translateY(1px);
+  }
+
+  /*
+   * The action and the navigation hide and return together, and by the same
+   * means: the bar slides down, so the button above it does too rather than
+   * blinking out.
+   */
+  .fab--hidden {
+    transform: translateY(150%);
+  }
+
+  /* On a phone the header's own primary is redundant with the action button. */
+  .page-header__primary {
+    display: none;
+  }
+}
+
+/* ---------- Overflow menu ---------- */
+
+.overflow {
+  position: relative;
+  display: inline-flex;
+}
+
+.overflow__trigger[aria-expanded='true'] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.overflow__menu {
+  position: absolute;
+  top: calc(var(--size-control-min) + var(--space-sm));
+  right: 0;
+  z-index: 12;
+  min-width: 14rem;
+  margin: 0;
+  padding: var(--space-xs);
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.overflow__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: var(--size-control-min);
+  padding: 0 var(--space-md);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.overflow__item:hover {
+  background: var(--color-surface-muted);
+}
+
+.overflow__item:disabled {
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.overflow__item--danger {
+  color: var(--color-danger);
+}
+
+.overflow__item--danger:hover {
+  background: var(--color-danger-soft);
+}
+
+/* Destructive items sit below a rule, never mixed in with the rest. */
+.overflow__separator {
+  height: 1px;
+  margin: var(--space-xs) var(--space-sm);
+  background: var(--color-border);
+}
+
+/* ---------- Fields ---------- */
 
 .field {
   display: flex;
@@ -338,11 +653,12 @@ h3 {
 }
 
 .field__label {
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
 .field__control {
-  min-height: 44px;
+  min-height: var(--size-control-min);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-strong);
@@ -350,6 +666,21 @@ h3 {
   color: var(--color-text);
   font: inherit;
   width: 100%;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.field__control:hover {
+  border-color: var(--color-text-muted);
+}
+
+.field__control:focus-visible {
+  border-color: var(--color-accent);
+}
+
+.field__control[aria-invalid='true'] {
+  border-color: var(--color-danger);
 }
 
 .field__error {
@@ -386,12 +717,29 @@ h3 {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.task-row:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/*
+ * A finished task reads as finished from across the list. It is a green tint,
+ * never a solid green fill -- that weight belongs to the primary action.
+ */
+.task-row--done {
+  background: var(--color-success-soft);
+  border-color: transparent;
 }
 
 .task-row__toggle {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: var(--size-control-min);
+  height: var(--size-control-min);
   display: grid;
   place-items: center;
   border-radius: var(--radius-md);
@@ -400,6 +748,24 @@ h3 {
   cursor: pointer;
   font-size: var(--font-size-lg);
   color: var(--color-text);
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.task-row__toggle:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.task-row__toggle[aria-pressed='true'] {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.task-row__toggle:disabled {
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
 }
 
 .task-row__body {
@@ -424,6 +790,7 @@ h3 {
   margin: 0;
   overflow: hidden;
   color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -443,6 +810,7 @@ h3 {
   flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-sm);
 }
 
@@ -465,15 +833,15 @@ h3 {
 }
 
 .avatar {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: var(--size-avatar);
+  height: var(--size-avatar);
   flex: 0 0 auto;
   border-radius: var(--radius-pill);
   display: grid;
   place-items: center;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  color: #10131a;
+  color: var(--color-avatar-text);
 }
 
 /* ---------- Dialog ---------- */
@@ -481,7 +849,7 @@ h3 {
 .dialog-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 45%);
+  background: var(--color-overlay);
   display: grid;
   place-items: center;
   padding: var(--space-lg);
@@ -490,16 +858,22 @@ h3 {
 
 .dialog {
   background: var(--color-surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-xl);
   width: min(34rem, 100%);
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-lg);
 }
 
 .dialog__title {
   font-size: var(--font-size-lg);
   margin-bottom: var(--space-md);
+}
+
+.dialog__body {
+  margin: 0;
+  color: var(--color-text-muted);
 }
 
 .dialog__actions {
@@ -524,14 +898,26 @@ h3 {
   margin-bottom: var(--space-lg);
 }
 
+/* Each tone gets its own ground: an error and a reconnecting notice are not
+ * the same kind of news. */
 .banner--danger {
+  background: var(--color-danger-soft);
   border-color: var(--color-danger);
+}
+
+.banner--warning {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+}
+
+.banner__text {
+  flex: 1 1 14rem;
 }
 
 .empty {
   color: var(--color-text-muted);
   padding: var(--space-lg);
-  border: 1px dashed var(--color-border-strong);
+  border: 1px dashed var(--color-oak);
   border-radius: var(--radius-md);
 }
 
@@ -550,10 +936,11 @@ h3 {
 
 .auth-card {
   background: var(--color-surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-xl);
   width: min(28rem, 100%);
   border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .member-list {
@@ -567,9 +954,9 @@ h3 {
 
 .invite-link {
   word-break: break-all;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
-  background: var(--color-surface-muted);
+  background: var(--color-surface-sunken);
   padding: var(--space-md);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
