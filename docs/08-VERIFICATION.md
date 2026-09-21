@@ -1,6 +1,16 @@
 # Verification and release checklist
 
-Unchecked items below are future application work, not completed tests. Current tooling evidence is in `11-TOOLING-VALIDATION.md`.
+Unchecked items below are remaining release/device evidence, not a statement
+that the application is unimplemented. Current automated evidence is in
+`11-TOOLING-VALIDATION.md`, `17-MOBILE-QA.md` and `22-MOBILE-WEB-PARITY.md`.
+
+## Current implementation status — 2026-09-21
+
+The web and Android clients, shared data adapter, task notes/templates and
+production Supabase migrations are implemented. GitHub Quality passed for
+commit `8c74b84`; Vercel production deployment completed successfully. The
+remaining unchecked items are hosted email delivery, physical Android/device
+checks, two-client manual synchronization and performance measurements.
 
 ## Requirements traceability
 
@@ -38,7 +48,7 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 - [ ] Blank/whitespace-only title, max length, emoji/supplementary Unicode, Bulgarian, very long member/title labels, null subtitle/deadline/assignee.
 - [ ] Same UTC due instant renders correctly in Europe/Sofia and another zone; DST invalid/ambiguous input handled explicitly; locale switching doesn't mutate instants.
 - [ ] Invalid, expired, revoked and already-used invite; logged-out deep-link continuation; account already in another household; no token in logs/referrers.
-- [ ] OTP resend cooldown/rate limiting, incorrect/expired OTP, email delivery, paste/autofill and session refresh.
+- [ ] Email confirmation/recovery delivery, password-manager/autofill behavior, paste and session refresh on a real device.
 - [ ] Sign out/account switch clears cached data/drafts/subscriptions; stale session cannot retrieve household records.
 - [ ] Keyboard-only web, screen reader/TalkBack, focus recovery, contrast, 44x44 targets, Android large fonts and both translations.
 
@@ -50,11 +60,11 @@ Measure Home and List Detail usable-data time at the 75th percentile against the
 
 - [ ] Exact platform/browser matrix and distribution/signing owner chosen.
 - [ ] Proposed invitation/onboarding defaults, seed translations and membership/account lifecycle reviewed.
-- [ ] Separate Odin staging/production and email provider configured with known cost and owners.
-- [ ] All workspace lint/typecheck/tests/builds and database checks pass on CI at the release commit.
-- [ ] Database schema replay and staging migrations succeed; backup/restore strategy matches selected Supabase plan and is rehearsed without resetting production.
-- [ ] Preview uses staging only; production keys and Auth redirects are correct; no secret appears in browser/Android bundles.
-- [ ] Android install, web nested-route refresh, app/invite links and two-client sync pass on staging.
+- [x] Single Odin production environment selected; a separate staging project is intentionally out of scope for this hobby project.
+- [x] Workspace lint/typecheck/tests/builds and database checks pass on CI at the current release commit.
+- [ ] Database backup/restore strategy is rehearsed against disposable data without resetting production.
+- [x] Production keys and Auth redirects are configured; no secret appears in browser/Android bundles.
+- [ ] Android install, web nested-route refresh, app/invite links and two-client sync pass on production with controlled test accounts.
 - [ ] Product owner reviews UI against original sketches and approves documented adaptations.
 - [ ] Record release SHA, migration IDs, deployment URL/build ID, tests and rollback procedure; then promote approved production artifacts.
 

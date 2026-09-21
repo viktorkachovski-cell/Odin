@@ -62,7 +62,7 @@ Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `A
 
 For create-invitation retries, do not store raw tokens in plaintext receipts. Use a server-side encrypted short-lived response for the original operation, or deterministically rederive the token with a server-only secret and recorded nonce. The chosen implementation must return the same usable link for a retry, keep token hashes as lookup keys, and have a tested key-rotation policy. This is a backend concern; no client token generation from predictable IDs.
 
-Authentication uses supported Supabase Auth APIs, never custom password/OTP storage. Web now uses email/password; legacy mobile OTP helpers remain exported during migration. Invite links carry no email or household name. Reject open redirects. Prefer a URL fragment token for web redemption so tokens are not sent in hosting request paths; strip it from visible history after capture and redact logs. Configure Android app links/deep links and web fallback explicitly.
+Authentication uses supported Supabase Auth APIs, never custom password/OTP storage. Web and current Android builds use email/password; legacy mobile OTP helpers remain exported for older installed versions. Invite links carry no email or household name. Reject open redirects. Prefer a URL fragment token for web redemption so tokens are not sent in hosting request paths; strip it from visible history after capture and redact logs. Configure Android app links/deep links and web fallback explicitly.
 
 ### Additive authentication contract — 2026-09-21
 
@@ -79,7 +79,7 @@ All functions below are exported by `@odin/data`, accept the existing `OdinSupab
 
 Email is trimmed; password is passed unchanged. `validateNewPassword(password, confirmation)` and `PASSWORD_MIN_LENGTH` live in `@odin/domain`; validation applies only to registration and password updates. Provider errors map to safe `auth.password.*` translation keys or existing command errors. Duplicate registrations and reset acknowledgements must not reveal account existence. Destinations are application-owned constants or the current trusted web origin plus fixed paths, never user-supplied URLs.
 
-Compatibility: no SQL migration, DTO change, error-code enum change, or identity replacement. Web consumes the new API now. Mobile continues compiling with `requestSignInCode`/`verifySignInCode`; its migration must follow `16-MOBILE-PASSWORD-AUTH-AGENT.md`. Retain OTP exports and translations until every supported mobile version has migrated. The current default email template sends a link, so the old mobile code-entry screen still needs the planned migration before general release.
+Compatibility: no SQL migration, DTO change, error-code enum change, or identity replacement. Web and the current Android client consume the password APIs. Retain `requestSignInCode`/`verifySignInCode` exports and legacy translations for older installed mobile versions; new Android builds use email/password and the allowlisted web confirmation/recovery routes. The current default email template sends a link, so neither client depends on a code-entry email.
 
 ## Concurrency and revocation
 

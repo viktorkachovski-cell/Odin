@@ -1,6 +1,6 @@
 # Web email/password authentication
 
-Owner request: replace the code-entry web flow with email registration and password login. Android is a separate draft handoff in `16-MOBILE-PASSWORD-AUTH-AGENT.md`.
+Owner request: replace the code-entry flow with email registration and password login. Web and Android now use the shared password APIs; confirmation and recovery links finish in the deployed web client before the member returns to Android.
 
 ## User flow
 
@@ -53,7 +53,7 @@ Verified on 2026-09-21:
 
 | Check                                                                                 | Result                                                                                                                                            |
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`                                                                       | Passed lint, formatting, all workspace typechecks, 6 tooling tests, 124 Vitest tests and 38 mobile Jest tests                                     |
+| `npm run check`                                                                       | Passed lint, formatting, all workspace typechecks, tooling tests, 133 Vitest tests and 89 mobile Jest tests                                       |
 | `npm run test -- apps/web/src/auth-links.test.ts apps/web/src/routing.test.ts`        | Passed 15 tests after the final encoded/case/trailing-slash redirect-loop fix                                                                     |
 | `npx eslint apps/web/src/routing.ts apps/web/src/auth-links.test.ts --max-warnings 0` | Passed for the final redirect change                                                                                                              |
 | `npm run build`                                                                       | Passed against the Odin production Supabase host                                                                                                  |
@@ -63,10 +63,10 @@ Verified on 2026-09-21:
 
 Initial checks caught strict optional-property and test-query typing mistakes; these were corrected without disabling rules. The first mobile test run failed discovery because Jest interpolated mixed Windows path separators; the mobile config now uses relative glob patterns under the same workspace root, and all 38 existing tests run. A focused Vitest `--project apps/web` command failed because the project has no matching name; the supported file-filter command above passed. No checks were suppressed.
 
-Vite reports a non-blocking bundle-size warning (about 559 kB minified, 159 kB gzip). Code splitting is follow-up performance work. Real inbox confirmation/recovery delivery and Android password screens remain unverified/not implemented respectively; do not describe either as complete.
+Vite reports a non-blocking bundle-size warning (about 568 kB JavaScript before gzip, 161 kB gzip). Code splitting is follow-up performance work. Real inbox confirmation/recovery delivery and device-level Android verification remain outstanding; the Android password screens are implemented and covered by automated tests.
 
 Automated tests cover shared provider calls/error mapping, no password normalization, registration policy, generic duplicate/reset responses, safe redirects, malformed/expired callbacks, recovery binding, invitation retention, offline forms and password clearing. Run `npm run check` and `npm run build` with configured public environment variables. Hosted email delivery and a real inbox confirmation/recovery round trip are separate checks; mocks do not prove delivery.
 
-Rollback: redeploy the previous web artifact if necessary; leave corrected production URL settings in place. Existing identities and passwords remain valid. Keep additive shared auth exports and legacy OTP exports until mobile migration is complete.
+Rollback: redeploy the previous web artifact if necessary; leave corrected production URL settings in place. Existing identities and passwords remain valid. Keep additive shared auth exports and legacy OTP exports for compatibility with older installed clients.
 
 References: [Supabase password auth](https://supabase.com/docs/guides/auth/passwords), [password reset](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail), [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls), [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp).

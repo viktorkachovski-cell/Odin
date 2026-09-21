@@ -141,30 +141,27 @@ was built. The publishable key is public by design -- it ships inside every
 client bundle -- but it still belongs in the build environment, never in a
 committed file. `apps/mobile/.env.example` holds the names and placeholders only.
 
-## Verified in this pass
+## Verified in the current release
 
 Commands and results, run at the repository root unless noted:
 
 - `npm run lint` — clean, zero warnings.
 - `npm run typecheck` — clean across all workspaces.
-- `npm run test` — 124 Vitest tests over 10 files (shared packages and web).
-- `npm run test:mobile` — 72 Jest tests over 8 suites: environment contract,
+- `npm run test` — 133 Vitest tests over 15 files (shared packages and web).
+- `npm run test:mobile` — 89 Jest tests over 11 suites: environment contract,
   chunked secure storage, deep-link and redirect safety (including the
   post-login destination rules), `TaskRow` behaviour, the bottom-navigation
   visibility rule, the three password screens, the auth-request guards, and
   provider identity handling.
 - `npm run build` — web production build succeeds.
 - `npm run build:check --workspace @odin/mobile` — Android export succeeds,
-  producing a 4.7MB Hermes bundle from the full graph including every shared
+  producing a 4.8MB Hermes bundle from the full graph including every shared
   workspace package.
-- `npx expo-doctor` (in `apps/mobile`) — cannot fully run in the build sandbox,
-  which blocks the external services the config-schema and React Native
-  Directory checks call. It is a CI step for exactly that reason, and on its
-  first CI run it earned its place: it rejected `newArchEnabled` and
-  `android.edgeToEdgeEnabled` in `app.json`. Both were removed from the Expo
-  config schema by SDK 55+, where the new architecture and Android edge-to-edge
-  are unconditional, so deleting the keys changes no behaviour. Neither appears
-  in `@expo/config-types` for SDK 57.
+- `npx expo-doctor` (in `apps/mobile`) — 21/21 checks passed in CI and locally
+  when run with the required process/network access.
+- Commit `8c74b84` adds the Android-specific FAB, overflow menus, template
+  picker, explicit list back affordance and matching English/Bulgarian labels.
+  See `docs/22-MOBILE-WEB-PARITY.md`.
 
 ## NOT verified — required before any release claim
 

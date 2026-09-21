@@ -38,3 +38,11 @@ The owner reported the matching Vercel production deployment completed and
 confirmed task deletion works at `odin-ten-tau.vercel.app`. This is owner
 acceptance evidence; the deployment connector did not independently provide
 the build identifier in this session.
+
+## Follow-up client release — 2026-09-21
+
+The Android/web parity release was committed as `8c74b84` and pushed to GitHub
+`main`. GitHub Quality passed lint/formatting, typecheck, tooling tests,
+shared/web tests, mobile tests, Expo Doctor and Android export. Vercel's
+automatic deployment for the commit also completed successfully. No Supabase
+migration was required for this client-only change.

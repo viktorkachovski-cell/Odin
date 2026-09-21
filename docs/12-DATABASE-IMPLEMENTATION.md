@@ -29,12 +29,21 @@ A later lint review found an invalid cross-statement reference to the `get_home`
 
 The shared contract remains behaviorally unchanged. Invitation generation was resolved inside Postgres rather than requiring an Edge Function: `create_invitation(request_id)` returns the opaque token, while the database stores only its hash and a rederivable invitation ID. Clients still receive one expiring link and retry the same request safely.
 
-## Not completed or awaiting decisions
+## Remaining hosted and product decisions
 
 - Production English/Bulgarian template wording is not approved, so seed tables are empty.
 - Member removal/account deletion authority and recovery remain undefined; no removal RPC was added.
-- Hosted Odin organization, region, plan and staging/production split remain unselected. No hosted project was created, linked or changed.
-- Generated TypeScript types require a running or hosted Odin database. The migration has replayed successfully in CI, but its artifact does not currently expose type generation as an output; types remain required before a client workspace consumes the schema.
-- Production SMTP and Auth redirect configuration remain release work.
+- The owner selected one hosted production environment: Supabase project `mvltbhtsukorspmpyhpw` in `eu-central-1`. A separate staging project is intentionally out of scope for this private hobby project.
+- Generated TypeScript types are committed at `packages/contracts/src/database.generated.ts` and are consumed by both clients.
+- Production Auth redirect URLs are configured for the Vercel domain. SMTP confirmation/recovery delivery remains a hosted operational dependency and still needs real-inbox verification.
+
+## Production rollout record
+
+The hosted lifecycle migrations and task notes/template migrations were applied
+without resets or data replacement. Transactional production smoke tests passed
+for household isolation, assignment removal, task/list lifecycle, notes,
+templates, idempotent replay and stale-version conflicts. See
+`docs/19-PRODUCTION-LIFECYCLE-DEPLOYMENT.md` and
+`docs/21-TASK-FEATURES-DEPLOYMENT.md` for migration IDs and the exact checks.
 
 These are release dependencies. None justified changing a confirmed functional requirement.

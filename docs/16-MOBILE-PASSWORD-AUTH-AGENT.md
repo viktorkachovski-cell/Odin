@@ -1,6 +1,6 @@
-# Draft: Android email/password migration execution guide
+# Android email/password implementation and acceptance guide
 
-Status: shared APIs and web flow implemented; **Android changes below are not implemented in this release**. Execute this as a separate mobile task. Do not rebuild the web authentication, database or business rules.
+Status: implemented in the Android client. Keep this document as the implementation boundary and acceptance checklist for future changes; do not rebuild the web authentication, database or business rules.
 
 ## Objective and fixed boundaries
 

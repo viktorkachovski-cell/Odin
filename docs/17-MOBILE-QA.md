@@ -28,7 +28,7 @@ Android bootstrap calls `configureRequestIdGenerator(randomUUID)` before any
 screen can issue a command. The auth lifecycle wrapper is also additive and
 does not alter web visibility handling.
 
-Automated checks completed locally:
+Baseline automated checks completed locally before the parity release:
 
 - `npx expo-doctor` — 21/21 checks passed;
 - mobile Jest in-band — 11 suites, 88 tests passed;
@@ -55,3 +55,15 @@ Still pending before an Android release claim:
 
 These pending checks do not block merging the reviewed code after CI passes,
 but they do block describing the Android app as device-verified or released.
+
+## Follow-up parity release — 2026-09-21
+
+Commit `8c74b84` updated the Android presentation to match the delivered web
+functions without changing the shared contract: primary creation uses extended
+FABs, secondary task/list actions use bottom menus, task templates use a
+scrollable picker, and list detail has an explicit back control. The follow-up
+run passed 11 mobile suites with 89 tests, root lint, formatting, all workspace
+typechecks, 8 tooling tests, Expo Doctor 21/21 and the Android production
+export. GitHub Quality passed all five jobs for the commit.
+
+The device-level checks above remain open.

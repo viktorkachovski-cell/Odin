@@ -13,4 +13,4 @@ Follow-up publication checks: the connected GitHub write tool returned HTTP 403 
 
 No Supabase schema/data mutation or Vercel deployment was performed during planning. No project URLs, project keys, household content or personal email addresses are needed in these public briefs. GitHub upload is explicitly requested by the user; do not confuse that with production app deployment approval.
 
-Before provisioning, select Odin organization, region, staging/production arrangement and cost. Use new Odin resources rather than changing Passport. Recheck current access then; a read-only list call does not guarantee every administrative operation will succeed.
+Odin provisioning is complete: use the owner-approved Supabase project and Vercel project recorded in `00-ARCHITECTURE.md`. Do not change Passport resources. Recheck current access before a future administrative operation; a read-only list call does not guarantee every administrative operation will succeed.

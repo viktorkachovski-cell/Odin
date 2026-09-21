@@ -1,6 +1,6 @@
 # Odin implementation handoff
 
-Odin is a shared family task app with a Supabase backend, a Vercel web client and an Expo Android client. The original implementation briefs remain below. Current authentication: [web email/password implementation](docs/15-EMAIL-PASSWORD-AUTH.md) and [draft Android migration guide](docs/16-MOBILE-PASSWORD-AUTH-AGENT.md).
+Odin is a shared family task app with a Supabase backend, a Vercel web client and an Expo Android client. The original implementation briefs remain below. Current authentication is email/password on both clients, with confirmation and recovery links completed in the web client; the Android implementation and parity record are documented in [the mobile implementation](docs/14-MOBILE-IMPLEMENTATION.md) and [the parity record](docs/22-MOBILE-WEB-PARITY.md).
 
 ## Start here
 
@@ -17,7 +17,7 @@ Read [architecture](docs/00-ARCHITECTURE.md), [decisions](docs/01-DECISIONS.md),
 | Account access            | [Access check](docs/10-ACCESS.md)                         | Recheck before deployment                    |
 | Database implementation   | [Database foundation](docs/12-DATABASE-IMPLEMENTATION.md) | Implemented schema and remaining hosted work |
 
-Confirmed launch: Android and desktop web; English and Bulgarian; email/password web authentication, with Android migration planned; any household member may create an expiring invitation link. All members have equal task permissions.
+Confirmed launch: Android and desktop web; English and Bulgarian; email/password authentication on web and Android; any household member may create an expiring invitation link. All members have equal task permissions.
 
 ## Run the delivered tooling
 

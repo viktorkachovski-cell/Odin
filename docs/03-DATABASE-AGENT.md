@@ -1,8 +1,8 @@
 # Database implementation agent
 
-## Implementation status September 19 2026
+## Implementation status September 21 2026
 
-The database foundation is implemented in `supabase/` and documented in `docs/12-DATABASE-IMPLEMENTATION.md`. Declarative schema, reviewed initial migration, RPCs, RLS, grants, pgTAP suites, live concurrency checks and CI migration replay are present. Hosted provisioning, approved seed wording and generated client types remain pending for the reasons recorded there. Future agents must extend the existing schema rather than restart this workstream.
+The database foundation is implemented in `supabase/` and documented in `docs/12-DATABASE-IMPLEMENTATION.md`. Declarative schema, reviewed migrations, RPCs, RLS, grants, pgTAP suites, live concurrency checks, generated client types and CI migration replay are present. The Odin Supabase project `mvltbhtsukorspmpyhpw` is production and has received the lifecycle and task-notes/template migrations. Future agents must extend the existing schema rather than restart this workstream.
 
 ## Mission and inputs
 
@@ -55,12 +55,12 @@ Index memberships by active user, lists by household/kind/status, tasks by house
 
 ## Environment and secrets
 
-Document public project URL/publishable key separately from server secrets. Email OTP requires provider configuration, rate limits, resend cooldown, valid custom email templates and delivery tests. Edge Functions, if used for secret-backed invitation generation, validate the end user's token and call commands with that user's context; a service key is not a substitute for caller authorization.
+Document public project URL/publishable key separately from server secrets. Email confirmation and password-recovery delivery still require a configured SMTP provider, valid templates and delivery tests. Edge Functions, if used for secret-backed invitation generation, validate the end user's token and call commands with that user's context; a service key is not a substitute for caller authorization.
 
 Use initials for avatars in MVP, so Storage is unnecessary. If avatar upload is later approved, add a private bucket with household-scoped policies and signed delivery; never a public bucket containing family information.
 
 ## Handoff and done
 
-Deliver a clean local migration replay; a safe staging migration plan; rollback/recovery notes; generated types; a command reference with request/response examples; seed version manifest; and evidence for every DB-owned case in `08-VERIFICATION.md`. Provide client agents a tested staging URL and public key only after the staging project is authorized and created. Do not claim hosted setup is complete while only local SQL exists.
+Deliver a clean local migration replay; rollback/recovery notes; generated types; a command reference with request/response examples; seed version manifest; and evidence for every DB-owned case in `08-VERIFICATION.md`. Provide client agents the approved production URL and publishable key only through environment configuration. Do not claim hosted setup is complete without migration, authorization and smoke-test evidence.
 
-Suggested agent prompt: “Implement `docs/03-DATABASE-AGENT.md` exactly, preserving `docs/02-CONTRACT.md`. Complete local schema and authorization/concurrency tests, record evidence, and stop only dependent hosted provisioning when organization, cost or release policy remains unresolved.”
+Suggested maintenance prompt: “Extend `docs/03-DATABASE-AGENT.md` exactly, preserving `docs/02-CONTRACT.md` and the production project boundary. Add a reviewed migration, authorization/concurrency tests and hosted smoke evidence; do not create a second project or reset production.”

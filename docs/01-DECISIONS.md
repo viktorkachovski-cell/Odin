@@ -51,9 +51,9 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 
 ## Authentication amendment — 2026-09-21
 
-The owner requested email registration and password login on the Vercel app, plus a draft Android implementation guide. This supersedes the original web OTP decision. Confirm email remains enabled. Confirmation links establish a session; subsequent sign-ins use email/password. Password recovery also lets existing OTP users set a password without replacing their account. New passwords require at least eight characters; existing passwords are never rejected by new client-side registration rules at login.
+The owner requested email registration and password login on the Vercel app, followed by the Android implementation. This supersedes the original web OTP decision. Confirm email remains enabled. Confirmation links establish a session; subsequent sign-ins use email/password. Password recovery also lets existing OTP users set a password without replacing their account. New passwords require at least eight characters; existing passwords are never rejected by new client-side registration rules at login.
 
-This release adds shared APIs and preserves the old mobile OTP API and translations. Android screen implementation is a separate workstream, described in `16-MOBILE-PASSWORD-AUTH-AGENT.md`. No household rules or database identities change.
+This release adds shared APIs, preserves the old mobile OTP API and translations for compatibility, and delivers the Android password screens described in `16-MOBILE-PASSWORD-AUTH-AGENT.md`. No household rules or database identities change.
 
 Notifications, automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Tasks have one shared editable notes field, not an authored discussion thread.
 

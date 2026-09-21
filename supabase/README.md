@@ -65,7 +65,7 @@ Before creating or linking a hosted project, select the Odin Supabase organizati
 3. Apply the committed migration with `supabase db push`.
 4. Generate types into `packages/contracts/src/database.generated.ts` and commit them without hand edits.
 5. Run database tests and security/performance advisors; resolve or document every finding.
-6. Configure production SMTP, exact Auth redirects and OTP delivery tests before release.
+6. Configure production SMTP and run confirmation/recovery delivery tests before release.
 
 ### Hosted status
 
@@ -92,8 +92,8 @@ the next agent:
 - Verification fixtures (three `@example.invalid` accounts and their data) were
   created and then deleted; the project currently holds zero rows.
 
-This project is the backend for the Vercel preview deployments of the web
-client. A build logs the host it targets (`[odin] building against
+This project is the backend for the Vercel production deployment and its
+previews of the web client. A build logs the host it targets (`[odin] building against
 <project-ref>.supabase.co`), so the Vercel build log shows which project a given
 deployment talks to; see `docs/13-WEB-DEPLOYMENT.md`.
 
@@ -104,6 +104,7 @@ alongside `supabase db lint` and the pgTAP suite. Three races from
 membership revocation, two concurrent `create_household` calls for one account,
 and two accounts redeeming one invitation simultaneously.
 
-Still outstanding: SMTP and OTP delivery configuration, and exact Auth redirect
-allowlists. A separate production project is no longer outstanding -- it was
-deliberately ruled out above.
+Still outstanding: SMTP confirmation/recovery delivery configuration and any
+additional real-inbox delivery tests. Auth redirect allowlists for the
+production web routes are configured. A separate production project is no
+longer outstanding -- it was deliberately ruled out above.

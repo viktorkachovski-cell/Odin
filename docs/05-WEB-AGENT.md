@@ -2,6 +2,11 @@
 
 Authentication update (2026-09-21): [email/password authentication](15-EMAIL-PASSWORD-AUTH.md) supersedes the original OTP instructions. Registration, confirmation links, password login and recovery use the shared `@odin/data` APIs.
 
+Current status: the desktop client is implemented and deployed at
+`https://odin-ten-tau.vercel.app`. This file remains the web ownership and
+maintenance brief; production uses the single owner-approved Odin Supabase
+environment rather than a separate staging project.
+
 ## Mission and ownership
 
 Build the full desktop version of Odin in `apps/web` using React, Vite and TypeScript. This is an authenticated working app with feature parity for the confirmed task flows, not a marketing page or mock dashboard. Read architecture, decisions, contract, code standards and verification docs first.
@@ -15,7 +20,7 @@ Own `apps/web/**`, web behavior/end-to-end tests, web hosting configuration and 
 3. Build the same Home, list/editor, Unassigned, My Tasks and Settings flows specified in the mobile brief and source requirements. All actions call the shared commands, use request IDs and handle version conflicts.
 4. Add a desktop layout with persistent left navigation, content panel and optional side editor. On small viewports, use source-specified bottom navigation. Persistent desktop navigation is a proposed desktop adaptation; keep core destinations and actions identical and record for UI review.
 5. Add loading/empty/offline/retry/conflict states and two-client realtime invalidation. Verify route refresh, browser back/forward, signed-out deep links and account switching.
-6. Add tests, production build and staging deployment instructions. Provision/connect Vercel only after the Odin project and staging settings are explicitly selected.
+6. Maintain tests, production builds and the owner-approved Vercel deployment. Do not create a second staging project unless the owner revisits the single-environment decision.
 
 ## Desktop UI specifics
 
@@ -39,9 +44,13 @@ Suggested build at repository root: `npm ci` then `npm run build --workspace @od
 
 SPA routes must resolve to `index.html`, including `/lists/:id`, `/invite` and auth routes. Preserve static asset responses and any real API routes if introduced later. Configure routing using current Vercel guidance and test direct route refresh; do not assume dev-server history fallback exists in production.
 
-Client variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`; Android equivalents are `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. These are public, scoped to the selected environment. Secrets, OTP delivery credentials and privileged tokens must never use those prefixes.
+Client variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`; Android equivalents are `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. These are public, scoped to the selected environment. Secrets, SMTP credentials and privileged tokens must never use those prefixes.
 
-Preview uses staging Supabase; production uses production. Configure exact Auth callback/deep-link allowlists and invitation base URLs. Do not allow arbitrary redirect origins. OTP code entry need not rely on email links, but browser/native invitation routing still needs verification.
+Vercel previews and production currently use the single owner-approved Odin
+Supabase environment. Configure exact Auth callback/deep-link allowlists and
+invitation base URLs. Do not allow arbitrary redirect origins. Email
+confirmation and recovery use allowlisted web routes; browser/native invitation
+routing still needs device verification.
 
 Add a tested CSP allowing required Supabase HTTPS/WebSocket connections without unsafe dynamic HTML, restrictive referrer policy and sensible transport/security headers. Validate authentication and Realtime after adding headers. Never log invitation fragments, tokens or household contents to analytics. Vite source maps, if uploaded for error tracking, must not contain secrets.
 
@@ -51,4 +60,4 @@ Run lint, typecheck, Vitest/component tests, Playwright flows, accessibility che
 
 Provide preview URL and commit SHA only when a preview actually exists; record configuration and test evidence. Production promotion is a separate release step following acceptance. No automatic production database migrations from arbitrary preview builds.
 
-Suggested agent prompt: “Implement `docs/05-WEB-AGENT.md` as the functional desktop client using the shared backend. Preserve all confirmed family-member permissions, test English/Bulgarian flows and staging routing/synchronization, and document Vercel release prerequisites.”
+Suggested maintenance prompt: “Maintain `docs/05-WEB-AGENT.md` as the functional desktop client using the shared production backend. Preserve all confirmed family-member permissions, test English/Bulgarian flows and production routing/synchronization, and document Vercel release evidence.”

@@ -1,6 +1,6 @@
 # Android implementation agent
 
-Authentication update (2026-09-21): the OTP screen instructions below describe the previous implementation. For the next mobile release, follow [the email/password migration guide](16-MOBILE-PASSWORD-AUTH-AGENT.md). The shared APIs are implemented; mobile screen changes are still a draft workstream.
+Authentication update (2026-09-21): the original OTP screen instructions are retained only for compatibility. Android now uses the delivered email/password flow described in [the mobile implementation](14-MOBILE-IMPLEMENTATION.md) and [the migration guide](16-MOBILE-PASSWORD-AUTH-AGENT.md). Confirmation and recovery links finish in the web client; the member then returns to Android and signs in.
 
 ## Mission and prerequisites
 
@@ -19,7 +19,7 @@ Own `apps/mobile/**`, Android-specific adapters/tests and native release notes. 
 
 | Screen           | Required implementation                                                                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in/OTP      | Localized email input, submit/resend cooldown, code entry with paste/autofill where supported, invalid/expired code, network failure, retry and sign-out; never log code/email/token                  |
+| Sign-in/password | Localized email and password fields, registration/recovery links, confirmation resend cooldown, invalid credentials, network failure, retry and sign-out; never log credentials or tokens             |
 | Onboarding       | Display-name setup; create household or redeem invitation; language/seed-language selection; existing membership cannot be overwritten by a link                                                      |
 | Home             | Clearly labeled Templates and Active Lists; border only on template cards; title/subtitle; independent accessible copy control; create-list action; progress summaries and empty/loading/error states |
 | Create/edit list | Required title, optional subtitle, save/cancel; no deadline; retain typed text on failure; `expected_version` for edits                                                                               |
@@ -50,6 +50,10 @@ Realtime invalidates shared queries; remove subscriptions on household/session c
 All interface text comes from shared translation keys, including validation, empty states, error codes, accessibility labels and date helpers. Use Intl or a verified supported equivalent for locale-aware time/pluralization; test Bulgarian glyph rendering. Changing UI language must not translate user-entered list/task text. Offer explicit language selection; initial device locale may choose the default. Persist own preference.
 
 Date picker uses device time zone, sends ISO UTC, and displays local time. Show timezone when ambiguity matters. Verify DST gaps/repeated times; request explicit adjustment instead of silently moving an invalid time. Past incomplete tasks say “Overdue”; completed tasks never do.
+
+## Delivered Android presentation
+
+The current Android client uses extended floating action buttons for primary creation, overflow bottom menus for secondary task/list actions, a scrollable task-template picker and an explicit list-detail back affordance. These are Android-specific adaptations; the shared commands, labels, permissions and task behavior remain aligned with the web client. See [22-MOBILE-WEB-PARITY.md](22-MOBILE-WEB-PARITY.md).
 
 ## Verification and release handoff
 
