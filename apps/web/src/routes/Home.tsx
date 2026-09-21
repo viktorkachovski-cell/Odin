@@ -77,12 +77,10 @@ function ActiveCard({
 }): ReactNode {
   return (
     <li className="card card--active">
-      <Link className="card__title" to={`/lists/${summary.id}`}>
-        {summary.title}
-      </Link>
-      {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
-      <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
-      <div className="card__actions">
+      <div className="card__header">
+        <Link className="card__title" to={`/lists/${summary.id}`}>
+          {summary.title}
+        </Link>
         <OverflowMenu
           disabled={busy}
           items={[
@@ -97,6 +95,8 @@ function ActiveCard({
           label={t('list.actions')}
         />
       </div>
+      {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
+      <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
     </li>
   );
 }

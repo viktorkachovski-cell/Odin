@@ -173,9 +173,16 @@ describe('Progress', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '33');
   });
 
-  it('reports an empty list as zero percent', () => {
+  it('reports an empty list as nothing to do, not nothing done', () => {
     render(<Progress completed={0} t={t} total={0} />);
+    expect(screen.getByText('No tasks yet · 0%')).toBeDefined();
+    expect(screen.queryByText('0 of 0 done · 0%')).toBeNull();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  });
+
+  it('labels the bar with the same sentence it shows', () => {
+    render(<Progress completed={0} t={tBg} total={0} />);
+    expect(screen.getByRole('progressbar', { name: 'Няма задачи още · 0%' })).toBeDefined();
   });
 });
 

@@ -6,6 +6,9 @@ import type { Translator } from '@odin/i18n';
 /**
  * Active list progress shows the count AND the percentage, per the desktop
  * brief. The bar is decorative; the numbers carry the meaning.
+ *
+ * A list with no tasks reads "No tasks yet", not "0 of 0 done": over an empty
+ * track the latter reports nothing done rather than nothing to do.
  */
 
 export function Progress({
@@ -18,7 +21,8 @@ export function Progress({
   readonly t: Translator;
 }): ReactNode {
   const percent = progressPercent(completed, total);
-  const label = t('home.progress', { completed, total, percent });
+  const label =
+    total === 0 ? t('home.progress.empty') : t('home.progress', { completed, total, percent });
 
   return (
     <div className="progress">

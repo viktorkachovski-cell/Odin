@@ -101,6 +101,7 @@ export const en = {
   'home.create_list': 'Create list',
   'home.copy_template': 'Create list from {title}',
   'home.progress': '{completed} of {total} done · {percent}%',
+  'home.progress.empty': 'No tasks yet · 0%',
 
   'list.back': 'Back to Home',
   'list.add_task': 'Add task',

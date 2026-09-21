@@ -101,6 +101,7 @@ export const bg: Record<TranslationKey, string> = {
   'home.create_list': 'Създай списък',
   'home.copy_template': 'Създай списък от {title}',
   'home.progress': '{completed} от {total} готови · {percent}%',
+  'home.progress.empty': 'Няма задачи още · 0%',
 
   'list.back': 'Назад към Начало',
   'list.add_task': 'Добави задача',
