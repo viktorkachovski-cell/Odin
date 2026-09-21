@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ListSummaryDto } from '@odin/contracts';
 import {
   copyTemplate,
   createList,
+  deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   useCommand,
@@ -51,6 +52,12 @@ export default function HomeScreen(): ReactNode {
     { invalidate: keysAffectedByListChange(), onSuccess: () => setCreating(false) },
   );
 
+  const remove = useCommand(
+    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
+      deleteList(client, requestId, input),
+    { invalidate: keysAffectedByListChange() },
+  );
+
   if (home.isPending) return <LoadingState label={t('state.loading')} />;
 
   const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
@@ -75,6 +82,25 @@ export default function HomeScreen(): ReactNode {
             key={item.id}
             list={item}
             onCopy={onCopy}
+            onDelete={
+              item.kind === 'active'
+                ? (selected) => {
+                    Alert.alert(t('list.delete'), t('list.delete.confirm'), [
+                      { text: t('list.back'), style: 'cancel' },
+                      {
+                        text: t('list.delete'),
+                        style: 'destructive',
+                        onPress: () =>
+                          void remove.run({
+                            listId: selected.id,
+                            expectedVersion: selected.version,
+                          }),
+                      },
+                    ]);
+                  }
+                : undefined
+            }
+            deletePending={remove.state.pending}
             t={t}
           />
         ))
@@ -97,6 +123,7 @@ export default function HomeScreen(): ReactNode {
           />
         )}
         {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
+        {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
 
         <PrimaryButton label={t('home.create_list')} onPress={() => setCreating(true)} />
 

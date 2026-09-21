@@ -11,6 +11,10 @@ const schemaFiles = [
 ];
 
 const schema = (await Promise.all(schemaFiles.map((file) => readFile(file, 'utf8')))).join('\n');
+const lifecycleMigration = await readFile(
+  'supabase/migrations/20260921180000_delete_list_task_commands.sql',
+  'utf8',
+);
 
 test('database schema preserves product boundaries', () => {
   const listTable = schema.match(/create table public\.lists \(([\s\S]*?)\n\);/i)?.[1];
@@ -72,4 +76,15 @@ test('read helpers keep cursor and CTE semantics valid', () => {
     /into v_items from visible;\s*select id into v_last from visible/i,
     'a CTE must not be referenced by a later SQL statement',
   );
+});
+
+test('list and task lifecycle commands preserve version and household boundaries', () => {
+  assert.match(lifecycleMigration, /create or replace function private\.delete_list/i);
+  assert.match(lifecycleMigration, /create or replace function private\.delete_task/i);
+  assert.match(lifecycleMigration, /p_expected_version bigint/i);
+  assert.match(lifecycleMigration, /status = 'archived'/i);
+  assert.match(lifecycleMigration, /delete from public\.tasks/i);
+  assert.match(lifecycleMigration, /lock_active_members\(v_household, array\[v_actor\]\)/i);
+  assert.match(lifecycleMigration, /revoke all on function public\.delete_list/i);
+  assert.match(lifecycleMigration, /revoke all on function public\.delete_task/i);
 });

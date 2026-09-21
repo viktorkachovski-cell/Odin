@@ -227,6 +227,10 @@ export function parseListId(value: unknown): string {
   return str(obj(value, 'result')['list_id'], 'result.list_id');
 }
 
+export function parseTaskId(value: unknown): string {
+  return str(obj(value, 'result')['task_id'], 'result.task_id');
+}
+
 export function parseInvitationId(value: unknown): string {
   return str(obj(value, 'result')['invitation_id'], 'result.invitation_id');
 }

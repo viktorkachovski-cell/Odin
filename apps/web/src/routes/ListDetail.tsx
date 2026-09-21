@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 
-import type { TaskDto } from '@odin/contracts';
+import type { CommandError, MemberDto, TaskDto, TaskRowModel } from '@odin/contracts';
 import { taskRowFromTask } from '@odin/contracts';
 import {
   createTask,
+  deleteList,
+  deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   setTaskCompleted,
@@ -13,6 +15,7 @@ import {
   useCommand,
 } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
+import type { Locale, Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../app/queries.ts';
@@ -22,6 +25,124 @@ import { Progress } from '../components/Progress.tsx';
 import { TaskEditor } from '../components/TaskEditor.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 
+function ListTasks({
+  tasks,
+  members,
+  locale,
+  t,
+  isTemplate,
+  busy,
+  onEdit,
+  onToggleCompleted,
+  onUnassign,
+  onDelete,
+}: {
+  readonly tasks: readonly TaskDto[];
+  readonly members: readonly MemberDto[];
+  readonly locale: Locale;
+  readonly t: Translator;
+  readonly isTemplate: boolean;
+  readonly busy: boolean;
+  readonly onEdit: (task: TaskRowModel) => void;
+  readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
+  readonly onUnassign: (task: TaskRowModel) => void;
+  readonly onDelete: (task: TaskRowModel) => void;
+}): ReactNode {
+  return (
+    <ul className="task-list">
+      {tasks.map((task) => (
+        <TaskRow
+          busy={busy}
+          key={task.id}
+          locale={locale}
+          members={members}
+          onDelete={isTemplate ? undefined : onDelete}
+          onEdit={isTemplate ? undefined : onEdit}
+          onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
+          onUnassign={isTemplate ? undefined : onUnassign}
+          t={t}
+          task={taskRowFromTask(task)}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function ListHeader({
+  title,
+  subtitle,
+  isTemplate,
+  t,
+  pending,
+  onEdit,
+  onAddTask,
+  onDelete,
+}: {
+  readonly title: string;
+  readonly subtitle: string | null;
+  readonly isTemplate: boolean;
+  readonly t: Translator;
+  readonly pending: boolean;
+  readonly onEdit: () => void;
+  readonly onAddTask: () => void;
+  readonly onDelete: () => void;
+}): ReactNode {
+  return (
+    <div className="page-header">
+      <div>
+        <Link to="/">{t('list.back')}</Link>
+        <h1>{title}</h1>
+        {subtitle !== null && <p className="card__subtitle">{subtitle}</p>}
+      </div>
+      {!isTemplate && (
+        <div className="task-row__actions">
+          <button className="button" onClick={onEdit} type="button">
+            {t('list.edit')}
+          </button>
+          <button className="button button--primary" onClick={onAddTask} type="button">
+            {t('list.add_task')}
+          </button>
+          <button
+            className="button button--quiet"
+            disabled={pending}
+            onClick={onDelete}
+            type="button"
+          >
+            {t('list.delete')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommandErrors({
+  errors,
+  t,
+  onRetry,
+}: {
+  readonly errors: readonly { readonly error: CommandError | null; readonly retry?: () => void }[];
+  readonly t: Translator;
+  readonly onRetry?: () => void;
+}): ReactNode {
+  return (
+    <>
+      {errors.flatMap(({ error, retry }, index) =>
+        error === null
+          ? []
+          : [
+              <ErrorBanner
+                error={error}
+                key={`${error.message_key}-${index}`}
+                onRetry={retry ?? onRetry}
+                t={t}
+              />,
+            ],
+      )}
+    </>
+  );
+}
+
 /**
  * List detail. Tasks render incomplete-first with their declared order
  * preserved inside each group; totals always come from the server's whole-list
@@ -30,6 +151,7 @@ import { TaskRow } from '../components/TaskRow.tsx';
 
 export function ListDetail(): ReactNode {
   const { listId } = useParams<{ listId: string }>();
+  const navigate = useNavigate();
   const { t, locale, client } = useOdin();
   const list = useListQuery(listId, true);
   const members = useMembersQuery(true);
@@ -107,6 +229,41 @@ export function ListDetail(): ReactNode {
     },
   );
 
+  const removeList = useCommand(
+    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
+      deleteList(client, requestId, input),
+    {
+      invalidate: keysAffectedByListChange(listId),
+      onSuccess: () => void navigate('/'),
+    },
+  );
+
+  const removeTask = useCommand(
+    (requestId, input: { readonly taskId: string; readonly expectedVersion: number }) =>
+      deleteTask(client, requestId, input),
+    { invalidate: invalidateTask },
+  );
+
+  const unassignTask = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly title: string;
+        readonly dueAt: string | null;
+      },
+    ) =>
+      updateTask(client, requestId, {
+        taskId: input.taskId,
+        expectedVersion: input.expectedVersion,
+        title: input.title,
+        assigneeId: null,
+        dueAt: input.dueAt,
+      }),
+    { invalidate: invalidateTask },
+  );
+
   if (list.isPending) return <p role="status">{t('state.loading')}</p>;
   if (list.isError) {
     return (
@@ -126,69 +283,72 @@ export function ListDetail(): ReactNode {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <Link to="/">{t('list.back')}</Link>
-          <h1>{page.list.title}</h1>
-          {page.list.subtitle !== null && <p className="card__subtitle">{page.list.subtitle}</p>}
-        </div>
-        {!isTemplate && (
-          <div className="task-row__actions">
-            <button className="button" onClick={() => setEditingList(true)} type="button">
-              {t('list.edit')}
-            </button>
-            <button
-              className="button button--primary"
-              onClick={() => setAddingTask(true)}
-              type="button"
-            >
-              {t('list.add_task')}
-            </button>
-          </div>
-        )}
-      </div>
+      <ListHeader
+        isTemplate={isTemplate}
+        onAddTask={() => setAddingTask(true)}
+        onDelete={() => {
+          if (window.confirm(t('list.delete.confirm'))) {
+            void removeList.run({ listId: page.list.id, expectedVersion: page.list.version });
+          }
+        }}
+        onEdit={() => setEditingList(true)}
+        pending={removeList.state.pending}
+        subtitle={page.list.subtitle}
+        t={t}
+        title={page.list.title}
+      />
 
       {!isTemplate && <Progress completed={page.completed_tasks} t={t} total={page.total_tasks} />}
 
-      {completeCommand.state.error !== null && (
-        <ErrorBanner
-          error={completeCommand.state.error}
-          onRetry={() => void completeCommand.retry()}
-          t={t}
-        />
-      )}
+      <CommandErrors
+        errors={[
+          { error: completeCommand.state.error, retry: () => void completeCommand.retry() },
+          { error: removeList.state.error, retry: () => void removeList.retry() },
+          { error: removeTask.state.error, retry: () => void removeTask.retry() },
+          { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
+        ]}
+        onRetry={() => void completeCommand.retry()}
+        t={t}
+      />
 
       {ordered.length === 0 ? (
         <p className="empty">{t('list.empty')}</p>
       ) : (
-        <ul className="task-list">
-          {ordered.map((task) => (
-            <TaskRow
-              busy={completeCommand.state.pending}
-              key={task.id}
-              locale={locale}
-              members={members.data ?? []}
-              onEdit={
-                isTemplate
-                  ? undefined
-                  : (selected) =>
-                      setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
-              }
-              onToggleCompleted={
-                isTemplate
-                  ? undefined
-                  : (selected, completed) =>
-                      void completeCommand.run({
-                        taskId: selected.id,
-                        expectedVersion: selected.version,
-                        completed,
-                      })
-              }
-              t={t}
-              task={taskRowFromTask(task)}
-            />
-          ))}
-        </ul>
+        <ListTasks
+          busy={
+            completeCommand.state.pending || removeTask.state.pending || unassignTask.state.pending
+          }
+          isTemplate={isTemplate}
+          locale={locale}
+          members={members.data ?? []}
+          onDelete={(selected) => {
+            if (window.confirm(t('task.delete.confirm'))) {
+              void removeTask.run({ taskId: selected.id, expectedVersion: selected.version });
+            }
+          }}
+          onEdit={(selected) =>
+            setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
+          }
+          onToggleCompleted={(selected, completed) =>
+            void completeCommand.run({
+              taskId: selected.id,
+              expectedVersion: selected.version,
+              completed,
+            })
+          }
+          onUnassign={(selected) => {
+            if (window.confirm(t('task.unassign.confirm'))) {
+              void unassignTask.run({
+                taskId: selected.id,
+                expectedVersion: selected.version,
+                title: selected.title,
+                dueAt: selected.due_at,
+              });
+            }
+          }}
+          t={t}
+          tasks={ordered}
+        />
       )}
 
       {(addingTask || editingTask !== null) && (

@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 
 import type { TaskDto } from '@odin/contracts';
-import { taskRowFromTask } from '@odin/contracts';
 import {
   createTask,
+  deleteList,
+  deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   setTaskCompleted,
@@ -18,23 +19,17 @@ import { sortTasksInList } from '@odin/domain';
 import { useNavVisibility } from '../../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../../src/state/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
-import { ErrorBanner } from '../../../src/components/Banner.tsx';
 import { NavSpacer } from '../../../src/components/BottomNav.tsx';
-import { PrimaryButton, SecondaryButton } from '../../../src/components/Button.tsx';
+import { SecondaryButton } from '../../../src/components/Button.tsx';
 import { ListEditor } from '../../../src/components/ListEditor.tsx';
-import { Progress } from '../../../src/components/Progress.tsx';
+import {
+  CommandErrors,
+  ListHeader as ActionHeader,
+  ListProgress,
+  ListTasks,
+} from '../../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
 import { TaskEditor } from '../../../src/components/TaskEditor.tsx';
-import { TaskRow } from '../../../src/components/TaskRow.tsx';
-
-/**
- * List detail. Tasks render incomplete-first with their declared order
- * preserved inside each group; totals always come from the server's whole-list
- * counts rather than the loaded page.
- *
- * A template is read-only here: copying is the only way to act on one, which is
- * what keeps templates and active lists independent.
- */
 
 export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -113,6 +108,41 @@ export default function ListDetailScreen(): ReactNode {
     { invalidate: keysAffectedByListChange(id), onSuccess: () => setEditingList(false) },
   );
 
+  const removeList = useCommand(
+    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
+      deleteList(client, requestId, input),
+    {
+      invalidate: keysAffectedByListChange(id),
+      onSuccess: () => router.replace('/'),
+    },
+  );
+
+  const removeTask = useCommand(
+    (requestId, input: { readonly taskId: string; readonly expectedVersion: number }) =>
+      deleteTask(client, requestId, input),
+    { invalidate: invalidateTask },
+  );
+
+  const unassignTask = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly title: string;
+        readonly dueAt: string | null;
+      },
+    ) =>
+      updateTask(client, requestId, {
+        taskId: input.taskId,
+        expectedVersion: input.expectedVersion,
+        title: input.title,
+        assigneeId: null,
+        dueAt: input.dueAt,
+      }),
+    { invalidate: invalidateTask },
+  );
+
   if (list.isPending) return <LoadingState label={t('state.loading')} />;
   if (list.isError || list.data === undefined) {
     return (
@@ -134,52 +164,102 @@ export default function ListDetailScreen(): ReactNode {
         onScroll={nav.onScroll}
         scrollEventThrottle={16}
       >
-        {!isTemplate && (
-          <>
-            <Progress completed={page.completed_tasks} t={t} total={page.total_tasks} />
-            <View style={styles.actions}>
-              <SecondaryButton label={t('list.edit')} onPress={() => setEditingList(true)} />
-              <PrimaryButton label={t('list.add_task')} onPress={() => setAddingTask(true)} />
-            </View>
-          </>
-        )}
+        <ListProgress
+          completed={page.completed_tasks}
+          isTemplate={isTemplate}
+          t={t}
+          total={page.total_tasks}
+        />
+        <ActionHeader
+          isTemplate={isTemplate}
+          onAddTask={() => setAddingTask(true)}
+          onDelete={() =>
+            Alert.alert(t('list.delete'), t('list.delete.confirm'), [
+              { text: t('list.back'), style: 'cancel' },
+              {
+                text: t('list.delete'),
+                style: 'destructive',
+                onPress: () =>
+                  void removeList.run({
+                    listId: page.list.id,
+                    expectedVersion: page.list.version,
+                  }),
+              },
+            ])
+          }
+          onEdit={() => setEditingList(true)}
+          pending={removeList.state.pending}
+          t={t}
+        />
 
-        {completeCommand.state.error !== null && (
-          <ErrorBanner
-            error={completeCommand.state.error}
-            onRetry={
-              completeCommand.state.error.code === 'NETWORK'
-                ? () => void completeCommand.retry()
-                : undefined
-            }
-            t={t}
-          />
-        )}
+        <CommandErrors
+          errors={[
+            { error: completeCommand.state.error, retry: () => void completeCommand.retry() },
+            { error: removeList.state.error, retry: () => void removeList.retry() },
+            { error: removeTask.state.error, retry: () => void removeTask.retry() },
+            { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
+          ]}
+          t={t}
+        />
 
         {ordered.length === 0 ? (
           <EmptyState label={t('list.empty')} />
         ) : (
-          ordered.map((task) => (
-            <TaskRow
-              busy={completeCommand.state.pending}
-              key={task.id}
-              locale={locale}
-              members={members.data ?? []}
-              onEdit={isTemplate ? undefined : () => setEditingTask(task)}
-              onToggleCompleted={
-                isTemplate
-                  ? undefined
-                  : (selected, completed) =>
-                      void completeCommand.run({
+          <ListTasks
+            busy={
+              completeCommand.state.pending ||
+              removeTask.state.pending ||
+              unassignTask.state.pending
+            }
+            isTemplate={isTemplate}
+            locale={locale}
+            members={members.data ?? []}
+            onDelete={(selected) =>
+              Alert.alert(t('task.delete', { title: selected.title }), t('task.delete.confirm'), [
+                { text: t('list.back'), style: 'cancel' },
+                {
+                  text: t('task.delete.short'),
+                  style: 'destructive',
+                  onPress: () =>
+                    void removeTask.run({
+                      taskId: selected.id,
+                      expectedVersion: selected.version,
+                    }),
+                },
+              ])
+            }
+            onEdit={(selected) =>
+              setEditingTask(ordered.find((task) => task.id === selected.id) ?? null)
+            }
+            onToggleCompleted={(selected, completed) =>
+              void completeCommand.run({
+                taskId: selected.id,
+                expectedVersion: selected.version,
+                completed,
+              })
+            }
+            onUnassign={(selected) =>
+              Alert.alert(
+                t('task.unassign', { title: selected.title }),
+                t('task.unassign.confirm'),
+                [
+                  { text: t('list.back'), style: 'cancel' },
+                  {
+                    text: t('task.unassign.short'),
+                    onPress: () =>
+                      void unassignTask.run({
                         taskId: selected.id,
                         expectedVersion: selected.version,
-                        completed,
-                      })
-              }
-              t={t}
-              task={taskRowFromTask(task)}
-            />
-          ))
+                        title: selected.title,
+                        dueAt: selected.due_at,
+                      }),
+                  },
+                ],
+              )
+            }
+            t={t}
+            tasks={ordered}
+          />
         )}
 
         <NavSpacer />

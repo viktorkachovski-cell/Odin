@@ -5,6 +5,7 @@ import {
   parseListPage,
   parseMembers,
   parseTask,
+  parseTaskId,
   parseTaskPage,
   ShapeError,
 } from './parse.ts';
@@ -45,6 +46,16 @@ describe('parseTask', () => {
 
   it('names the offending field so a shape bug is diagnosable', () => {
     expect(() => parseTask({ ...task, sort_order: null })).toThrow(/sort_order/);
+  });
+});
+
+describe('delete result parsers', () => {
+  it('parses task IDs returned by delete_task', () => {
+    expect(parseTaskId({ task_id: 't1' })).toBe('t1');
+  });
+
+  it('rejects a delete result without a task ID', () => {
+    expect(() => parseTaskId({ list_id: 'l1' })).toThrow(ShapeError);
   });
 });
 

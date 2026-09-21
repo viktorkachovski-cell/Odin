@@ -21,6 +21,7 @@ import {
   parseList,
   parseInvitationId,
   parseListId,
+  parseTaskId,
   parseProfile,
   parseTask,
 } from '@odin/contracts';
@@ -126,6 +127,19 @@ export function updateList(
   );
 }
 
+export function deleteList(
+  client: OdinSupabaseClient,
+  requestId: string,
+  input: { readonly listId: string; readonly expectedVersion: number },
+): Promise<CommandResult<string>> {
+  return command(
+    client,
+    'delete_list',
+    { request_id: requestId, list_id: input.listId, expected_version: input.expectedVersion },
+    parseListId,
+  );
+}
+
 /** Copies text and order only; ownership, deadlines and completion are reset. */
 export function copyTemplate(
   client: OdinSupabaseClient,
@@ -187,6 +201,19 @@ export function updateTask(
       due_at: input.dueAt ?? null,
     },
     (data) => parseTask(data),
+  );
+}
+
+export function deleteTask(
+  client: OdinSupabaseClient,
+  requestId: string,
+  input: { readonly taskId: string; readonly expectedVersion: number },
+): Promise<CommandResult<string>> {
+  return command(
+    client,
+    'delete_task',
+    { request_id: requestId, task_id: input.taskId, expected_version: input.expectedVersion },
+    parseTaskId,
   );
 }
 

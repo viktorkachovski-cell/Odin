@@ -50,6 +50,8 @@ export {
   createInvitation,
   createList,
   createTask,
+  deleteList,
+  deleteTask,
   newRequestId,
   redeemInvitation,
   revokeInvitation,

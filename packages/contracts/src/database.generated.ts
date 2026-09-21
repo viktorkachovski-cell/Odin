@@ -209,6 +209,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_list: {
+        Args: { expected_version: number; list_id: string; request_id: string }
+        Returns: Json
+      }
+      delete_task: {
+        Args: { expected_version: number; request_id: string; task_id: string }
+        Returns: Json
+      }
       claim_task: {
         Args: { expected_version: number; request_id: string; task_id: string }
         Returns: Json

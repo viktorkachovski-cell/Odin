@@ -24,6 +24,63 @@ export interface TaskRowProps {
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
   readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
+  readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
+  readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
+}
+
+function TaskActions({
+  task,
+  busy,
+  t,
+  onClaim,
+  onEdit,
+  onUnassign,
+  onDelete,
+}: Pick<
+  TaskRowProps,
+  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
+>): ReactNode {
+  return (
+    <div className="task-row__actions">
+      {onClaim !== undefined && (
+        <button className="button" disabled={busy} onClick={() => onClaim(task)} type="button">
+          {t('task.claim', { title: task.title })}
+        </button>
+      )}
+      {onEdit !== undefined && (
+        <button
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => onEdit(task)}
+          type="button"
+        >
+          {t('task.edit_action', { title: task.title })}
+        </button>
+      )}
+      {onUnassign !== undefined && task.assignee_id !== null && (
+        <button
+          aria-label={t('task.unassign', { title: task.title })}
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => onUnassign(task)}
+          type="button"
+        >
+          {t('task.unassign.short')}
+        </button>
+      )}
+      {onDelete !== undefined && (
+        <button
+          aria-label={t('task.delete', { title: task.title })}
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => onDelete(task)}
+          type="button"
+        >
+          {t('task.delete.short')}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function formatDue(due_at: string, locale: Locale): string {
@@ -42,6 +99,8 @@ export function TaskRow({
   onToggleCompleted,
   onEdit,
   onClaim,
+  onUnassign,
+  onDelete,
 }: TaskRowProps): ReactNode {
   const assignee = members.find((member) => member.user_id === task.assignee_id);
   const overdue = isOverdue(task);
@@ -98,23 +157,15 @@ export function TaskRow({
         </div>
       </div>
 
-      <div className="task-row__actions">
-        {onClaim !== undefined && (
-          <button className="button" disabled={busy} onClick={() => onClaim(task)} type="button">
-            {t('task.claim', { title: task.title })}
-          </button>
-        )}
-        {onEdit !== undefined && (
-          <button
-            className="button button--quiet"
-            disabled={busy}
-            onClick={() => onEdit(task)}
-            type="button"
-          >
-            {t('task.edit_action', { title: task.title })}
-          </button>
-        )}
-      </div>
+      <TaskActions
+        busy={busy}
+        onClaim={onClaim}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onUnassign={onUnassign}
+        t={t}
+        task={task}
+      />
     </li>
   );
 }

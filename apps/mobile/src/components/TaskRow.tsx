@@ -27,6 +27,58 @@ export interface TaskRowProps {
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
   readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
+  readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
+  readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
+}
+
+function TaskActions({
+  task,
+  busy = false,
+  t,
+  onClaim,
+  onEdit,
+  onUnassign,
+  onDelete,
+}: Pick<
+  TaskRowProps,
+  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
+>): ReactNode {
+  return (
+    <View style={styles.actions}>
+      {onClaim !== undefined && (
+        <SecondaryButton
+          accessibilityLabel={t('task.claim', { title: task.title })}
+          disabled={busy}
+          label={t('task.claim.short')}
+          onPress={() => onClaim(task)}
+        />
+      )}
+      {onEdit !== undefined && (
+        <SecondaryButton
+          accessibilityLabel={t('task.edit_action', { title: task.title })}
+          disabled={busy}
+          label={t('task.edit_action.short')}
+          onPress={() => onEdit(task)}
+        />
+      )}
+      {onUnassign !== undefined && task.assignee_id !== null && (
+        <SecondaryButton
+          accessibilityLabel={t('task.unassign', { title: task.title })}
+          disabled={busy}
+          label={t('task.unassign.short')}
+          onPress={() => onUnassign(task)}
+        />
+      )}
+      {onDelete !== undefined && (
+        <SecondaryButton
+          accessibilityLabel={t('task.delete', { title: task.title })}
+          disabled={busy}
+          label={t('task.delete.short')}
+          onPress={() => onDelete(task)}
+        />
+      )}
+    </View>
+  );
 }
 
 function formatDue(dueAt: string, locale: Locale): string {
@@ -76,6 +128,8 @@ export function TaskRow({
   onToggleCompleted,
   onEdit,
   onClaim,
+  onUnassign,
+  onDelete,
 }: TaskRowProps): ReactNode {
   const theme = useTheme();
   const assignee = members.find((member) => member.user_id === task.assignee_id);
@@ -138,24 +192,15 @@ export function TaskRow({
         </View>
       </View>
 
-      <View style={styles.actions}>
-        {onClaim !== undefined && (
-          <SecondaryButton
-            accessibilityLabel={t('task.claim', { title: task.title })}
-            disabled={busy}
-            label={t('task.claim.short')}
-            onPress={() => onClaim(task)}
-          />
-        )}
-        {onEdit !== undefined && (
-          <SecondaryButton
-            accessibilityLabel={t('task.edit_action', { title: task.title })}
-            disabled={busy}
-            label={t('task.edit_action.short')}
-            onPress={() => onEdit(task)}
-          />
-        )}
-      </View>
+      <TaskActions
+        busy={busy}
+        onClaim={onClaim}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onUnassign={onUnassign}
+        t={t}
+        task={task}
+      />
     </View>
   );
 }

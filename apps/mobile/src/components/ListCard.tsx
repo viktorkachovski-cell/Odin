@@ -19,11 +19,15 @@ export function ListCard({
   t,
   onCopy,
   copyPending = false,
+  onDelete,
+  deletePending = false,
 }: {
   readonly list: ListSummaryDto;
   readonly t: Translator;
   readonly onCopy?: ((list: ListSummaryDto) => void) | undefined;
   readonly copyPending?: boolean;
+  readonly onDelete?: ((list: ListSummaryDto) => void) | undefined;
+  readonly deletePending?: boolean;
 }): ReactNode {
   const theme = useTheme();
   const isTemplate = list.kind === 'template';
@@ -61,6 +65,15 @@ export function ListCard({
           label={t('home.copy_template')}
           onPress={() => onCopy(list)}
           pending={copyPending}
+        />
+      )}
+      {onDelete !== undefined && !isTemplate && (
+        <SecondaryButton
+          accessibilityLabel={t('list.delete')}
+          disabled={deletePending}
+          label={t('list.delete')}
+          onPress={() => onDelete(list)}
+          pending={deletePending}
         />
       )}
     </View>

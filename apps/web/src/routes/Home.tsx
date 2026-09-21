@@ -5,6 +5,7 @@ import type { ListSummaryDto } from '@odin/contracts';
 import {
   copyTemplate,
   createList,
+  deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   useCommand,
@@ -58,9 +59,13 @@ function TemplateCard({
 function ActiveCard({
   summary,
   t,
+  onDelete,
+  busy,
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
+  readonly onDelete: (id: string, expectedVersion: number) => void;
+  readonly busy: boolean;
 }): ReactNode {
   return (
     <li className="card card--active">
@@ -69,6 +74,16 @@ function ActiveCard({
       </Link>
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
       <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
+      <div className="card__actions">
+        <button
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => onDelete(summary.id, summary.version)}
+          type="button"
+        >
+          {t('list.delete')}
+        </button>
+      </div>
     </li>
   );
 }
@@ -99,6 +114,12 @@ export function Home(): ReactNode {
     },
   );
 
+  const remove = useCommand(
+    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
+      deleteList(client, requestId, input),
+    { invalidate: keysAffectedByListChange() },
+  );
+
   if (home.isPending) return <p role="status">{t('state.loading')}</p>;
 
   if (home.isError) {
@@ -124,6 +145,7 @@ export function Home(): ReactNode {
       </div>
 
       {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
+      {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
 
       <section aria-labelledby="templates-heading" className="section">
         <h2 className="section__heading" id="templates-heading">
@@ -155,7 +177,17 @@ export function Home(): ReactNode {
         ) : (
           <ul className="card-grid">
             {active.map((summary) => (
-              <ActiveCard key={summary.id} summary={summary} t={t} />
+              <ActiveCard
+                busy={remove.state.pending}
+                key={summary.id}
+                onDelete={(listId, expectedVersion) => {
+                  if (window.confirm(t('list.delete.confirm'))) {
+                    void remove.run({ listId, expectedVersion });
+                  }
+                }}
+                summary={summary}
+                t={t}
+              />
             ))}
           </ul>
         )}
