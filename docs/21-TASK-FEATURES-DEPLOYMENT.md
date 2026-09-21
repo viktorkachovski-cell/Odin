@@ -17,7 +17,7 @@ Applied migrations:
 - `task_notes_templates` (hosted version `20260921181652`): notes column and constraints, household task-template table, note-aware task RPCs, template save/read RPCs and explicit grants.
 - `task_template_creator_index` (hosted version `20260921181810`): covering index for the template creator foreign key after advisor review.
 
-The production-safe smoke test in `supabase/tests/task-features-smoke.sql` ran inside a transaction and rolled back all synthetic users and household data. It passed note creation/editing, the 500-character boundary, idempotent replay, legacy update preservation, household template isolation and cross-household task denial.
+The production-safe smoke test in `supabase/smoke/task-features-smoke.sql` ran inside a transaction and rolled back all synthetic users and household data. It passed note creation/editing, the 500-character boundary, idempotent replay, legacy update preservation, household template isolation and cross-household task denial.
 
 Privilege verification showed no direct table read for `anon` or `authenticated`, no anonymous RPC execution, and authenticated execution only for the scoped public RPCs. `task_templates` therefore intentionally uses default-deny RLS with no direct policies.
 
