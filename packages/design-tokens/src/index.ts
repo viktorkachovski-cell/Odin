@@ -44,7 +44,13 @@ export const sizes = {
   controlLg: 52,
   icon: 20,
   avatar: 28,
-  rail: 272,
+  /**
+   * The navigation rail. Sized to the longest destination label rather than to
+   * a round number: Bulgarian "Без изпълнител" needs roughly 208px once its
+   * glyph, gap and padding are counted, so 224px clears both languages without
+   * spending the content column on empty gutter.
+   */
+  rail: 224,
   contentMax: 1216,
 } as const;
 

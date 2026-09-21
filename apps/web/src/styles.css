@@ -112,11 +112,16 @@ a {
   height: 100vh;
 }
 
+/*
+ * A wordmark, not a heading. At heading size it sat on nearly the same baseline
+ * as the page h1 and the two competed to be the title.
+ */
 .shell__brand {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
-  letter-spacing: -0.01em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .shell__nav-list {
@@ -128,10 +133,16 @@ a {
   gap: var(--space-xs);
 }
 
+/*
+ * Centred, not just capped. Left-aligning a capped column against the rail
+ * pushes every screen into the top-left corner and leaves the rest of a wide
+ * window empty.
+ */
 .shell__main {
   padding: var(--space-xl);
   max-width: var(--size-content-max);
   width: 100%;
+  margin-inline: auto;
 }
 
 .nav-link {
@@ -290,12 +301,24 @@ a {
   margin-bottom: var(--space-xxl);
 }
 
-/* The oak rule is where most of the palette's warmth shows up. */
+/*
+ * The oak mark is where most of the palette's warmth shows up. It is a short
+ * dash under the heading rather than a full-width rule: spanning the content
+ * made it the strongest horizontal line on the page, dividing what it labelled.
+ */
 .section__heading {
   font-size: var(--font-size-lg);
   margin-bottom: var(--space-lg);
-  padding-bottom: var(--space-sm);
-  border-bottom: 2px solid var(--color-oak);
+}
+
+.section__heading::after {
+  content: '';
+  display: block;
+  width: 2.5rem;
+  height: 2px;
+  margin-top: var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-oak);
 }
 
 .card-grid {
@@ -338,10 +361,41 @@ a {
   box-shadow: var(--shadow-md);
 }
 
+/*
+ * The whole card is the target, so the title carries weight rather than the
+ * accent colour, and underlines itself only on hover.
+ */
 .card__title {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   overflow-wrap: anywhere;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.card__title:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent);
+}
+
+/*
+ * Per-item actions sit beside the title. Pinning them to the card's bottom left
+ * a dead band on short cards, and the top-right is where they are looked for.
+ * The glyph is nudged to align optically with the title; its 44px box is intact.
+ */
+.card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.card__header .card__title {
+  min-width: 0;
+}
+
+.card__header .overflow {
+  margin: calc(var(--space-sm) * -1.25) calc(var(--space-sm) * -1) calc(var(--space-sm) * -1.25) 0;
 }
 
 .card__subtitle {
@@ -919,6 +973,8 @@ a {
   padding: var(--space-lg);
   border: 1px dashed var(--color-oak);
   border-radius: var(--radius-md);
+  /* Full-bleed, a three-word empty state reads as a missing page. */
+  max-width: 28rem;
 }
 
 .stack {
