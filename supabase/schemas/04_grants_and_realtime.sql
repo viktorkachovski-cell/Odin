@@ -6,6 +6,10 @@ revoke all on all sequences in schema public from public, anon, authenticated;
 revoke all on all sequences in schema private from public, anon, authenticated;
 
 grant usage on schema public to authenticated;
+grant execute on function public.delete_list(uuid, uuid, bigint) to authenticated;
+grant execute on function public.delete_task(uuid, uuid, bigint) to authenticated;
+grant execute on function private.delete_list(uuid, uuid, bigint) to authenticated;
+grant execute on function private.delete_task(uuid, uuid, bigint) to authenticated;
 grant usage on schema private to authenticated;
 grant select on public.profiles, public.households, public.memberships, public.lists, public.tasks
 to authenticated;

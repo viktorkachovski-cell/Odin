@@ -81,7 +81,7 @@ test('read helpers keep cursor and CTE semantics valid', () => {
 test('list and task lifecycle commands preserve version and household boundaries', () => {
   assert.match(lifecycleMigration, /create or replace function private\.delete_list/i);
   assert.match(lifecycleMigration, /create or replace function private\.delete_task/i);
-  assert.match(lifecycleMigration, /p_expected_version bigint/i);
+  assert.match(lifecycleMigration, /p_expected_version\s+bigint/i);
   assert.match(lifecycleMigration, /status = 'archived'/i);
   assert.match(lifecycleMigration, /delete from public\.tasks/i);
   assert.match(lifecycleMigration, /lock_active_members\(v_household, array\[v_actor\]\)/i);
