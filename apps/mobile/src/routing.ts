@@ -65,6 +65,14 @@ export function safeAuthDestination(candidate: string | undefined | null): Inter
  */
 export function tokenFromDeepLink(url: string | null | undefined): string | null {
   if (url === null || url === undefined) return null;
+  // Only the registered invitation routes may carry invitation credentials.
+  const base = url.split(/[?#]/)[0];
+  if (
+    base !== 'odin://invite' &&
+    base !== 'odin://invite/' &&
+    base !== 'https://odin-ten-tau.vercel.app/invite'
+  )
+    return null;
   const hashIndex = url.indexOf('#');
   if (hashIndex < 0) return null;
 

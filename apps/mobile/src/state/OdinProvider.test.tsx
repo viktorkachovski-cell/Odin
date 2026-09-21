@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
-import { Text } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { useState, type ReactNode } from 'react';
+import { Text, TextInput } from 'react-native';
 
 import type { AuthUser } from '@odin/data';
 
@@ -15,6 +15,7 @@ jest.mock('@odin/data', () => ({
   getCurrentUser: jest.fn(),
   onAuthStateChange: jest.fn(),
   signOut: jest.fn(),
+  setSessionAutoRefresh: jest.fn(() => Promise.resolve()),
 }));
 
 const data = jest.requireMock<{
@@ -45,6 +46,25 @@ function Probe(): ReactNode {
   const { user, authReady } = useOdin();
   return <Text>{`${authReady ? 'ready' : 'pending'}:${user?.id ?? 'none'}`}</Text>;
 }
+
+function DraftProbe(): ReactNode {
+  const [draft, setDraft] = useState('');
+  return <TextInput accessibilityLabel="Draft" value={draft} onChangeText={setDraft} />;
+}
+
+it('discards local drafts on identity changes, but keeps them across token refresh', async () => {
+  const queryClient = setUp(Promise.resolve({ id: 'u1', email: null }));
+  await render(
+    <OdinProvider client={{} as never} queryClient={queryClient}>
+      <DraftProbe />
+    </OdinProvider>,
+  );
+  await fireEvent.changeText(screen.getByLabelText('Draft'), 'unsaved private text');
+  await flush(() => emit({ id: 'u1', email: null }));
+  expect(screen.getByLabelText('Draft').props.value).toBe('unsaved private text');
+  await flush(() => emit({ id: 'u2', email: null }));
+  expect(screen.getByLabelText('Draft').props.value).toBe('');
+});
 
 let emit: AuthListener = () => undefined;
 let active: QueryClient | null = null;

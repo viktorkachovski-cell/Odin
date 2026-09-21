@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -9,7 +9,8 @@ import { useAuthRequest } from '../src/state/useAuthRequest.ts';
 import { errorMessage } from '../src/components/Banner.tsx';
 import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
 import { Field } from '../src/components/Field.tsx';
-import { Screen } from '../src/components/Screen.tsx';
+import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
+import { safeAuthDestination } from '../src/routing.ts';
 import { RECOVERY_URL } from '../src/auth-urls.ts';
 import { useTheme } from '../src/theme.ts';
 
@@ -32,6 +33,8 @@ export default function ForgotPasswordScreen(): ReactNode {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const request = useAuthRequest();
+  const params = useLocalSearchParams<{ next?: string }>();
+  const destination = safeAuthDestination(params.next);
 
   const submit = (): void => {
     void (async () => {
@@ -88,8 +91,9 @@ export default function ForgotPasswordScreen(): ReactNode {
         />
 
         <SecondaryButton
+          disabled={request.pending}
           label={t('auth.password.back_to_sign_in')}
-          onPress={() => router.replace('/sign-in')}
+          onPress={() => router.replace({ pathname: '/sign-in', params: { next: destination } })}
         />
 
         {!online && <Text style={{ color: theme.colors.textMuted }}>{t('state.offline')}</Text>}

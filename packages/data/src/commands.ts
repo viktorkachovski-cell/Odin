@@ -28,9 +28,7 @@ import {
 import type { OdinSupabaseClient } from './client.ts';
 import { asCommandResult, mapPostgrestError, toOdinError } from './error-mapping.ts';
 
-export function newRequestId(): string {
-  return crypto.randomUUID();
-}
+export { newRequestId } from './request-id.ts';
 
 async function command<T>(
   client: OdinSupabaseClient,

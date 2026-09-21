@@ -49,6 +49,18 @@ describe('safeAuthDestination', () => {
 });
 
 describe('tokenFromDeepLink', () => {
+  it.each([
+    'https://unrelated.test/invite#token=test-token',
+    'odin://reset-password#token=test-token',
+    'odin://sign-in#token=test-token',
+  ])('ignores non-invitation link %s', (url) => {
+    expect(tokenFromDeepLink(url)).toBeNull();
+  });
+  it('accepts the production web invitation path', () => {
+    expect(tokenFromDeepLink('https://odin-ten-tau.vercel.app/invite#token=test-token')).toBe(
+      'test-token',
+    );
+  });
   it('reads the token out of the link fragment', () => {
     expect(tokenFromDeepLink('odin://invite#token=abc123')).toBe('abc123');
   });

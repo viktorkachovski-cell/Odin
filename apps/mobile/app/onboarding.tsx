@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -12,11 +12,13 @@ import { validateDisplayName, validateHouseholdName } from '@odin/domain';
 import type { Locale, TranslationKey } from '@odin/i18n';
 
 import { useOdin } from '../src/state/OdinContext.ts';
-import { useProfileQuery } from '../src/state/queries.ts';
+import { useHouseholdQuery, useProfileQuery } from '../src/state/queries.ts';
 import { ErrorBanner } from '../src/components/Banner.tsx';
 import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
 import { Field } from '../src/components/Field.tsx';
-import { LoadingState, Screen } from '../src/components/Screen.tsx';
+import { LoadingState } from '../src/components/Screen.tsx';
+import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
+import { QueryFailure } from '../src/components/QueryFailure.tsx';
 import { useTheme } from '../src/theme.ts';
 
 /**
@@ -56,9 +58,10 @@ function LanguageChoice({
 }
 
 export default function OnboardingScreen(): ReactNode {
-  const { t, client, locale, setLocale } = useOdin();
+  const { t, client, locale, setLocale, user, authReady, online } = useOdin();
   const theme = useTheme();
   const profile = useProfileQuery();
+  const household = useHouseholdQuery();
 
   const [displayName, setDisplayName] = useState('');
   const [householdName, setHouseholdName] = useState('');
@@ -81,7 +84,22 @@ export default function OnboardingScreen(): ReactNode {
     },
   );
 
-  if (profile.isPending) return <LoadingState label={t('state.loading')} />;
+  if (!authReady) return <LoadingState label={t('state.loading')} />;
+  if (user === null) return <Redirect href="/sign-in" />;
+  if (profile.isError || household.isError) {
+    return (
+      <QueryFailure
+        error={profile.error ?? household.error}
+        onRetry={() => {
+          void profile.refetch();
+          void household.refetch();
+        }}
+      />
+    );
+  }
+  if (profile.isPending || household.isPending) return <LoadingState label={t('state.loading')} />;
+  // Invitation redemption may precede profile setup. Do not offer a second household.
+  if (profile.data && household.data) return <Redirect href="/" />;
 
   const needsProfile = profile.data === null || profile.data === undefined;
 
@@ -118,6 +136,7 @@ export default function OnboardingScreen(): ReactNode {
             value={displayName}
           />
           <PrimaryButton
+            disabled={!online}
             label={t('onboarding.name.continue')}
             onPress={submitProfile}
             pending={saveProfile.state.pending}
@@ -146,6 +165,7 @@ export default function OnboardingScreen(): ReactNode {
           value={seedLocale}
         />
         <PrimaryButton
+          disabled={!online}
           label={startHousehold.state.pending ? t('onboarding.creating') : t('onboarding.create')}
           onPress={submitHousehold}
           pending={startHousehold.state.pending}

@@ -62,8 +62,10 @@ export function useAuthRequest(): AuthRequest {
         // The data layer already converts failures into a CommandResult, so
         // reaching here means something unforeseen; it still must not surface
         // a provider message.
-        setError({ code: 'UNKNOWN', message_key: 'error.unknown' });
-        return null;
+        const failure: CommandError = { code: 'UNKNOWN', message_key: 'error.unknown' };
+        setError(failure);
+        if (sendsEmail) setCooldown(EMAIL_COOLDOWN_SECONDS);
+        return { ok: false, error: failure };
       } finally {
         locked.current = false;
         setPending(false);

@@ -1,11 +1,12 @@
 import { Stack } from 'expo-router';
+import { randomUUID } from 'expo-crypto';
 import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { createOdinClient, type OdinSupabaseClient } from '@odin/data';
+import { configureRequestIdGenerator, createOdinClient, type OdinSupabaseClient } from '@odin/data';
 
 import { OdinProvider } from '../src/state/OdinProvider.tsx';
 import { InvalidEnvError, MissingEnvError, readEnv } from '../src/env.ts';
@@ -23,6 +24,7 @@ type Bootstrap =
 
 function bootstrap(): Bootstrap {
   try {
+    configureRequestIdGenerator(randomUUID);
     const env = readEnv();
     return {
       ok: true,

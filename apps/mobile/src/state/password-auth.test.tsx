@@ -90,6 +90,25 @@ beforeEach(() => {
 });
 
 describe('sign-in', () => {
+  it('clears the password even if an unexpected exception escapes the adapter', async () => {
+    data.signInWithPassword.mockRejectedValue(new Error('private provider details'));
+    await render(<SignInScreen />, { wrapper: wrapper() });
+    await type('Email address', 'someone@example.test');
+    await type('Password', 'wrong-password');
+    await fireEvent.press(screen.getByLabelText('Sign in'));
+    expect(screen.getByLabelText('Password').props.value).toBe('');
+    expect(screen.queryByText('private provider details')).toBeNull();
+  });
+
+  it('preserves the invitation destination on the recovery detour', async () => {
+    mockParams = { next: '/invite' };
+    await render(<SignInScreen />, { wrapper: wrapper() });
+    await fireEvent.press(screen.getByLabelText('Forgot password?'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/forgot-password',
+      params: { next: '/invite' },
+    });
+  });
   it('reports a wrong password generically and drops it from state', async () => {
     data.signInWithPassword.mockResolvedValue(failed('auth.password.invalid_credentials'));
     await render(<SignInScreen />, { wrapper: wrapper() });
@@ -256,6 +275,12 @@ describe('registration', () => {
 });
 
 describe('password recovery', () => {
+  it('returns to sign-in with the invitation destination intact', async () => {
+    mockParams = { next: '/invite' };
+    await render(<ForgotPasswordScreen />, { wrapper: wrapper() });
+    await fireEvent.press(screen.getByLabelText('Back to sign in'));
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/sign-in', params: { next: '/invite' } });
+  });
   it('acknowledges without revealing whether the account exists', async () => {
     data.requestPasswordReset.mockResolvedValue(ok(null));
     await render(<ForgotPasswordScreen />, { wrapper: wrapper() });

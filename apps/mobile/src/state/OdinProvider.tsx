@@ -1,7 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getLocales } from 'expo-localization';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { AuthUser, OdinSupabaseClient } from '@odin/data';
 import { getCurrentUser, onAuthStateChange, signOut as signOutUser } from '@odin/data';
@@ -9,6 +9,8 @@ import { createTranslator, resolveLocale, type Locale } from '@odin/i18n';
 
 import { OdinContext, type OdinContextValue } from './OdinContext.ts';
 import { clearPendingInvitation } from './pending-invitation.ts';
+import { useSessionRefresh } from './useSessionRefresh.ts';
+import { useInvitationLinks } from './useInvitationLinks.ts';
 
 /**
  * The language preference lives on the server profile rather than in device
@@ -49,11 +51,12 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const online = useOnlineStatus();
+  useSessionRefresh(client);
+  useInvitationLinks();
 
   // The identity the cache currently belongs to, and whether a live auth event
   // has already superseded the initial session lookup.
   const identityRef = useRef<string | null>(null);
-  const authEventSeen = useRef(false);
 
   const queryClientRef = useRef<QueryClient | null>(queryClient ?? null);
   queryClientRef.current ??= new QueryClient({
@@ -80,6 +83,7 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
       if (identityRef.current !== nextId) {
         activeQueryClient.clear();
         setLastSyncedAt(null);
+        setLocale(deviceLocale());
         // Only a change away from a signed-in account discards the invitation;
         // signing in to redeem one must keep it.
         if (identityRef.current !== null) clearPendingInvitation();
@@ -92,10 +96,12 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
 
   useEffect(() => {
     let cancelled = false;
+    let authEventSeen = false;
 
     // Subscribing before the lookup means no event can slip through the gap.
     const unsubscribe = onAuthStateChange(client, (next) => {
-      authEventSeen.current = true;
+      if (cancelled) return;
+      authEventSeen = true;
       applyUser(next);
       setAuthReady(true);
     });
@@ -105,10 +111,10 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
         // An auth event that landed while this lookup was in flight is the
         // newer truth; applying a slow lookup now would resurrect the identity
         // the event just replaced.
-        if (!cancelled && !authEventSeen.current) applyUser(current);
+        if (!cancelled && !authEventSeen) applyUser(current);
       })
       .catch(() => {
-        if (!cancelled && !authEventSeen.current) applyUser(null);
+        if (!cancelled && !authEventSeen) applyUser(null);
       })
       .finally(() => {
         if (!cancelled) setAuthReady(true);
@@ -149,7 +155,9 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
 
   return (
     <QueryClientProvider client={activeQueryClient}>
-      <OdinContext value={value}>{children}</OdinContext>
+      <OdinContext value={value}>
+        <Fragment key={user?.id ?? 'signed-out'}>{children}</Fragment>
+      </OdinContext>
     </QueryClientProvider>
   );
 }

@@ -12,7 +12,7 @@ import { errorMessage } from '../src/components/Banner.tsx';
 import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
 import { Field } from '../src/components/Field.tsx';
 import { PasswordField } from '../src/components/PasswordField.tsx';
-import { Screen } from '../src/components/Screen.tsx';
+import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
 import { CONFIRMATION_URL } from '../src/auth-urls.ts';
 import { safeAuthDestination } from '../src/routing.ts';
 import { useTheme } from '../src/theme.ts';
@@ -111,7 +111,11 @@ export default function RegisterScreen(): ReactNode {
               onPress={resend}
             />
 
-            <PrimaryButton label={t('auth.password.back_to_sign_in')} onPress={toSignIn} />
+            <PrimaryButton
+              disabled={request.pending}
+              label={t('auth.password.back_to_sign_in')}
+              onPress={toSignIn}
+            />
           </>
         ) : (
           <>
@@ -158,7 +162,11 @@ export default function RegisterScreen(): ReactNode {
               pending={request.pending}
             />
 
-            <SecondaryButton label={t('auth.password.back_to_sign_in')} onPress={toSignIn} />
+            <SecondaryButton
+              disabled={request.pending}
+              label={t('auth.password.back_to_sign_in')}
+              onPress={toSignIn}
+            />
           </>
         )}
 

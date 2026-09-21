@@ -10,6 +10,8 @@ export type {
   SessionStorageAdapter,
 } from './client.ts';
 export { createOdinClient } from './client.ts';
+export { configureRequestIdGenerator } from './request-id.ts';
+export { setSessionAutoRefresh } from './auth.ts';
 
 export type { AuthUser } from './auth.ts';
 export {

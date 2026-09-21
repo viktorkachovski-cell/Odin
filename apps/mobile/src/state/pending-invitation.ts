@@ -10,9 +10,18 @@
  */
 
 let token: string | null = null;
+const listeners = new Set<() => void>();
+
+export function subscribeInvitation(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 export function rememberInvitation(value: string): void {
   token = value;
+  for (const listener of listeners) listener();
 }
 
 export function getPendingInvitation(): string | null {
@@ -21,4 +30,5 @@ export function getPendingInvitation(): string | null {
 
 export function clearPendingInvitation(): void {
   token = null;
+  for (const listener of listeners) listener();
 }

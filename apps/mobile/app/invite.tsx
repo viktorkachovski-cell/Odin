@@ -1,6 +1,5 @@
-import { useURL } from 'expo-linking';
 import { router } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { keysAffectedByMembershipChange, redeemInvitation, useCommand } from '@odin/data';
@@ -9,11 +8,10 @@ import { useOdin } from '../src/state/OdinContext.ts';
 import { ErrorBanner } from '../src/components/Banner.tsx';
 import { PrimaryButton } from '../src/components/Button.tsx';
 import { LoadingState, Screen } from '../src/components/Screen.tsx';
-import { tokenFromDeepLink } from '../src/routing.ts';
 import {
   clearPendingInvitation,
   getPendingInvitation,
-  rememberInvitation,
+  subscribeInvitation,
 } from '../src/state/pending-invitation.ts';
 
 /**
@@ -29,16 +27,8 @@ import {
  */
 
 export default function InviteScreen(): ReactNode {
-  const { t, user, authReady, client } = useOdin();
-  const url = useURL();
-  const [token, setToken] = useState<string | null>(getPendingInvitation);
-
-  useEffect(() => {
-    const found = tokenFromDeepLink(url);
-    if (found === null) return;
-    rememberInvitation(found);
-    setToken(found);
-  }, [url]);
+  const { t, user, authReady, client, online } = useOdin();
+  const token = useSyncExternalStore(subscribeInvitation, getPendingInvitation);
 
   useEffect(() => {
     if (!authReady || user !== null) return;
@@ -80,6 +70,7 @@ export default function InviteScreen(): ReactNode {
           />
         )}
         <PrimaryButton
+          disabled={!online}
           label={redeem.state.pending ? t('invite.joining') : t('invite.accept')}
           onPress={() => void redeem.run({ token })}
           pending={redeem.state.pending}

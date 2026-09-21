@@ -59,6 +59,15 @@ export async function signOut(client: OdinSupabaseClient): Promise<void> {
   await client.auth.signOut();
 }
 
+/** Native lifecycle adapter; browsers continue to use SDK visibility handling. */
+export async function setSessionAutoRefresh(
+  client: OdinSupabaseClient,
+  active: boolean,
+): Promise<void> {
+  if (active) await client.auth.startAutoRefresh();
+  else await client.auth.stopAutoRefresh();
+}
+
 export async function getCurrentUser(client: OdinSupabaseClient): Promise<AuthUser | null> {
   const { data, error } = await client.auth.getSession();
   if (error !== null) throw new OdinError(mapPostgrestError(error));

@@ -10,7 +10,7 @@ import { errorMessage } from '../src/components/Banner.tsx';
 import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
 import { Field } from '../src/components/Field.tsx';
 import { PasswordField } from '../src/components/PasswordField.tsx';
-import { Screen } from '../src/components/Screen.tsx';
+import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
 import { CONFIRMATION_URL } from '../src/auth-urls.ts';
 import { safeAuthDestination } from '../src/routing.ts';
 import { useTheme } from '../src/theme.ts';
@@ -134,13 +134,17 @@ export default function SignInScreen(): ReactNode {
         )}
 
         <SecondaryButton
+          disabled={request.pending}
           label={t('auth.password.register')}
           onPress={() => router.push({ pathname: '/register', params: { next: destination } })}
         />
 
         <SecondaryButton
+          disabled={request.pending}
           label={t('auth.password.forgot')}
-          onPress={() => router.push('/forgot-password')}
+          onPress={() =>
+            router.push({ pathname: '/forgot-password', params: { next: destination } })
+          }
         />
 
         <Text style={{ color: theme.colors.textMuted }}>{t('auth.password.existing_otp')}</Text>

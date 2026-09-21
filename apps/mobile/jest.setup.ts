@@ -23,6 +23,11 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageTag: 'en-GB', languageCode: 'en' }],
 }));
 
+jest.mock('expo-linking', () => ({
+  getInitialURL: jest.fn(() => Promise.resolve(null)),
+  addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
 /**
  * Safe-area insets come from a native module. The library's own mock returns
  * fixed insets so screens that frame themselves with them still render.
