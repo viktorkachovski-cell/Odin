@@ -20,7 +20,7 @@ implementations. This matches the existing `update_task` permissions. All
 four functions were verified: authenticated=true, anon=false. Declarative
 grants were updated too, so rebuilding the local schema preserves access.
 
-`supabase/tests/lifecycle-smoke.sql` passed on production using randomly
+`supabase/smoke/lifecycle-smoke.sql` passed on production using randomly
 generated synthetic identities and a transaction ending in ROLLBACK. It
 checks unauthenticated rejection, assignment removal with deadline preserved,
 task deletion, list archival with tasks retained, stale-version conflicts,

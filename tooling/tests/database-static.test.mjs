@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import test from 'node:test';
 
 const schemaFiles = [
@@ -111,4 +112,43 @@ test('task notes and household templates preserve validation and authorization b
   );
   assert.match(taskFeaturesMigration, /p_expected_version bigint/i);
   assert.match(taskFeaturesMigration, /'update_task_v2'/i);
+});
+
+test('every collected database test declares a pgTAP plan', async () => {
+  // `supabase test db` hands every .sql under supabase/tests/ to pg_prove, which
+  // fails a file emitting no TAP plan with "No plan found in TAP output" -- the
+  // whole workflow goes red without a single assertion having failed. Scripts
+  // that assert by raising instead belong in supabase/smoke/.
+  const root = 'supabase/tests';
+  const entries = await readdir(root, { recursive: true, withFileTypes: true });
+  const collected = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
+    .map((entry) => join(entry.parentPath ?? entry.path, entry.name));
+
+  assert.ok(collected.length > 0, 'expected at least one pgTAP test to be collected');
+
+  for (const file of collected) {
+    const body = await readFile(file, 'utf8');
+    assert.match(
+      body,
+      /select\s+plan\(/i,
+      `${file} is collected by pg_prove but declares no plan()`,
+    );
+    assert.match(body, /finish\(\)/i, `${file} declares a plan but never calls finish()`);
+  }
+});
+
+test('smoke scripts stay outside the collected test tree', async () => {
+  const entries = await readdir('supabase/smoke', { withFileTypes: true });
+  const scripts = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.sql'));
+  assert.ok(scripts.length > 0, 'expected smoke scripts under supabase/smoke');
+
+  for (const entry of scripts) {
+    const body = await readFile(join('supabase/smoke', entry.name), 'utf8');
+    assert.doesNotMatch(
+      body,
+      /select\s+plan\(/i,
+      `${entry.name} declares a pgTAP plan, so it belongs under supabase/tests/`,
+    );
+  }
 });
