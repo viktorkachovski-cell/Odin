@@ -12,7 +12,8 @@ All IDs are UUIDs. All instants are Postgres `timestamptz`, serialized as ISO 86
 | `households`               | `id`, `name`, `seed_locale`, `created_by`, `created_at`; no task-management role hierarchy                                                                                                                       |
 | `memberships`              | PK (`household_id`,`user_id`), `status` active/inactive, timestamps; partial unique active membership on `user_id` enforces one active household                                                                 |
 | `lists`                    | `id`, `household_id`, `kind` template/active, `title`, nullable `subtitle`, `status` open/archived, nullable `seed_key`, `created_by`, `created_at`, `updated_at`, `version` positive bigint; NO deadline column |
-| `tasks`                    | `id`, `household_id`, `list_id`, `title`, `sort_order`, `completed` boolean default false, nullable `assignee_id`, nullable `due_at`, server timestamps, positive `version`                                      |
+| `tasks`                    | `id`, `household_id`, `list_id`, `title` (1–500), nullable shared `notes` (max 5,000), `sort_order`, `completed`, nullable `assignee_id`/`due_at`, timestamps, positive `version`                                |
+| `task_templates`           | `id`, `household_id`, `title`, nullable `notes`, `created_by`, `created_at`; no assignment, deadline or completion state                                                                                         |
 | `private.command_receipts` | actor, household, request ID, command name, canonical payload hash, successful result reference/response, creation time; unique (actor, request ID)                                                              |
 | `private.invitations`      | id, household, creator, unique token hash, expiration, nullable redeemed_by/redeemed_at/revoked_at; never expose raw tokens or hashes via table reads                                                            |
 
@@ -22,7 +23,7 @@ Select projections must not leak `profiles.locale`, invite metadata or receipts 
 
 ## Read adapter API
 
-`@odin/data` exposes `getSession`, `getMyHousehold`, `getMembers`, `getHome`, `getList`, `getUnassigned`, `getMyTasks`, and command methods below. React query hooks can wrap these in the same package, but pure repositories remain testable without rendering. Clients supply platform storage and public Supabase configuration at bootstrap.
+`@odin/data` exposes `getSession`, `getMyHousehold`, `getMembers`, `getHome`, `getList`, `getUnassigned`, `getMyTasks`, `getTaskTemplates`, and command methods below. React query hooks can wrap these in the same package, but pure repositories remain testable without rendering. Clients supply platform storage and public Supabase configuration at bootstrap.
 
 - `getHome`: template summaries and open active-list summaries with total/completed counts; avoid N+1 per-list reads.
 - `getList(listId)`: list plus task pages ordered `(completed ASC, sort_order ASC, id ASC)` and total/completed counts for the full list. Progress must never be based only on a loaded page.
@@ -41,22 +42,23 @@ Responses are a discriminated union: `{ok:true,data:...}` or `{ok:false,error:{c
 
 Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `ALREADY_ASSIGNED`, `IDEMPOTENCY_MISMATCH`, `INVITE_EXPIRED`, `INVITE_USED`, `INVITE_REVOKED`, `ALREADY_IN_HOUSEHOLD`, `RATE_LIMITED`, `NETWORK`, `UNKNOWN`. Cross-household nonexistent/inaccessible IDs produce the same non-disclosing `NOT_FOUND` shape. Validation errors identify safe field names. `NETWORK` can mean an unknown commit outcome; retry with the same ID.
 
-| Command              | Input beyond envelope                                 | Result and atomic behavior                                                                                                       |
-| -------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `create_household`   | name, seed_locale                                     | household ID; locks user membership, creates membership and versioned seeds together; no second active household                 |
-| `update_profile`     | display_name, locale, nullable avatar_ref             | own safe profile; avatar uploads not implemented in MVP                                                                          |
-| `create_list`        | title, nullable subtitle                              | complete list DTO, version 1; active/open only                                                                                   |
-| `update_list`        | list_id, expected_version, title, subtitle            | updated DTO; active/open only                                                                                                    |
-| `delete_list`        | list_id, expected_version                             | `{list_id}`; archives the active list and retains its tasks for recovery; templates and already archived lists are not deletable |
-| `copy_template`      | template_id                                           | `{list_id}`; copy source snapshot in one transaction, reset all task runtime fields; one result per request ID                   |
-| `create_task`        | list_id, title, nullable assignee_id, nullable due_at | new task DTO; active/open parent, append order under list lock                                                                   |
-| `update_task`        | task_id, expected_version, title, assignee_id, due_at | full editor fields, updated task DTO; completed state untouched                                                                  |
-| `delete_task`        | task_id, expected_version                             | `{task_id}`; permanently deletes the task from an active/open list after the version check                                       |
-| `set_task_completed` | task_id, expected_version, completed boolean          | updated DTO; explicit desired state, never toggle                                                                                |
-| `claim_task`         | task_id, expected_version                             | assigns caller only if currently incomplete and unassigned; concurrent loser gets `ALREADY_ASSIGNED` or `CONFLICT`               |
-| `create_invitation`  | none                                                  | invitation ID, expiration, raw link once; active membership required, rate limited                                               |
-| `redeem_invitation`  | opaque token                                          | household ID; authenticate first, atomically lock token and user membership; one redemption                                      |
-| `revoke_invitation`  | invitation_id                                         | creator-only under proposed default, idempotent                                                                                  |
+| Command              | Input beyond envelope                                  | Result and atomic behavior                                                                                                       |
+| -------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `create_household`   | name, seed_locale                                      | household ID; locks user membership, creates membership and versioned seeds together; no second active household                 |
+| `update_profile`     | display_name, locale, nullable avatar_ref              | own safe profile; avatar uploads not implemented in MVP                                                                          |
+| `create_list`        | title, nullable subtitle                               | complete list DTO, version 1; active/open only                                                                                   |
+| `update_list`        | list_id, expected_version, title, subtitle             | updated DTO; active/open only                                                                                                    |
+| `delete_list`        | list_id, expected_version                              | `{list_id}`; archives the active list and retains its tasks for recovery; templates and already archived lists are not deletable |
+| `copy_template`      | template_id                                            | `{list_id}`; copy source snapshot in one transaction, reset all task runtime fields; one result per request ID                   |
+| `create_task_v2`     | list_id, title, nullable notes/assignee_id/due_at      | new task DTO; active/open parent, append order; legacy `create_task` remains compatible                                          |
+| `update_task_v2`     | task_id, expected_version, title, notes, assignee, due | full editor fields, completion untouched; legacy `update_task` preserves existing notes                                          |
+| `save_task_template` | title, nullable notes                                  | household template DTO; no runtime state accepted                                                                                |
+| `delete_task`        | task_id, expected_version                              | `{task_id}`; permanently deletes the task from an active/open list after the version check                                       |
+| `set_task_completed` | task_id, expected_version, completed boolean           | updated DTO; explicit desired state, never toggle                                                                                |
+| `claim_task`         | task_id, expected_version                              | assigns caller only if currently incomplete and unassigned; concurrent loser gets `ALREADY_ASSIGNED` or `CONFLICT`               |
+| `create_invitation`  | none                                                   | invitation ID, expiration, raw link once; active membership required, rate limited                                               |
+| `redeem_invitation`  | opaque token                                           | household ID; authenticate first, atomically lock token and user membership; one redemption                                      |
+| `revoke_invitation`  | invitation_id                                          | creator-only under proposed default, idempotent                                                                                  |
 
 For create-invitation retries, do not store raw tokens in plaintext receipts. Use a server-side encrypted short-lived response for the original operation, or deterministically rederive the token with a server-only secret and recorded nonce. The chosen implementation must return the same usable link for a retry, keep token hashes as lookup keys, and have a tested key-rotation policy. This is a backend concern; no client token generation from predictable IDs.
 

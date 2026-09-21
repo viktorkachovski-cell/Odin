@@ -179,6 +179,7 @@ export function ListDetail(): ReactNode {
       requestId,
       input: {
         readonly taskId: string | null;
+        readonly notes: string | null;
         readonly expectedVersion: number;
         readonly title: string;
         readonly assigneeId: string | null;
@@ -189,6 +190,7 @@ export function ListDetail(): ReactNode {
         ? createTask(client, requestId, {
             listId: listId ?? '',
             title: input.title,
+            notes: input.notes,
             assigneeId: input.assigneeId,
             dueAt: input.dueAt,
           })
@@ -196,6 +198,7 @@ export function ListDetail(): ReactNode {
             taskId: input.taskId,
             expectedVersion: input.expectedVersion,
             title: input.title,
+            notes: input.notes,
             assigneeId: input.assigneeId,
             dueAt: input.dueAt,
           }),
@@ -373,6 +376,7 @@ export function ListDetail(): ReactNode {
               taskId: editingTask?.id ?? null,
               expectedVersion: editingTask?.version ?? 0,
               title: input.title,
+              notes: input.notes,
               assigneeId: input.assigneeId,
               dueAt: input.dueAt,
             })

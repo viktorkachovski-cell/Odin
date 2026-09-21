@@ -10,6 +10,10 @@ grant execute on function public.delete_list(uuid, uuid, bigint) to authenticate
 grant execute on function public.delete_task(uuid, uuid, bigint) to authenticated;
 grant execute on function private.delete_list(uuid, uuid, bigint) to authenticated;
 grant execute on function private.delete_task(uuid, uuid, bigint) to authenticated;
+grant execute on function private.create_task_v2(uuid, uuid, text, uuid, timestamptz, text) to authenticated;
+grant execute on function private.update_task_v2(uuid, uuid, bigint, text, uuid, timestamptz, text) to authenticated;
+grant execute on function private.save_task_template(uuid, text, text) to authenticated;
+grant execute on function private.get_task_templates() to authenticated;
 grant usage on schema private to authenticated;
 grant select on public.profiles, public.households, public.memberships, public.lists, public.tasks
 to authenticated;
@@ -44,6 +48,9 @@ grant execute on function public.update_list(uuid, uuid, bigint, text, text) to 
 grant execute on function public.copy_template(uuid, uuid) to authenticated;
 grant execute on function public.create_task(uuid, uuid, text, uuid, timestamptz) to authenticated;
 grant execute on function public.update_task(uuid, uuid, bigint, text, uuid, timestamptz) to authenticated;
+grant execute on function public.create_task_v2(uuid, uuid, text, uuid, timestamptz, text) to authenticated;
+grant execute on function public.update_task_v2(uuid, uuid, bigint, text, uuid, timestamptz, text) to authenticated;
+grant execute on function public.save_task_template(uuid, text, text) to authenticated;
 grant execute on function public.set_task_completed(uuid, uuid, bigint, boolean) to authenticated;
 grant execute on function public.claim_task(uuid, uuid, bigint) to authenticated;
 grant execute on function public.create_invitation(uuid) to authenticated;
@@ -51,6 +58,7 @@ grant execute on function public.redeem_invitation(uuid, text) to authenticated;
 grant execute on function public.revoke_invitation(uuid, uuid) to authenticated;
 grant execute on function public.get_my_household() to authenticated;
 grant execute on function public.get_members() to authenticated;
+grant execute on function public.get_task_templates() to authenticated;
 grant execute on function public.get_home(text, integer) to authenticated;
 grant execute on function public.get_list(uuid, text, integer) to authenticated;
 grant execute on function public.get_unassigned(text, integer) to authenticated;

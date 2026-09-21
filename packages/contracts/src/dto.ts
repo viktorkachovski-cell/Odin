@@ -19,6 +19,8 @@ export type ListStatus = (typeof LIST_STATUSES)[number];
 /** Text limits enforced by the database's own CHECK constraints. */
 export const LIMITS = {
   title: { min: 1, max: 160 },
+  taskTitle: { min: 1, max: 500 },
+  notes: { min: 0, max: 5000 },
   subtitle: { min: 1, max: 300 },
   displayName: { min: 1, max: 80 },
   householdName: { min: 1, max: 160 },
@@ -74,7 +76,19 @@ export interface ListSummaryDto {
   readonly completed_tasks: number;
 }
 
+export interface TaskTemplateDto {
+  readonly id: string;
+  readonly title: string;
+  readonly notes: string | null;
+}
+
+export interface TaskTemplatePageDto {
+  readonly items: readonly TaskTemplateDto[];
+  readonly next_cursor: string | null;
+}
+
 export interface TaskDto {
+  readonly notes: string | null;
   readonly id: string;
   readonly household_id: string;
   readonly list_id: string;
@@ -136,6 +150,7 @@ export interface InvitationDto {
 export interface TaskRowModel {
   readonly id: string;
   readonly title: string;
+  readonly notes?: string | null | undefined;
   readonly completed: boolean;
   readonly assignee_id: string | null;
   readonly due_at: string | null;
@@ -148,6 +163,7 @@ export function taskRowFromTask(task: TaskDto): TaskRowModel {
   return {
     id: task.id,
     title: task.title,
+    notes: task.notes,
     completed: task.completed,
     assignee_id: task.assignee_id,
     due_at: task.due_at,

@@ -419,6 +419,16 @@ h3 {
   color: var(--color-text-muted);
 }
 
+.task-row__notes {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 /* Metadata wraps rather than scrolling horizontally on narrow widths. */
 .task-row__meta {
   display: flex;

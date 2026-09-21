@@ -265,14 +265,188 @@ begin
   values (v_household, 'active', v_source.title, v_source.subtitle, v_actor)
   returning id into v_list_id;
 
-  insert into public.tasks (household_id, list_id, title, sort_order)
-  select v_household, v_list_id, title, sort_order
+  insert into public.tasks (household_id, list_id, title, sort_order, notes)
+  select v_household, v_list_id, title, sort_order, notes
   from public.tasks
   where list_id = p_template_id
   order by sort_order, id;
 
   v_response := private.ok_response(jsonb_build_object('list_id', v_list_id));
   perform private.save_command(v_actor, p_request_id, v_household, 'copy_template', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function private.create_task_v2(
+  p_request_id uuid,
+  p_list_id uuid,
+  p_title text,
+  p_assignee_id uuid default null,
+  p_due_at timestamptz default null,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_title text := private.normalized_text(p_title);
+  v_notes text := private.normalized_text(p_notes);
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_order integer;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null then return private.error_response('VALIDATION', 'error.request_id_required'); end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  if v_title is null or char_length(v_title) > 500 or char_length(v_notes) > 5000 then
+    return private.error_response('VALIDATION', 'error.task_invalid');
+  end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'list_id', p_list_id, 'title', v_title, 'notes', v_notes,
+    'assignee_id', p_assignee_id, 'due_at', p_due_at
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'create_task_v2', v_hash);
+  if v_replay is not null then return v_replay; end if;
+
+  if not private.lock_active_members(
+    v_household, array_remove(array[v_actor, p_assignee_id], null)
+  ) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+  perform 1 from public.lists
+  where id = p_list_id and household_id = v_household and kind = 'active' and status = 'open'
+  for update;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  if p_assignee_id is not null and not private.is_active_member(v_household, p_assignee_id) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+  select coalesce(max(sort_order), -1) + 1 into v_order from public.tasks where list_id = p_list_id;
+
+  insert into public.tasks (household_id, list_id, title, sort_order, assignee_id, due_at, notes)
+  values (v_household, p_list_id, v_title, v_order, p_assignee_id, p_due_at, v_notes)
+  returning * into v_task;
+  v_response := private.ok_response(to_jsonb(v_task));
+  perform private.save_command(v_actor, p_request_id, v_household, 'create_task_v2', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function private.update_task_v2(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_expected_version bigint,
+  p_title text,
+  p_assignee_id uuid default null,
+  p_due_at timestamptz default null,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_title text := private.normalized_text(p_title);
+  v_notes text := private.normalized_text(p_notes);
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_expected_version is null or p_expected_version < 1 then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  if v_title is null or char_length(v_title) > 500 or char_length(v_notes) > 5000 then
+    return private.error_response('VALIDATION', 'error.task_invalid');
+  end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'task_id', p_task_id, 'expected_version', p_expected_version,
+    'title', v_title, 'notes', v_notes, 'assignee_id', p_assignee_id, 'due_at', p_due_at
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'update_task_v2', v_hash);
+  if v_replay is not null then return v_replay; end if;
+  if not private.lock_active_members(
+    v_household, array_remove(array[v_actor, p_assignee_id], null)
+  ) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+
+  select t.* into v_task from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = v_household
+    and l.kind = 'active' and l.status = 'open'
+  for update of t;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  if v_task.version <> p_expected_version then
+    return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+  if p_assignee_id is not null and not private.is_active_member(v_household, p_assignee_id) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+
+  update public.tasks
+  set title = v_title, notes = v_notes, assignee_id = p_assignee_id, due_at = p_due_at
+  where id = p_task_id returning * into v_task;
+  v_response := private.ok_response(to_jsonb(v_task));
+  perform private.save_command(v_actor, p_request_id, v_household, 'update_task_v2', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function private.save_task_template(
+  p_request_id uuid, p_title text, p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_title text := private.normalized_text(p_title);
+  v_notes text := private.normalized_text(p_notes);
+  v_hash bytea;
+  v_replay jsonb;
+  v_template public.task_templates%rowtype;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null then return private.error_response('VALIDATION', 'error.request_id_required'); end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  if v_title is null or char_length(v_title) > 500 or char_length(v_notes) > 5000 then
+    return private.error_response('VALIDATION', 'error.task_invalid');
+  end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object('title', v_title, 'notes', v_notes));
+  v_replay := private.replay_command(v_actor, p_request_id, 'save_task_template', v_hash);
+  if v_replay is not null then return v_replay; end if;
+  if not private.lock_active_members(v_household, array[v_actor]) then
+    return private.error_response('FORBIDDEN', 'error.household_required');
+  end if;
+
+  insert into public.task_templates (household_id, title, notes, created_by)
+  values (v_household, v_title, v_notes, v_actor)
+  returning * into v_template;
+  v_response := private.ok_response(jsonb_build_object(
+    'id', v_template.id, 'title', v_template.title, 'notes', v_template.notes
+  ));
+  perform private.save_command(v_actor, p_request_id, v_household, 'save_task_template', v_hash, v_response);
   return v_response;
 end;
 $$;
@@ -734,11 +908,31 @@ create or replace function public.create_task(
 ) returns jsonb language sql security invoker set search_path = ''
 as $$ select private.create_task(request_id, list_id, title, assignee_id, due_at); $$;
 
+create or replace function public.create_task_v2(
+  request_id uuid, list_id uuid, title text, assignee_id uuid default null,
+  due_at timestamptz default null, notes text default null
+)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.create_task_v2(request_id, list_id, title, assignee_id, due_at, notes); $$;
+
 create or replace function public.update_task(
   request_id uuid, task_id uuid, expected_version bigint, title text,
   assignee_id uuid default null, due_at timestamptz default null
 ) returns jsonb language sql security invoker set search_path = ''
 as $$ select private.update_task(request_id, task_id, expected_version, title, assignee_id, due_at); $$;
+
+create or replace function public.update_task_v2(
+  request_id uuid, task_id uuid, expected_version bigint, title text,
+  assignee_id uuid default null, due_at timestamptz default null, notes text default null
+)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.update_task_v2(request_id, task_id, expected_version, title, assignee_id, due_at, notes); $$;
+
+create or replace function public.save_task_template(
+  request_id uuid, title text, notes text default null
+)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.save_task_template(request_id, title, notes); $$;
 
 create or replace function public.set_task_completed(
   request_id uuid, task_id uuid, expected_version bigint, completed boolean

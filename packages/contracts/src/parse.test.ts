@@ -20,6 +20,7 @@ const task = {
   completed: false,
   assignee_id: null,
   due_at: null,
+  notes: null,
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
   version: 1,
@@ -149,6 +150,7 @@ describe('parseTaskPage', () => {
     list_title: 'Weekly cleaning',
     title: 'Bathroom',
     due_at: null,
+    notes: null,
     has_no_due: true,
     version: 1,
   };

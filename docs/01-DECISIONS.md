@@ -9,6 +9,9 @@
 | Sign-in             | Email registration, confirmation link and password login on web; mobile migration specified in `16-MOBILE-PASSWORD-AUTH-AGENT.md` |
 | Invitations         | Any household member may invite through an expiring link                                                                          |
 | Backend and hosting | Supabase Postgres; Vercel desktop website                                                                                         |
+| Task deadline       | Date may omit time; date-only resolves to 23:59:59.999 in the user's local time zone                                              |
+| Task text           | Task title 1–500 Unicode code points; shared notes up to 5,000 editable by any household member                                   |
+| Task templates      | Any member may save title and notes; applying a template resets assignee, deadline and completion                                 |
 | Deliverable now     | Markdown execution briefs, linter and handling rules, uploaded to Odin on GitHub                                                  |
 
 ## Confirmed by the source requirements
@@ -28,8 +31,8 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 | Invitation recipient  | Bearer link usable by a signed-in person; not email-bound; show household name only after secure token validation                  |
 | Invitation revocation | Creator may revoke their outstanding invitations; broader moderation remains undecided                                             |
 | Email delivery        | Custom SMTP required for general-user confirmation and recovery email delivery; preserve default confirmation/reset link templates |
-| Task time             | Optional explicit local date and time converted to UTC instant; no implicit end-of-day or date-only deadlines                      |
-| Text limits           | Trimmed title 1–160 characters, subtitle up to 300, display name 1–80; enforce consistently using Unicode code points              |
+| Task time             | Optional local date and time converted to UTC; date-only tasks resolve to local end of day                                         |
+| Text limits           | List title 1–160; task title 1–500; notes 5,000; subtitle 300; display name 1–80 Unicode code points                               |
 | List task ordering    | Append at end, stable ordering; no drag-and-drop editing in MVP                                                                    |
 | Avatars               | Initials and deterministic accessible colors satisfy fallback requirement; uploads deferred                                        |
 | Templates             | Versioned, reviewed English/Bulgarian seed content copied into each household; immutable in normal client UI                       |
@@ -42,7 +45,7 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 1. Approve invitation lifetime, bearer-link behavior and onboarding defaults above; expiry value can be configuration, not hardcoded in clients.
 2. ~~Select Odin Supabase organization/region/plan and staging/production budget~~ — **settled 2026-09-20**: one hosted environment, the `mvltbhtsukorspmpyhpw` project in eu-central-1, treated as production (see `00-ARCHITECTURE.md`). Still open: select the SMTP sender and provider. No reuse of LARP resources.
 3. Decide member removal/household exit, account deletion and recovery policy. Equal task permissions do not imply authority to expel people. Until approved, do not expose removal UI. Backend design must still handle revoked membership safely.
-4. Approve template seed titles/content in both languages. User template creation/editing remains deferred.
+4. Approve list-template seed titles/content in both languages. Household task-template creation is implemented separately.
 5. Choose Android distribution (private APK initially or Play Store), package identifier, signing ownership and exact supported Android/browser versions after Expo selection.
 6. Decide whether children need accounts without email. Email registration assumes each member can receive email; agents must not invent shared logins or child/guardian roles.
 
@@ -52,6 +55,6 @@ The owner requested email registration and password login on the Vercel app, plu
 
 This release adds shared APIs and preserves the old mobile OTP API and translations. Android screen implementation is a separate workstream, described in `16-MOBILE-PASSWORD-AUTH-AGENT.md`. No household rules or database identities change.
 
-Notifications, automatic recurrence, destructive deletion, archive/recovery workflows, iOS release, comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Add none as hidden convenience features.
+Notifications, automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Tasks have one shared editable notes field, not an authored discussion thread.
 
 List/task removal is mentioned in BR 10 but not approved as a core UI flow. Test progress against the current non-deleted task set; defer user-facing removal until lifecycle behavior is approved. `status` can reserve archived state without exposing an archive command.

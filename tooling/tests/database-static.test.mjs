@@ -15,6 +15,10 @@ const lifecycleMigration = await readFile(
   'supabase/migrations/20260921180000_delete_list_task_commands.sql',
   'utf8',
 );
+const taskFeaturesMigration = await readFile(
+  'supabase/migrations/20260921180500_task_notes_templates.sql',
+  'utf8',
+);
 
 test('database schema preserves product boundaries', () => {
   const listTable = schema.match(/create table public\.lists \(([\s\S]*?)\n\);/i)?.[1];
@@ -87,4 +91,24 @@ test('list and task lifecycle commands preserve version and household boundaries
   assert.match(lifecycleMigration, /lock_active_members\(v_household, array\[v_actor\]\)/i);
   assert.match(lifecycleMigration, /revoke all on function public\.delete_list/i);
   assert.match(lifecycleMigration, /revoke all on function public\.delete_task/i);
+});
+
+test('task notes and household templates preserve validation and authorization boundaries', () => {
+  assert.match(taskFeaturesMigration, /char_length\(title\) between 1 and 500/i);
+  assert.match(taskFeaturesMigration, /char_length\(notes\) <= 5000/i);
+  assert.match(
+    taskFeaturesMigration,
+    /alter table public\.task_templates enable row level security/i,
+  );
+  assert.match(
+    taskFeaturesMigration,
+    /private\.lock_active_members\(v_household, array\[v_actor\]\)/i,
+  );
+  assert.match(taskFeaturesMigration, /where household_id = private\.active_household_id\(\)/i);
+  assert.match(
+    taskFeaturesMigration,
+    /revoke all on function public\.save_task_template[^;]+from public, anon/i,
+  );
+  assert.match(taskFeaturesMigration, /p_expected_version bigint/i);
+  assert.match(taskFeaturesMigration, /'update_task_v2'/i);
 });

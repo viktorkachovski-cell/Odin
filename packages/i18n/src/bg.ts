@@ -210,10 +210,24 @@ export const bg: Record<TranslationKey, string> = {
   'validation.code.invalid': 'Кодът не е верен. Проверете го и опитайте отново.',
   'validation.code.expired': 'Кодът е изтекъл. Поискайте нов.',
   'validation.cursor.invalid': 'Загубихме мястото ви в списъка. Презареждаме.',
-  'validation.due.invalid_format': 'Въведете и дата, и час.',
+  'validation.due.invalid_format': 'Въведете валидна дата. За час е необходима дата.',
   'validation.due.nonexistent_local_time':
     'Този час не съществува на тази дата заради смяната на часовото време. Изберете друг час.',
 
+  'task.notes.label': 'Бележки (незадължително)',
+  'task.due.optional': 'Часът не е задължителен. Ако няма час, срокът е краят на избрания ден.',
+  'task.due.end_of_day': 'До края на деня',
+  'task.template.choose': 'Използвай запазен шаблон за задача',
+  'task.template.none': 'Започни с празна задача',
+  'task.template.save': 'Запази като шаблон',
+  'task.template.saved': 'Шаблонът е запазен и е достъпен за домакинството.',
+  'task.template.hint':
+    'Копират се само текущото заглавие и бележките. Отговорникът, срокът и изпълнението се изчистват.',
+  'task.template.empty': 'Все още няма запазени шаблони за задачи.',
+  'task.template.more': 'Още шаблони',
+  'validation.task_title.required': 'Въведете заглавие на задачата.',
+  'validation.task_title.length': 'Използвайте между 1 и 500 знака.',
+  'validation.notes.length': 'Използвайте най-много 5000 знака.',
   'locale.en': 'English',
   'locale.bg': 'Български',
 };

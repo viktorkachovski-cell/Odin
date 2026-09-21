@@ -2,7 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
-import { dueDraftFromIso, resolveDueInput, validateTitle, type TaskDueDraft } from '@odin/domain';
+import {
+  dueDraftFromIso,
+  resolveDueInput,
+  validateTaskTitle,
+  validateNotes,
+  type TaskDueDraft,
+} from '@odin/domain';
 import type { Locale, TranslationKey, Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -11,6 +17,7 @@ import { errorMessage } from './Banner.tsx';
 import { PrimaryButton, SecondaryButton } from './Button.tsx';
 import { DueField } from './DueField.tsx';
 import { Field } from './Field.tsx';
+import { TaskTemplates } from './TaskTemplates.tsx';
 import { Sheet } from './Sheet.tsx';
 
 /**
@@ -21,12 +28,14 @@ import { Sheet } from './Sheet.tsx';
 
 export interface TaskDraft extends TaskDueDraft {
   readonly title: string;
+  readonly notes: string;
   readonly assigneeId: string | null;
 }
 
 export function draftFromTask(task: TaskDto | null): TaskDraft {
   return {
     title: task?.title ?? '',
+    notes: task?.notes ?? '',
     assigneeId: task?.assignee_id ?? null,
     ...dueDraftFromIso(task?.due_at),
   };
@@ -50,6 +59,7 @@ export interface TaskEditorProps {
   readonly onReviewConflict: () => void;
   readonly onSubmit: (input: {
     readonly title: string;
+    readonly notes: string;
     readonly assigneeId: string | null;
     readonly dueAt: string | null;
   }) => void;
@@ -70,15 +80,23 @@ export function TaskEditor({
   const theme = useTheme();
   const [draft, setDraft] = useState<TaskDraft>(() => draftFromTask(task));
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
+  const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
 
   const submit = (): void => {
-    const issue = validateTitle(draft.title);
+    const issue = validateTaskTitle(draft.title);
+    const notesError = validateNotes(draft.notes);
     const due = resolveDueInput(draft);
     setTitleIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setNotesIssue(notesError === null ? undefined : t(notesError.message_key as TranslationKey));
     setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
-    if (issue !== null || !due.ok) return;
-    onSubmit({ title: draft.title.trim(), assigneeId: draft.assigneeId, dueAt: due.dueAt });
+    if (issue !== null || notesError !== null || !due.ok) return;
+    onSubmit({
+      title: draft.title.trim(),
+      notes: draft.notes.trim(),
+      assigneeId: draft.assigneeId,
+      dueAt: due.dueAt,
+    });
   };
 
   return (
@@ -115,6 +133,21 @@ export function TaskEditor({
         </Text>
       )}
 
+      <TaskTemplates
+        draft={draft}
+        allowChoose={task === null}
+        disabled={pending}
+        onChoose={(template) =>
+          setDraft({
+            title: template.title,
+            notes: template.notes ?? '',
+            assigneeId: null,
+            dueDate: '',
+            dueTime: '',
+          })
+        }
+        t={t}
+      />
       <Field
         error={titleIssue}
         label={t('task.title.label')}
@@ -122,6 +155,14 @@ export function TaskEditor({
         value={draft.title}
       />
 
+      <Field
+        multiline
+        numberOfLines={4}
+        error={notesIssue}
+        label={t('task.notes.label')}
+        value={draft.notes}
+        onChangeText={(notes) => setDraft((current) => ({ ...current, notes }))}
+      />
       <AssigneePicker
         members={members}
         onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}

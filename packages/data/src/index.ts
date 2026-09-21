@@ -65,6 +65,7 @@ export {
   keysAffectedByListChange,
   keysAffectedByMembershipChange,
   keysAffectedByTaskChange,
+  keysAffectedByTaskTemplateChange,
   queryKeys,
 } from './query-keys.ts';
 
@@ -73,3 +74,5 @@ export { subscribeToHousehold } from './realtime.ts';
 
 export type { CommandState, UseCommandResult } from './use-command.ts';
 export { useCommand } from './use-command.ts';
+
+export { getTaskTemplates, saveTaskTemplate } from './task-templates.ts';

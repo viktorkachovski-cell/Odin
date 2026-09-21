@@ -9,6 +9,7 @@ export const queryKeys = {
   household: ['household'] as const,
   members: ['members'] as const,
   home: ['home'] as const,
+  taskTemplates: ['task-templates'] as const,
   list: (listId: string) => ['list', listId] as const,
   myTasks: ['my-tasks'] as const,
   unassigned: ['unassigned'] as const,
@@ -27,12 +28,17 @@ export function keysAffectedByTaskChange(listId?: string): readonly (readonly st
   ];
 }
 
+export function keysAffectedByTaskTemplateChange(): readonly (readonly string[])[] {
+  return [queryKeys.taskTemplates];
+}
+
 export function keysAffectedByListChange(listId?: string): readonly (readonly string[])[] {
   return [queryKeys.home, ...(listId === undefined ? [] : [queryKeys.list(listId)])];
 }
 
 export function keysAffectedByMembershipChange(): readonly (readonly string[])[] {
   return [
+    queryKeys.taskTemplates,
     queryKeys.profile,
     queryKeys.household,
     queryKeys.members,

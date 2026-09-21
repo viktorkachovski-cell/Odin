@@ -61,6 +61,7 @@ export default function ListDetailScreen(): ReactNode {
       requestId,
       input: {
         readonly taskId: string | null;
+        readonly notes: string | null;
         readonly expectedVersion: number;
         readonly title: string;
         readonly assigneeId: string | null;
@@ -71,6 +72,7 @@ export default function ListDetailScreen(): ReactNode {
         ? createTask(client, requestId, {
             listId: id ?? '',
             title: input.title,
+            notes: input.notes,
             assigneeId: input.assigneeId,
             dueAt: input.dueAt,
           })
@@ -78,6 +80,7 @@ export default function ListDetailScreen(): ReactNode {
             taskId: input.taskId,
             expectedVersion: input.expectedVersion,
             title: input.title,
+            notes: input.notes,
             assigneeId: input.assigneeId,
             dueAt: input.dueAt,
           }),
@@ -288,6 +291,7 @@ export default function ListDetailScreen(): ReactNode {
               taskId: editingTask?.id ?? null,
               expectedVersion: editingTask?.version ?? 0,
               title: input.title,
+              notes: input.notes,
               assigneeId: input.assigneeId,
               dueAt: input.dueAt,
             })

@@ -60,3 +60,11 @@ export function validateHouseholdName(value: string | null | undefined): FieldIs
 export function collectIssues(...issues: readonly (FieldIssue | null)[]): FieldIssue[] {
   return issues.filter((issue): issue is FieldIssue => issue !== null);
 }
+
+export function validateTaskTitle(value: string | null | undefined): FieldIssue | null {
+  return checkText(value, 'task_title', LIMITS.taskTitle, true);
+}
+
+export function validateNotes(value: string | null | undefined): FieldIssue | null {
+  return checkText(value, 'notes', LIMITS.notes, false);
+}

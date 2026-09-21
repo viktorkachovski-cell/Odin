@@ -34,6 +34,7 @@ missing primary key on `private.invitation_attempts`; these are unrelated
 to the new commands. See the [foreign-key index guidance](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys)
 and [primary-key guidance](https://supabase.com/docs/guides/database/database-linter?lint=0004_no_primary_key).
 
-Vercel production verification is pending: the connector returns 403 for
-Odin project `prj_qsjkLx1hpZ9SPYfQniDa5Vg69qYm`, and the dashboard requires
-sign-in. The intended production domain remains `odin-ten-tau.vercel.app`.
+The owner reported the matching Vercel production deployment completed and
+confirmed task deletion works at `odin-ten-tau.vercel.app`. This is owner
+acceptance evidence; the deployment connector did not independently provide
+the build identifier in this session.

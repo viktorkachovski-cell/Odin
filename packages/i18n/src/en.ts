@@ -210,10 +210,24 @@ export const en = {
   'validation.code.invalid': 'That code is not correct. Check it and try again.',
   'validation.code.expired': 'That code has expired. Request a new one.',
   'validation.cursor.invalid': 'We lost your place in the list. Reloading.',
-  'validation.due.invalid_format': 'Enter both a date and a time.',
+  'validation.due.invalid_format': 'Enter a valid date. A time needs a date.',
   'validation.due.nonexistent_local_time':
     'That time does not exist on this date because the clocks change. Pick another time.',
 
+  'task.notes.label': 'Notes (optional)',
+  'task.due.optional': 'Time is optional. A date without a time is due at the end of that day.',
+  'task.due.end_of_day': 'Use end of day',
+  'task.template.choose': 'Use a saved task template',
+  'task.template.none': 'Start with a blank task',
+  'task.template.save': 'Save as template',
+  'task.template.saved': 'Template saved. It is available to your household.',
+  'task.template.hint':
+    'Copies the current title and notes only. Assignment, deadline and completion are reset.',
+  'task.template.empty': 'No saved task templates yet.',
+  'task.template.more': 'Load more templates',
+  'validation.task_title.required': 'Enter a task title.',
+  'validation.task_title.length': 'Use between 1 and 500 characters.',
+  'validation.notes.length': 'Use at most 5,000 characters.',
   'locale.en': 'English',
   'locale.bg': 'Български',
 } as const;

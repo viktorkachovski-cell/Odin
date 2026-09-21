@@ -31,7 +31,7 @@ import { asCommandResult, mapPostgrestError, toOdinError } from './error-mapping
 
 export { newRequestId } from './request-id.ts';
 
-async function command<T>(
+export async function command<T>(
   client: OdinSupabaseClient,
   fn: string,
   args: Record<string, unknown>,
@@ -162,17 +162,19 @@ export function createTask(
     readonly title: string;
     readonly assigneeId?: string | null;
     readonly dueAt?: string | null;
+    readonly notes?: string | null;
   },
 ): Promise<CommandResult<TaskDto>> {
   return command(
     client,
-    'create_task',
+    input.notes === undefined ? 'create_task' : 'create_task_v2',
     {
       request_id: requestId,
       list_id: input.listId,
       title: input.title,
       assignee_id: input.assigneeId ?? null,
       due_at: input.dueAt ?? null,
+      ...(input.notes === undefined ? {} : { notes: input.notes }),
     },
     (data) => parseTask(data),
   );
@@ -187,11 +189,12 @@ export function updateTask(
     readonly title: string;
     readonly assigneeId?: string | null;
     readonly dueAt?: string | null;
+    readonly notes?: string | null;
   },
 ): Promise<CommandResult<TaskDto>> {
   return command(
     client,
-    'update_task',
+    input.notes === undefined ? 'update_task' : 'update_task_v2',
     {
       request_id: requestId,
       task_id: input.taskId,
@@ -199,6 +202,7 @@ export function updateTask(
       title: input.title,
       assignee_id: input.assigneeId ?? null,
       due_at: input.dueAt ?? null,
+      ...(input.notes === undefined ? {} : { notes: input.notes }),
     },
     (data) => parseTask(data),
   );

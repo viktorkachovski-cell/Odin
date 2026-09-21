@@ -10,7 +10,7 @@ import { SecondaryButton } from './Button.tsx';
 
 /**
  * Deadline entry. Date and time are separate explicit choices, using the device
- * time zone; there is no implicit end-of-day. The chosen instant is sent as
+ * time zone; omitting the time means end of day. The chosen instant is sent as
  * ISO UTC by the shared domain rule and displayed back in local time.
  */
 
@@ -57,12 +57,19 @@ export function DueField({
     <View style={styles.wrapper}>
       <Text style={[styles.label, { color: theme.colors.textMuted }]}>{t('task.due.label')}</Text>
       <Text style={[styles.summary, { color: theme.colors.text }]}>{summary}</Text>
+      <Text style={{ color: theme.colors.textMuted }}>{t('task.due.optional')}</Text>
       {/* The zone is shown because a deadline is only unambiguous with it. */}
       <Text style={[styles.zone, { color: theme.colors.textMuted }]}>{timeZone}</Text>
 
       <View style={styles.actions}>
         <SecondaryButton label={t('task.due.date')} onPress={() => setMode('date')} />
         <SecondaryButton label={t('task.due.time')} onPress={() => setMode('time')} />
+        {draft.dueTime.length > 0 && (
+          <SecondaryButton
+            label={t('task.due.end_of_day')}
+            onPress={() => onChange({ ...draft, dueTime: '' })}
+          />
+        )}
         <SecondaryButton
           label={t('task.due.clear')}
           onPress={() => onChange({ dueDate: '', dueTime: '' })}

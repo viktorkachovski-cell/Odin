@@ -72,6 +72,37 @@ security invoker
 set search_path = ''
 as $$ select private.get_members(); $$;
 
+create or replace function private.get_task_templates()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when auth.uid() is null then private.error_response('UNAUTHENTICATED', 'error.unauthenticated')
+    when private.active_household_id() is null then private.error_response('NOT_FOUND', 'error.household_required')
+    else private.ok_response(jsonb_build_object(
+      'items', coalesce((
+        select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'notes', notes)
+          order by created_at desc, id desc)
+        from (
+          select id, title, notes, created_at
+          from public.task_templates
+          where household_id = private.active_household_id()
+          order by created_at desc, id desc
+          limit 50
+        ) templates
+      ), '[]'::jsonb),
+      'next_cursor', null
+    ))
+  end;
+$$;
+
+create or replace function public.get_task_templates()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_task_templates(); $$;
+
 create or replace function public.get_home(p_cursor text default null, p_limit integer default 50)
 returns jsonb
 language plpgsql

@@ -147,6 +147,41 @@ export type Database = {
         }
         Relationships: []
       }
+      task_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          notes: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          notes?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          notes?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -156,6 +191,7 @@ export type Database = {
           household_id: string
           id: string
           list_id: string
+          notes: string | null
           sort_order: number
           title: string
           updated_at: string
@@ -169,6 +205,7 @@ export type Database = {
           household_id: string
           id?: string
           list_id: string
+          notes?: string | null
           sort_order: number
           title: string
           updated_at?: string
@@ -182,6 +219,7 @@ export type Database = {
           household_id?: string
           id?: string
           list_id?: string
+          notes?: string | null
           sort_order?: number
           title?: string
           updated_at?: string
@@ -244,12 +282,24 @@ export type Database = {
         }
         Returns: Json
       }
+      create_task_v2: {
+        Args: {
+          assignee_id?: string
+          due_at?: string
+          list_id: string
+          notes?: string
+          request_id: string
+          title: string
+        }
+        Returns: Json
+      }
       get_home: { Args: { p_cursor?: string; p_limit?: number }; Returns: Json }
       get_list: {
         Args: { p_cursor?: string; p_limit?: number; p_list_id: string }
         Returns: Json
       }
       get_members: { Args: never; Returns: Json }
+      get_task_templates: { Args: never; Returns: Json }
       get_my_household: { Args: never; Returns: Json }
       get_my_tasks: {
         Args: { p_cursor?: string; p_limit?: number }
@@ -276,6 +326,10 @@ export type Database = {
         }
         Returns: Json
       }
+      save_task_template: {
+        Args: { notes?: string; request_id: string; title: string }
+        Returns: Json
+      }
       update_list: {
         Args: {
           expected_version: number
@@ -300,6 +354,18 @@ export type Database = {
           assignee_id?: string
           due_at?: string
           expected_version: number
+          request_id: string
+          task_id: string
+          title: string
+        }
+        Returns: Json
+      }
+      update_task_v2: {
+        Args: {
+          assignee_id?: string
+          due_at?: string
+          expected_version: number
+          notes?: string
           request_id: string
           task_id: string
           title: string

@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
-import { dueDraftFromIso, resolveDueInput, validateTitle } from '@odin/domain';
+import { dueDraftFromIso, resolveDueInput, validateTaskTitle, validateNotes } from '@odin/domain';
 import type { Translator, TranslationKey } from '@odin/i18n';
 
 import { Dialog } from './Dialog.tsx';
 import { Field } from './Field.tsx';
+import { TaskTemplates } from './TaskTemplates.tsx';
 import { errorMessage } from './Banner.tsx';
 
 /**
@@ -16,6 +17,7 @@ import { errorMessage } from './Banner.tsx';
 
 export interface TaskDraft {
   readonly title: string;
+  readonly notes: string;
   readonly assigneeId: string | null;
   readonly dueDate: string;
   readonly dueTime: string;
@@ -24,6 +26,7 @@ export interface TaskDraft {
 export function draftFromTask(task: TaskDto | null): TaskDraft {
   return {
     title: task?.title ?? '',
+    notes: task?.notes ?? '',
     assigneeId: task?.assignee_id ?? null,
     ...dueDraftFromIso(task?.due_at),
   };
@@ -40,6 +43,7 @@ export interface TaskEditorProps {
   readonly onReviewConflict: () => void;
   readonly onSubmit: (input: {
     readonly title: string;
+    readonly notes: string;
     readonly assigneeId: string | null;
     readonly dueAt: string | null;
   }) => void;
@@ -64,15 +68,23 @@ export function TaskEditor({
 }: TaskEditorProps): ReactNode {
   const [draft, setDraft] = useState<TaskDraft>(() => draftFromTask(task));
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
+  const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
 
   const submit = (): void => {
-    const issue = validateTitle(draft.title);
+    const issue = validateTaskTitle(draft.title);
+    const notesError = validateNotes(draft.notes);
     const due = resolveDueInput(draft);
     setTitleIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setNotesIssue(notesError === null ? undefined : t(notesError.message_key as TranslationKey));
     setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
-    if (issue !== null || !due.ok) return;
-    onSubmit({ title: draft.title.trim(), assigneeId: draft.assigneeId, dueAt: due.dueAt });
+    if (issue !== null || notesError !== null || !due.ok) return;
+    onSubmit({
+      title: draft.title.trim(),
+      notes: draft.notes.trim(),
+      assigneeId: draft.assigneeId,
+      dueAt: due.dueAt,
+    });
   };
 
   return (
@@ -113,6 +125,21 @@ export function TaskEditor({
         </div>
       )}
 
+      <TaskTemplates
+        draft={draft}
+        allowChoose={task === null}
+        disabled={pending}
+        onChoose={(template) =>
+          setDraft({
+            title: template.title,
+            notes: template.notes ?? '',
+            assigneeId: null,
+            dueDate: '',
+            dueTime: '',
+          })
+        }
+        t={t}
+      />
       <Field error={titleIssue} label={t('task.title.label')}>
         {(props) => (
           <input
@@ -124,6 +151,16 @@ export function TaskEditor({
         )}
       </Field>
 
+      <Field error={notesIssue} label={t('task.notes.label')}>
+        {(props) => (
+          <textarea
+            {...props}
+            rows={4}
+            value={draft.notes}
+            onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+          />
+        )}
+      </Field>
       <Field label={t('task.assignee.label')}>
         {(props) => (
           <select
@@ -159,7 +196,7 @@ export function TaskEditor({
             />
           )}
         </Field>
-        <Field label={t('task.due.time')}>
+        <Field label={t('task.due.time')} hint={t('task.due.optional')}>
           {(props) => (
             <input
               {...props}

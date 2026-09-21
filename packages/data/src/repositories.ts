@@ -29,7 +29,7 @@ import {
 import type { OdinSupabaseClient } from './client.ts';
 import { mapPostgrestError, OdinError, toOdinError, unwrapEnvelope } from './error-mapping.ts';
 
-async function readRpc<T>(
+export async function readRpc<T>(
   client: OdinSupabaseClient,
   fn: string,
   parse: (data: unknown) => T,

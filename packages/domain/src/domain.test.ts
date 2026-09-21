@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { TaskDto } from '@odin/contracts';
 
 import { avatarHue, initialsOf } from './avatar.ts';
-import { isOverdue, localInputToUtcIso, utcIsoToLocalInput } from './dates.ts';
+import { isOverdue, localInputToUtcIso, resolveDueInput, utcIsoToLocalInput } from './dates.ts';
 import { isListComplete, progressPercent } from './progress.ts';
 import { sortTasksByDue, sortTasksInList } from './sorting.ts';
 import {
@@ -11,12 +11,15 @@ import {
   collectIssues,
   normalizeText,
   validateDisplayName,
+  validateNotes,
   validateSubtitle,
+  validateTaskTitle,
   validateTitle,
 } from './validation.ts';
 
 function task(overrides: Partial<TaskDto> & Pick<TaskDto, 'id'>): TaskDto {
   return {
+    notes: null,
     household_id: 'h1',
     list_id: 'l1',
     title: 'Task',
@@ -30,6 +33,27 @@ function task(overrides: Partial<TaskDto> & Pick<TaskDto, 'id'>): TaskDto {
     ...overrides,
   };
 }
+
+describe('date-only deadlines', () => {
+  it('defaults a date without time to the final millisecond of the local day', () => {
+    const result = resolveDueInput({ dueDate: '2026-06-15', dueTime: '' });
+    expect(result.ok).toBe(true);
+    if (result.ok && result.dueAt !== null) {
+      const parsed = new Date(result.dueAt);
+      expect(parsed.getHours()).toBe(23);
+      expect(parsed.getMinutes()).toBe(59);
+      expect(parsed.getSeconds()).toBe(59);
+      expect(parsed.getMilliseconds()).toBe(999);
+    }
+  });
+
+  it('rejects a time without a date', () => {
+    expect(resolveDueInput({ dueDate: '', dueTime: '12:00' })).toEqual({
+      ok: false,
+      reason: 'invalid_format',
+    });
+  });
+});
 
 /** The minimal shape the due ordering needs; see DueOrdered in sorting.ts. */
 function dueRow(
@@ -145,6 +169,13 @@ describe('validation', () => {
     expect(validateTitle('a'.repeat(160))).toBeNull();
     expect(validateTitle('a'.repeat(161))?.message_key).toBe('validation.title.length');
     expect(validateDisplayName('a'.repeat(81))?.message_key).toBe('validation.display_name.length');
+  });
+
+  it('allows longer task titles and bounds notes separately', () => {
+    expect(validateTaskTitle('a'.repeat(500))).toBeNull();
+    expect(validateTaskTitle('a'.repeat(501))?.message_key).toBe('validation.task_title.length');
+    expect(validateNotes('a'.repeat(5000))).toBeNull();
+    expect(validateNotes('a'.repeat(5001))?.message_key).toBe('validation.notes.length');
   });
 
   it('collects only the real issues', () => {

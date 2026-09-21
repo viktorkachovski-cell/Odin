@@ -1,6 +1,6 @@
 /**
- * Deadlines are explicit local date + time converted to a UTC instant. There is
- * no implicit end-of-day and no date-only deadline (docs/01-DECISIONS.md).
+ * Deadlines use device-local date/time converted to UTC. A date without a time
+ * means 23:59:59.999 on that local day. Empty date and time means no deadline.
  *
  * Spring-forward gaps are surfaced rather than silently shifted: 02:30 simply
  * does not exist on a day that jumps 02:00 -> 03:00, and the user is asked to
@@ -96,22 +96,32 @@ export type DueResolution =
   | { readonly ok: false; readonly reason: 'invalid_format' | 'nonexistent_local_time' };
 
 /**
- * Both date and time, or neither. A half-filled deadline is rejected rather
- * than completed with an implicit end-of-day, which `01-DECISIONS.md` rules
- * out. Shared so the Android and web editors cannot drift apart on it.
+ * A date alone means end of day. A time without a date is invalid.
+ * Shared so the Android and web editors cannot drift apart.
  */
 export function resolveDueInput(draft: TaskDueDraft): DueResolution {
   const hasDate = draft.dueDate.length > 0;
   const hasTime = draft.dueTime.length > 0;
   if (!hasDate && !hasTime) return { ok: true, dueAt: null };
-  if (!hasDate || !hasTime) return { ok: false, reason: 'invalid_format' };
+  if (!hasDate) return { ok: false, reason: 'invalid_format' };
 
-  const parsed = localInputToUtcIso({ date: draft.dueDate, time: draft.dueTime });
+  const parsed = localInputToUtcIso({
+    date: draft.dueDate,
+    time: hasTime ? draft.dueTime : '23:59',
+  });
+  if (parsed.ok && !hasTime) {
+    const endOfDay = new Date(parsed.iso);
+    endOfDay.setSeconds(59, 999);
+    return { ok: true, dueAt: endOfDay.toISOString() };
+  }
   return parsed.ok ? { ok: true, dueAt: parsed.iso } : { ok: false, reason: parsed.reason };
 }
 
 /** Splits a stored instant back into the editor's local date and time fields. */
 export function dueDraftFromIso(dueAt: string | null | undefined): TaskDueDraft {
   const local = dueAt === null || dueAt === undefined ? null : utcIsoToLocalInput(dueAt);
-  return { dueDate: local?.date ?? '', dueTime: local?.time ?? '' };
+  const parsed = dueAt === null || dueAt === undefined ? null : new Date(dueAt);
+  const endOfDay =
+    local?.time === '23:59' && parsed?.getSeconds() === 59 && parsed.getMilliseconds() === 999;
+  return { dueDate: local?.date ?? '', dueTime: endOfDay ? '' : (local?.time ?? '') };
 }

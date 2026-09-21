@@ -167,6 +167,11 @@ export function TaskRow({
         >
           {task.title}
         </Text>
+        {task.notes !== undefined && task.notes !== null && (
+          <Text numberOfLines={2} style={[styles.meta, { color: theme.colors.textMuted }]}>
+            {task.notes}
+          </Text>
+        )}
 
         <View style={styles.metaRow}>
           {task.list_title !== undefined && (

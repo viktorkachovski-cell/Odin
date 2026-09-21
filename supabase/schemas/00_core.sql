@@ -102,12 +102,17 @@ create table public.tasks (
   completed boolean not null default false,
   assignee_id uuid,
   due_at timestamptz,
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   version bigint not null default 1,
   constraint tasks_title_normalized check (
     title = private.normalized_text(title)
-    and char_length(title) between 1 and 160
+    and char_length(title) between 1 and 500
+  ),
+  constraint tasks_notes_normalized check (
+    notes is null
+    or (notes = private.normalized_text(notes) and char_length(notes) <= 5000)
   ),
   constraint tasks_sort_order_nonnegative check (sort_order >= 0),
   constraint tasks_version_positive check (version > 0),
@@ -128,6 +133,26 @@ where completed = false;
 create index tasks_incomplete_unassigned_due_idx
 on public.tasks (household_id, due_at, list_id, id)
 where completed = false and assignee_id is null;
+
+create table public.task_templates (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  title text not null,
+  notes text,
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  constraint task_templates_title_normalized check (
+    title = private.normalized_text(title) and char_length(title) between 1 and 500
+  ),
+  constraint task_templates_notes_normalized check (
+    notes is null
+    or (notes = private.normalized_text(notes) and char_length(notes) <= 5000)
+  )
+);
+
+create index task_templates_household_created_idx
+on public.task_templates (household_id, created_at desc, id desc);
+create index task_templates_created_by_idx on public.task_templates (created_by);
 
 create table private.command_receipts (
   actor_user_id uuid not null references auth.users(id) on delete cascade,

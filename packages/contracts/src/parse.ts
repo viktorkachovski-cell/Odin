@@ -19,6 +19,8 @@ import type {
   MemberDto,
   ProfileDto,
   TaskDto,
+  TaskTemplateDto,
+  TaskTemplatePageDto,
   TaskPageDto,
 } from './dto.ts';
 import { LIST_KINDS, LIST_STATUSES, LOCALES } from './dto.ts';
@@ -159,6 +161,7 @@ export function parseHomePage(value: unknown): HomePageDto {
 export function parseTask(value: unknown, field = 'task'): TaskDto {
   const raw = obj(value, field);
   return {
+    notes: raw['notes'] === undefined ? null : nullableStr(raw['notes'], `${field}.notes`),
     id: str(raw['id'], `${field}.id`),
     household_id: str(raw['household_id'], `${field}.household_id`),
     list_id: str(raw['list_id'], `${field}.list_id`),
@@ -233,4 +236,21 @@ export function parseTaskId(value: unknown): string {
 
 export function parseInvitationId(value: unknown): string {
   return str(obj(value, 'result')['invitation_id'], 'result.invitation_id');
+}
+
+export function parseTaskTemplate(value: unknown): TaskTemplateDto {
+  const raw = obj(value, 'taskTemplate');
+  return {
+    id: str(raw['id'], 'taskTemplate.id'),
+    title: str(raw['title'], 'taskTemplate.title'),
+    notes: nullableStr(raw['notes'], 'taskTemplate.notes'),
+  };
+}
+
+export function parseTaskTemplatePage(value: unknown): TaskTemplatePageDto {
+  const raw = obj(value, 'taskTemplates');
+  return {
+    items: arr(raw['items'], 'taskTemplates.items').map(parseTaskTemplate),
+    next_cursor: nullableStr(raw['next_cursor'], 'taskTemplates.next_cursor'),
+  };
 }

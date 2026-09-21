@@ -216,6 +216,7 @@ alter table public.households enable row level security;
 alter table public.memberships enable row level security;
 alter table public.lists enable row level security;
 alter table public.tasks enable row level security;
+alter table public.task_templates enable row level security;
 
 create policy profiles_select_self
 on public.profiles for select to authenticated

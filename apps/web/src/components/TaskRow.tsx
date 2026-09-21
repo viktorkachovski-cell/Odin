@@ -130,6 +130,11 @@ export function TaskRow({
         >
           {task.title}
         </span>
+        {task.notes !== undefined && task.notes !== null && (
+          <p className="task-row__notes" title={task.notes}>
+            {task.notes}
+          </p>
+        )}
 
         <div className="task-row__meta">
           {task.list_title !== undefined && (
