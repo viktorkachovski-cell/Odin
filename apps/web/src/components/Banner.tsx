@@ -29,7 +29,10 @@ export function ErrorBanner({
 }): ReactNode {
   return (
     <div className="banner banner--danger" role="alert">
-      <span>{errorMessage(error, t)}</span>
+      <span aria-hidden="true" className="button__glyph">
+        ⚠
+      </span>
+      <span className="banner__text">{errorMessage(error, t)}</span>
       {onRetry !== undefined && (
         <button className="button" onClick={onRetry} type="button">
           {t('state.retry')}
@@ -51,8 +54,11 @@ export function StaleBanner({
 }): ReactNode {
   if (online && realtimeHealthy) return null;
   return (
-    <div className="banner" role="status">
-      <span>{online ? t('state.stale') : t('state.offline')}</span>
+    <div className="banner banner--warning" role="status">
+      <span aria-hidden="true" className="button__glyph">
+        ◴
+      </span>
+      <span className="banner__text">{online ? t('state.stale') : t('state.offline')}</span>
     </div>
   );
 }

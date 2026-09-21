@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { CommandError, MemberDto, TaskDto, TaskRowModel } from '@odin/contracts';
-import { taskRowFromTask } from '@odin/contracts';
+import type { TaskDto } from '@odin/contracts';
 import {
   createTask,
   deleteList,
@@ -15,133 +14,21 @@ import {
   useCommand,
 } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../app/queries.ts';
-import { ErrorBanner } from '../components/Banner.tsx';
+import { Fab } from '../components/Fab.tsx';
+import {
+  anyPending,
+  CommandErrors,
+  DestructiveConfirm,
+  ListHeader,
+  ListTasks,
+  type PendingConfirm,
+} from '../components/ListDetailParts.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
 import { Progress } from '../components/Progress.tsx';
 import { TaskEditor } from '../components/TaskEditor.tsx';
-import { TaskRow } from '../components/TaskRow.tsx';
-
-function ListTasks({
-  tasks,
-  members,
-  locale,
-  t,
-  isTemplate,
-  busy,
-  onEdit,
-  onToggleCompleted,
-  onUnassign,
-  onDelete,
-}: {
-  readonly tasks: readonly TaskDto[];
-  readonly members: readonly MemberDto[];
-  readonly locale: Locale;
-  readonly t: Translator;
-  readonly isTemplate: boolean;
-  readonly busy: boolean;
-  readonly onEdit: (task: TaskRowModel) => void;
-  readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
-  readonly onUnassign: (task: TaskRowModel) => void;
-  readonly onDelete: (task: TaskRowModel) => void;
-}): ReactNode {
-  return (
-    <ul className="task-list">
-      {tasks.map((task) => (
-        <TaskRow
-          busy={busy}
-          key={task.id}
-          locale={locale}
-          members={members}
-          onDelete={isTemplate ? undefined : onDelete}
-          onEdit={isTemplate ? undefined : onEdit}
-          onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
-          onUnassign={isTemplate ? undefined : onUnassign}
-          t={t}
-          task={taskRowFromTask(task)}
-        />
-      ))}
-    </ul>
-  );
-}
-
-function ListHeader({
-  title,
-  subtitle,
-  isTemplate,
-  t,
-  pending,
-  onEdit,
-  onAddTask,
-  onDelete,
-}: {
-  readonly title: string;
-  readonly subtitle: string | null;
-  readonly isTemplate: boolean;
-  readonly t: Translator;
-  readonly pending: boolean;
-  readonly onEdit: () => void;
-  readonly onAddTask: () => void;
-  readonly onDelete: () => void;
-}): ReactNode {
-  return (
-    <div className="page-header">
-      <div>
-        <Link to="/">{t('list.back')}</Link>
-        <h1>{title}</h1>
-        {subtitle !== null && <p className="card__subtitle">{subtitle}</p>}
-      </div>
-      {!isTemplate && (
-        <div className="task-row__actions">
-          <button className="button" onClick={onEdit} type="button">
-            {t('list.edit')}
-          </button>
-          <button className="button button--primary" onClick={onAddTask} type="button">
-            {t('list.add_task')}
-          </button>
-          <button
-            className="button button--quiet"
-            disabled={pending}
-            onClick={onDelete}
-            type="button"
-          >
-            {t('list.delete')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CommandErrors({
-  errors,
-  t,
-  onRetry,
-}: {
-  readonly errors: readonly { readonly error: CommandError | null; readonly retry?: () => void }[];
-  readonly t: Translator;
-  readonly onRetry?: () => void;
-}): ReactNode {
-  return (
-    <>
-      {errors.flatMap(({ error, retry }, index) =>
-        error === null
-          ? []
-          : [
-              <ErrorBanner
-                error={error}
-                key={`${error.message_key}-${index}`}
-                onRetry={retry ?? onRetry}
-                t={t}
-              />,
-            ],
-      )}
-    </>
-  );
-}
 
 /**
  * List detail. Tasks render incomplete-first with their declared order
@@ -159,6 +46,7 @@ export function ListDetail(): ReactNode {
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
   const [addingTask, setAddingTask] = useState(false);
+  const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
 
   const invalidateTask = keysAffectedByTaskChange(listId);
 
@@ -289,11 +177,18 @@ export function ListDetail(): ReactNode {
       <ListHeader
         isTemplate={isTemplate}
         onAddTask={() => setAddingTask(true)}
-        onDelete={() => {
-          if (window.confirm(t('list.delete.confirm'))) {
-            void removeList.run({ listId: page.list.id, expectedVersion: page.list.version });
-          }
-        }}
+        onDelete={() =>
+          setConfirming({
+            titleKey: 'list.delete.title',
+            bodyKey: 'list.delete.confirm',
+            confirmKey: 'list.delete',
+            run: () =>
+              void removeList.run({
+                listId: page.list.id,
+                expectedVersion: page.list.version,
+              }),
+          })
+        }
         onEdit={() => setEditingList(true)}
         pending={removeList.state.pending}
         subtitle={page.list.subtitle}
@@ -318,17 +213,22 @@ export function ListDetail(): ReactNode {
         <p className="empty">{t('list.empty')}</p>
       ) : (
         <ListTasks
-          busy={
-            completeCommand.state.pending || removeTask.state.pending || unassignTask.state.pending
-          }
+          busy={anyPending([completeCommand.state, removeTask.state, unassignTask.state])}
           isTemplate={isTemplate}
           locale={locale}
           members={members.data ?? []}
-          onDelete={(selected) => {
-            if (window.confirm(t('task.delete.confirm'))) {
-              void removeTask.run({ taskId: selected.id, expectedVersion: selected.version });
-            }
-          }}
+          onDelete={(selected) =>
+            setConfirming({
+              titleKey: 'task.delete.title',
+              bodyKey: 'task.delete.confirm',
+              confirmKey: 'task.delete.short',
+              run: () =>
+                void removeTask.run({
+                  taskId: selected.id,
+                  expectedVersion: selected.version,
+                }),
+            })
+          }
           onEdit={(selected) =>
             setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
           }
@@ -339,20 +239,33 @@ export function ListDetail(): ReactNode {
               completed,
             })
           }
-          onUnassign={(selected) => {
-            if (window.confirm(t('task.unassign.confirm'))) {
-              void unassignTask.run({
-                taskId: selected.id,
-                expectedVersion: selected.version,
-                title: selected.title,
-                dueAt: selected.due_at,
-              });
-            }
-          }}
+          onUnassign={(selected) =>
+            setConfirming({
+              titleKey: 'task.unassign.title',
+              bodyKey: 'task.unassign.confirm',
+              confirmKey: 'task.unassign.short',
+              run: () =>
+                void unassignTask.run({
+                  taskId: selected.id,
+                  expectedVersion: selected.version,
+                  title: selected.title,
+                  dueAt: selected.due_at,
+                }),
+            })
+          }
           t={t}
           tasks={ordered}
         />
       )}
+
+      {!isTemplate && <Fab label={t('list.add_task')} onClick={() => setAddingTask(true)} />}
+
+      <DestructiveConfirm
+        confirm={confirming}
+        onClose={() => setConfirming(null)}
+        pending={anyPending([removeList.state, removeTask.state, unassignTask.state])}
+        t={t}
+      />
 
       {(addingTask || editingTask !== null) && (
         <TaskEditor
