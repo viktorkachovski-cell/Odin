@@ -119,4 +119,26 @@ describe('TaskRow', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByLabelText('Edit Bathroom')).toBeNull();
   });
+
+  it('keeps secondary task actions in an Android overflow menu', async () => {
+    const onEdit = jest.fn();
+    const onUnassign = jest.fn();
+    await render(
+      <TaskRow
+        locale="en"
+        members={members}
+        onEdit={onEdit}
+        onUnassign={onUnassign}
+        t={t}
+        task={row({ assignee_id: 'u1' })}
+      />,
+    );
+
+    expect(screen.queryByText('Edit')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
+    await fireEvent.press(screen.getByText('Unassign'));
+
+    expect(onUnassign).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+    expect(onEdit).not.toHaveBeenCalled();
+  });
 });

@@ -6,6 +6,7 @@ import type { ListSummaryDto } from '@odin/contracts';
 import type { Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
+import { ActionMenu } from './ActionMenu.tsx';
 import { SecondaryButton } from './Button.tsx';
 import { Progress } from './Progress.tsx';
 
@@ -44,13 +45,28 @@ export function ListCard({
         },
       ]}
     >
-      <Link
-        accessibilityRole="link"
-        href={{ pathname: '/list/[id]', params: { id: list.id } }}
-        style={[styles.link, { minHeight: theme.touchTarget }]}
-      >
-        <Text style={[styles.title, { color: theme.colors.text }]}>{list.title}</Text>
-      </Link>
+      <View style={styles.header}>
+        <Link
+          accessibilityRole="link"
+          href={{ pathname: '/list/[id]', params: { id: list.id } }}
+          style={[styles.link, { minHeight: theme.touchTarget }]}
+        >
+          <Text style={[styles.title, { color: theme.colors.text }]}>{list.title}</Text>
+        </Link>
+        {onDelete !== undefined && !isTemplate && (
+          <ActionMenu
+            accessibilityLabel={`${t('list.actions')}: ${list.title}`}
+            actions={[
+              {
+                label: t('list.delete'),
+                onPress: () => onDelete(list),
+                destructive: true,
+              },
+            ]}
+            disabled={deletePending}
+          />
+        )}
+      </View>
 
       {list.subtitle !== null && (
         <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>{list.subtitle}</Text>
@@ -60,20 +76,11 @@ export function ListCard({
 
       {onCopy !== undefined && (
         <SecondaryButton
-          accessibilityLabel={`${t('home.copy_template')}: ${list.title}`}
+          accessibilityLabel={t('home.copy_template', { title: list.title })}
           disabled={copyPending}
-          label={t('home.copy_template')}
+          label={t('home.copy_template', { title: list.title })}
           onPress={() => onCopy(list)}
           pending={copyPending}
-        />
-      )}
-      {onDelete !== undefined && !isTemplate && (
-        <SecondaryButton
-          accessibilityLabel={t('list.delete')}
-          disabled={deletePending}
-          label={t('list.delete')}
-          onPress={() => onDelete(list)}
-          pending={deletePending}
         />
       )}
     </View>
@@ -82,7 +89,8 @@ export function ListCard({
 
 const styles = StyleSheet.create({
   card: { gap: 8, padding: 12 },
-  link: { justifyContent: 'center' },
+  header: { alignItems: 'flex-start', flexDirection: 'row' },
+  link: { flex: 1, justifyContent: 'center' },
   subtitle: { fontSize: 14 },
   title: { fontSize: 17, fontWeight: '600' },
 });

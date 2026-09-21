@@ -10,8 +10,8 @@ import {
 } from '@odin/contracts';
 import type { Locale, Translator } from '@odin/i18n';
 
+import { ActionMenu } from './ActionMenu.tsx';
 import { ErrorBanner } from './Banner.tsx';
-import { PrimaryButton, SecondaryButton } from './Button.tsx';
 import { Progress } from './Progress.tsx';
 import { TaskRow } from './TaskRow.tsx';
 
@@ -63,26 +63,24 @@ export function ListHeader({
   t,
   pending,
   onEdit,
-  onAddTask,
   onDelete,
 }: {
   readonly isTemplate: boolean;
   readonly t: Translator;
   readonly pending: boolean;
   readonly onEdit: () => void;
-  readonly onAddTask: () => void;
   readonly onDelete: () => void;
 }): ReactNode {
   if (isTemplate) return null;
   return (
-    <View style={{ flexDirection: 'row', gap: 12 }}>
-      <SecondaryButton label={t('list.edit')} onPress={onEdit} />
-      <PrimaryButton label={t('list.add_task')} onPress={onAddTask} />
-      <SecondaryButton
+    <View style={{ alignItems: 'flex-end' }}>
+      <ActionMenu
+        accessibilityLabel={t('list.actions')}
+        actions={[
+          { label: t('list.edit'), onPress: onEdit },
+          { label: t('list.delete'), onPress: onDelete, destructive: true },
+        ]}
         disabled={pending}
-        label={t('list.delete')}
-        onPress={onDelete}
-        pending={pending}
       />
     </View>
   );

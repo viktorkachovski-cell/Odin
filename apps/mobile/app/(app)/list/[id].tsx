@@ -21,6 +21,7 @@ import { useOdin } from '../../../src/state/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
 import { NavSpacer } from '../../../src/components/BottomNav.tsx';
 import { SecondaryButton } from '../../../src/components/Button.tsx';
+import { FloatingActionButton } from '../../../src/components/FloatingActionButton.tsx';
 import { ListEditor } from '../../../src/components/ListEditor.tsx';
 import {
   CommandErrors,
@@ -30,6 +31,18 @@ import {
 } from '../../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
 import { TaskEditor } from '../../../src/components/TaskEditor.tsx';
+
+function AddTaskFab({
+  isTemplate,
+  label,
+  onPress,
+}: {
+  readonly isTemplate: boolean;
+  readonly label: string;
+  readonly onPress: () => void;
+}): ReactNode {
+  return isTemplate ? null : <FloatingActionButton label={label} onPress={onPress} />;
+}
 
 export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -161,7 +174,7 @@ export default function ListDetailScreen(): ReactNode {
   const taskConflict = saveTask.state.error?.code === 'CONFLICT';
 
   return (
-    <Screen title={page.list.title}>
+    <Screen backLabel={t('list.back')} onBack={() => router.back()} title={page.list.title}>
       <ScrollView
         contentContainerStyle={styles.content}
         onScroll={nav.onScroll}
@@ -175,7 +188,6 @@ export default function ListDetailScreen(): ReactNode {
         />
         <ActionHeader
           isTemplate={isTemplate}
-          onAddTask={() => setAddingTask(true)}
           onDelete={() =>
             Alert.alert(t('list.delete'), t('list.delete.confirm'), [
               { text: t('list.back'), style: 'cancel' },
@@ -267,6 +279,12 @@ export default function ListDetailScreen(): ReactNode {
 
         <NavSpacer />
       </ScrollView>
+
+      <AddTaskFab
+        isTemplate={isTemplate}
+        label={t('list.add_task')}
+        onPress={() => setAddingTask(true)}
+      />
 
       {(addingTask || editingTask !== null) && (
         <TaskEditor

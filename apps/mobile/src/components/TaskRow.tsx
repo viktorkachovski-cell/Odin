@@ -6,6 +6,7 @@ import { isOverdue } from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
+import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
 import { Avatar } from './Avatar.tsx';
 import { SecondaryButton } from './Button.tsx';
 
@@ -43,6 +44,24 @@ function TaskActions({
   TaskRowProps,
   'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
 >): ReactNode {
+  const actions: ActionMenuItem[] = [
+    ...(onEdit === undefined
+      ? []
+      : [{ label: t('task.edit_action.short'), onPress: () => onEdit(task) }]),
+    ...(onUnassign === undefined || task.assignee_id === null
+      ? []
+      : [{ label: t('task.unassign.short'), onPress: () => onUnassign(task) }]),
+    ...(onDelete === undefined
+      ? []
+      : [
+          {
+            label: t('task.delete.short'),
+            onPress: () => onDelete(task),
+            destructive: true,
+          },
+        ]),
+  ];
+
   return (
     <View style={styles.actions}>
       {onClaim !== undefined && (
@@ -53,30 +72,11 @@ function TaskActions({
           onPress={() => onClaim(task)}
         />
       )}
-      {onEdit !== undefined && (
-        <SecondaryButton
-          accessibilityLabel={t('task.edit_action', { title: task.title })}
-          disabled={busy}
-          label={t('task.edit_action.short')}
-          onPress={() => onEdit(task)}
-        />
-      )}
-      {onUnassign !== undefined && task.assignee_id !== null && (
-        <SecondaryButton
-          accessibilityLabel={t('task.unassign', { title: task.title })}
-          disabled={busy}
-          label={t('task.unassign.short')}
-          onPress={() => onUnassign(task)}
-        />
-      )}
-      {onDelete !== undefined && (
-        <SecondaryButton
-          accessibilityLabel={t('task.delete', { title: task.title })}
-          disabled={busy}
-          label={t('task.delete.short')}
-          onPress={() => onDelete(task)}
-        />
-      )}
+      <ActionMenu
+        accessibilityLabel={t('task.actions', { title: task.title })}
+        actions={actions}
+        disabled={busy}
+      />
     </View>
   );
 }
@@ -211,7 +211,7 @@ export function TaskRow({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', gap: 8 },
+  actions: { alignItems: 'center', flexDirection: 'row', gap: 4 },
   body: { flexShrink: 1, gap: 4, minWidth: 0 },
   box: { fontSize: 22 },
   chip: { alignItems: 'center', flexDirection: 'row', gap: 6 },
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   },
   metaStrong: { fontWeight: '700' },
   row: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: 'row',

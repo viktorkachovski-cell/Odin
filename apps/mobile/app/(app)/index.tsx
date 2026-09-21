@@ -17,7 +17,7 @@ import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHomeQuery } from '../../src/state/queries.ts';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
-import { PrimaryButton } from '../../src/components/Button.tsx';
+import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
 import { ListCard } from '../../src/components/ListCard.tsx';
 import { ListEditor } from '../../src/components/ListEditor.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
@@ -125,8 +125,6 @@ export default function HomeScreen(): ReactNode {
         {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
         {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
 
-        <PrimaryButton label={t('home.create_list')} onPress={() => setCreating(true)} />
-
         {section(
           t('home.templates.heading'),
           templates,
@@ -137,6 +135,8 @@ export default function HomeScreen(): ReactNode {
 
         <NavSpacer />
       </ScrollView>
+
+      <FloatingActionButton label={t('home.create_list')} onPress={() => setCreating(true)} />
 
       {creating && (
         <ListEditor

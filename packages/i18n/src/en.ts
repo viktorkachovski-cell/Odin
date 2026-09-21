@@ -105,6 +105,7 @@ export const en = {
   'list.back': 'Back to Home',
   'list.add_task': 'Add task',
   'list.edit': 'Edit list',
+  'list.actions': 'List actions',
   'list.delete': 'Delete list',
   'list.delete.confirm':
     'Remove this list from active work? Its tasks will be retained in the archive.',
@@ -132,6 +133,7 @@ export const en = {
   'task.incomplete': 'Mark {title} not complete',
   'task.edit_action': 'Edit {title}',
   'task.edit_action.short': 'Edit',
+  'task.actions': 'Actions for {title}',
   'task.delete': 'Delete {title}',
   'task.delete.short': 'Delete',
   'task.delete.confirm': 'Delete this task permanently?',
