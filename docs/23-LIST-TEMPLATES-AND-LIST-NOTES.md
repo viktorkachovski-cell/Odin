@@ -1,0 +1,97 @@
+# List templates and list notes
+
+Owner decision on 2026-09-22. Three requirements land together:
+
+1. A list can be saved as a template, and the template keeps every task inside
+   that list.
+2. List templates and task templates stay separate types, so a member can load
+   a task template on its own without pulling in a whole list.
+3. Lists gain a shared note, shown under the subtitle.
+
+Production database: Supabase project `mvltbhtsukorspmpyhpw` in eu-central-1.
+
+## 1. Two template types, never mixed
+
+| Type              | Stored as                            | Contains                                                       | Loaded by                                  |
+| ----------------- | ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------ |
+| **List template** | `lists` row with `kind = 'template'` | Title, subtitle, notes, and a copy of every task in the list   | `copy_template`, from the Home screen      |
+| **Task template** | `task_templates` row                 | One task title and its notes; no assignment, deadline or state | `get_task_templates`, from the task editor |
+
+The two are stored, read, saved and presented separately:
+
+- Saving a list as a template creates **one** list template. It never creates a
+  task template per task; those tasks live inside the list template.
+- Saving a task as a template creates **one** task template. It never creates or
+  touches a list.
+- The task editor's picker reads `get_task_templates` only, so loading a task
+  template stays a task-sized action that never replaces the open list.
+- Home's Templates section lists list templates only. Its heading and empty
+  state say "list template" so the two types are not confused in the UI.
+
+## 2. Saving a list as a template
+
+`save_list_template(request_id, list_id)` snapshots an active, open list into a
+new list template in the same household.
+
+- The new template copies the source `title`, `subtitle` and `notes`, and gets
+  `kind = 'template'`, `status = 'open'`, `seed_key = null` and
+  `created_by = <actor>`.
+- Every task in the source list is copied with its `title`, `notes` and
+  `sort_order`. Completion, assignee and deadline are **not** copied: template
+  tasks carry no runtime state, which the existing
+  `validate_task_parent_and_assignee` trigger already enforces.
+- The source list is not modified, so the command takes no `expected_version`.
+  It is a snapshot read of the source and an insert of the copy, in one
+  transaction.
+- The command is actor-scoped and idempotent by `request_id`, like every other
+  mutation. A replay returns the original `{list_id}` rather than saving a
+  second template.
+- Templates and archived lists cannot be saved as templates; both return
+  `NOT_FOUND`, the same non-disclosing shape a cross-household ID gets.
+- Any active household member may save a list as a template, matching the
+  equal-permission rule.
+
+`copy_template` is the inverse and is unchanged except that it now also copies
+the template's `notes` onto the new active list.
+
+### Seed-key invariant
+
+`lists_template_seed_key` previously required every template to carry a
+`seed_key`, because the only templates were the ones `create_household` copies
+out of `private.seed_lists`. Member-saved templates have no seed content behind
+them, so that constraint is dropped. `unique (household_id, seed_key)` stays
+and still keeps one seeded template per key per household; several member-saved
+templates coexist because Postgres does not treat null as a duplicate.
+
+### Known gap
+
+There is no command to delete a list template. `delete_list` still refuses
+templates, as documented in `docs/18-LIST-TASK-LIFECYCLE.md`, so member-saved
+templates accumulate until a follow-up change adds a scoped delete. This is a
+deliberate scope boundary for this pass, not an oversight.
+
+## 3. List notes
+
+- `lists.notes` is one shared, optional field of up to 5,000 Unicode code
+  points, normalized by `private.normalized_text` like every other text column.
+  It matches the task-notes limit and reuses `LIMITS.notes` and
+  `validateNotes`.
+- Every active household member with normal list access can edit it. There is
+  no author, no timestamp and no thread, exactly as with task notes.
+- Both clients render it under the subtitle, and the editor places the note
+  field under the subtitle field.
+- `copy_template` and `save_list_template` both carry notes across.
+
+## Compatibility
+
+Installed Android clients keep calling `create_list` and `update_list`, which
+are unchanged and take no notes. `update_list` therefore does not overwrite an
+existing note. Updated clients call the additive `create_list_v2` and
+`update_list_v2`, which accept notes. This is the same additive pattern used
+for task notes in `docs/21-TASK-FEATURES-DEPLOYMENT.md`; no existing RPC
+signature, DTO field or error code changes.
+
+`ListDto` and `ListSummaryDto` gain a nullable `notes` field. A client reading
+a response from a database that predates this change parses a missing `notes`
+as `null`, so the order of deployment between database and clients is not
+load-bearing.

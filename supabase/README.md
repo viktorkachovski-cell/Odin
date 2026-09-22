@@ -34,19 +34,21 @@ The checked-in CLI is pinned in `package.json`; use it through npm/npx. `db rese
 
 The `authenticated` role can select RLS-filtered rows and execute public RPCs. It has no direct insert/update/delete privileges. `anon` receives no application table or RPC access. Private tables are not exposed through PostgREST.
 
-| Public RPC                   | Private helper                   | Security boundary                                                            |
-| ---------------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
-| `update_profile`             | `private.update_profile`         | Own Auth user only; validated display name/locale                            |
-| `create_household`           | `private.create_household`       | One active household; user lock; versioned seed copy                         |
-| `create_list`, `update_list` | matching private helper          | Active membership; active lists only; optimistic version                     |
-| `copy_template`              | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                      |
-| `create_task`, `update_task` | matching private helper          | Active list/member locks; same-household assignee                            |
-| `set_task_completed`         | matching private helper          | Explicit desired state; optimistic version                                   |
-| `claim_task`                 | matching private helper          | Incomplete and unassigned under row lock                                     |
-| `create_invitation`          | matching private helper          | Creator active; 10/hour; database-generated token; 72-hour default           |
-| `redeem_invitation`          | matching private helper          | Authenticated, single use, expiry/revocation and 10-failures/15-minute limit |
-| `revoke_invitation`          | matching private helper          | Creator-only proposed default                                                |
-| read RPCs                    | safe invoker/definer projections | Active household only; no email, locale or token disclosure                  |
+| Public RPC                         | Private helper                   | Security boundary                                                                 |
+| ---------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
+| `update_profile`                   | `private.update_profile`         | Own Auth user only; validated display name/locale                                 |
+| `create_household`                 | `private.create_household`       | One active household; user lock; versioned seed copy                              |
+| `create_list`, `update_list`       | matching private helper          | Active membership; active lists only; optimistic version                          |
+| `create_list_v2`, `update_list_v2` | matching private helper          | As above plus the shared list note; legacy pair stays note-preserving             |
+| `save_list_template`               | `private.save_list_template`     | One transaction; active/open source unchanged; tasks copied without runtime state |
+| `copy_template`                    | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                           |
+| `create_task`, `update_task`       | matching private helper          | Active list/member locks; same-household assignee                                 |
+| `set_task_completed`               | matching private helper          | Explicit desired state; optimistic version                                        |
+| `claim_task`                       | matching private helper          | Incomplete and unassigned under row lock                                          |
+| `create_invitation`                | matching private helper          | Creator active; 10/hour; database-generated token; 72-hour default                |
+| `redeem_invitation`                | matching private helper          | Authenticated, single use, expiry/revocation and 10-failures/15-minute limit      |
+| `revoke_invitation`                | matching private helper          | Creator-only proposed default                                                     |
+| read RPCs                          | safe invoker/definer projections | Active household only; no email, locale or token disclosure                       |
 
 All privileged helpers pin an empty `search_path`, derive the actor from `auth.uid()`, and are inaccessible through the exposed API schema. Public wrappers remain `SECURITY INVOKER`. Mutation receipts are scoped to actor/request ID; payload mismatches fail. Successful household-scoped receipts are not replayed after membership loss.
 
