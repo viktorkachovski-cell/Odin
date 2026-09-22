@@ -91,6 +91,49 @@ Because member-saved templates have no seed content behind them, the old
 `seed_key` — was dropped. `unique (household_id, seed_key)` is unaffected;
 Postgres does not treat null as a duplicate.
 
+## Notifications
+
+**Android only, and new on 2026-09-22** (`decisions.md`, notification
+amendment). The web client has no notification behaviour and did not change.
+
+Odin notifies a member about three things:
+
+| Trigger                   | Fires when                                                        |
+| ------------------------- | ----------------------------------------------------------------- |
+| A task becomes yours      | A task you were not assigned appears in your My Tasks             |
+| A task of yours changed   | A task already assigned to you comes back with a higher `version` |
+| A deadline is approaching | 24 hours, then 4 hours, then 1 hour before it                     |
+
+- **Two switches gate everything.** Android's notification permission and a
+  per-device mute in Settings must both allow it. Muting is per device, not per
+  account, so a spare phone can be silenced without silencing the one you carry.
+- **Deadline reminders cover your own tasks and unassigned ones**, so dated
+  work nobody has claimed is not missed. The two sets are disjoint, and a task
+  you claim keeps the reminders it already had.
+- **A stage that has already passed is skipped**, never fired late. A task
+  created 30 minutes before its deadline gets no deadline reminder at all,
+  because a "due in 4 hours" warning delivered 30 minutes before the deadline
+  misinforms. The assignment notification still fires.
+- **A change is only announced while the app is not in the foreground.** A
+  member looking at Odin watches the row move on its own, and this is what
+  stops the app announcing your own claim or edit back at you.
+- **Two or more changes in one sync collapse into one summary** rather than a
+  stack of notifications.
+- **Completing a task silences it** at the next reconciliation, because My
+  Tasks and Unassigned both exclude completed tasks. Reconciliation only
+  happens while the app runs, so a reminder for a task somebody else finished
+  while Odin was closed still fires — risk R9.
+- **Signing out or switching account cancels every scheduled reminder**, so a
+  task title cannot arrive on a phone after the account that owns it is gone.
+
+Nothing in the shared contract changed to support this. Both change triggers
+are a comparison of two readings of `getMyTasks`, using the `version` the
+contract already increments once per change.
+
+What this cannot do is in `known-risks.md` R9: deadline reminders are held by
+Android and survive the app closing, but a task becoming yours is only
+announced while Odin's process is alive.
+
 ## Deletion and archiving
 
 - **Lists and templates.** "Delete list" archives an open list of **either

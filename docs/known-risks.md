@@ -116,9 +116,46 @@ expel another anyway.
 **Severity: low.**
 
 No code splitting; the whole app loads up front. Fine on a desktop connection,
-noticeable on a slow phone. Last measured at about 568 kB of JavaScript
-before gzip, 161 kB gzipped; Vite reports it as a non-blocking warning on
-every build.
+noticeable on a slow phone. Last measured at about 580 kB of JavaScript
+before gzip, 165 kB gzipped; Vite reports it as a non-blocking warning on
+every build. It grew by roughly 12 kB on 2026-09-22: the notification rules
+and strings are shared packages, so the web bundle carries them even though
+only Android notifies.
+
+### R9 — Notification delivery is partial and unverified
+
+**Severity: medium. The feature works less than its description suggests.**
+
+Notifications (`docs/features.md`) are delivered by the device, because remote
+push needs FCM credentials and a sender that do not exist
+(`docs/decisions.md`, open decision 7). Three consequences follow.
+
+A task becoming yours, or one of yours being edited, is only announced while
+Odin's process is alive — foreground or recently backgrounded. Once Android
+kills the process, nothing is announced until the member next opens the app,
+and the baseline is then re-taken silently, so the change is never announced at
+all. This is the notification people would most expect to get, and it is the
+one least likely to arrive.
+
+Deadline reminders are held by Android's alarm service and do fire with the app
+closed, but they are scheduled inexactly. Doze can delay one past the moment it
+describes, so a "due in 1 hour" reminder can arrive rather less than an hour
+before.
+
+A reminder can also outlive the work. Reminders are reconciled only while the
+app runs, so if another member completes or reschedules a dated task while
+Odin is closed, the alarm Android already holds still fires. The member is
+reminded about something already done, until the app next opens and
+reconciles.
+
+None of it has run on a device. The Jest suite drives an in-memory double of
+`expo-notifications`, which proves the decision logic and the reconciliation
+and proves nothing about Android actually posting, scheduling or waking. This
+is the general device gap in the accepted section below, but it lands harder
+here than elsewhere: every other Android feature at least renders in a test
+renderer, while notification delivery has no non-device evidence at all.
+
+Closing it means either the push work in open decision 7, or a device pass.
 
 ## Accepted, not tracked
 

@@ -47,6 +47,12 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 4. ~~Approve list-template seed titles/content in both languages~~ — **settled 2026-09-22**: there is no seeded content. A new household starts with no templates and builds its own by saving a list it uses, which is why `save_list_template` exists. `private.seed_lists`/`private.seed_tasks` remain in the schema only so the decision stays reversible. Household task-template creation is implemented separately.
 5. Choose Android distribution (private APK initially or Play Store), package identifier, signing ownership and exact supported Android/browser versions after Expo selection.
 6. Decide whether children need accounts without email. Email registration assumes each member can receive email; agents must not invent shared logins or child/guardian roles.
+7. Decide whether notifications should also be delivered remotely. The
+   amendment below ships device-local delivery, which cannot reach a phone
+   whose Odin process Android has killed. Remote push needs FCM credentials on
+   the EAS project, a sender the database can reach and a scheduled sweep for
+   deadlines; none of that exists, and the EAS project ID added on 2026-09-22
+   is only the first of those pieces.
 
 ### Open product questions carried from the UI review
 
@@ -75,6 +81,38 @@ The owner requested email registration and password login on the Vercel app, fol
 
 Shared APIs were added, the old mobile OTP API and translations were preserved for installed builds, and the Android password screens shipped. No household rule or database identity changed.
 
-Notifications, automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Tasks have one shared editable notes field, not an authored discussion thread.
+Automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Notifications left that list on 2026-09-22 — see the amendment below. Tasks have one shared editable notes field, not an authored discussion thread.
 
 List and task removal, mentioned in BR 10 but originally deferred, was approved on 2026-09-21 and extended to templates on 2026-09-22. Deleting a list of either kind archives it; deleting a task removes it. See `features.md`.
+
+## Notification amendment — 2026-09-22
+
+The source requirements excluded "automatic recurrence and notification rules
+**until the product owner selects their behavior**", and left a matching open
+decision row. The owner selected it on 2026-09-22, so notifications are in
+scope for the Android client. `code-standards.md` still forbids _inventing_
+notifications; this is an instruction, not an invention.
+
+| Topic           | Decision                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| Triggers        | A task becomes yours; a task of yours is changed; a deadline approaches                        |
+| Deadline ladder | 24 hours, then 4 hours, then 1 hour before the deadline                                        |
+| Deadline scope  | Tasks assigned to you **and** unassigned tasks, so dated work nobody has claimed is not missed |
+| Change scope    | Tasks assigned to you only                                                                     |
+| Gate            | Android's own permission **and** a per-device mute the member controls; both must allow it     |
+| Platform        | Android only. The web client is untouched and gains no notification behaviour                  |
+| Delivery        | Device-local. Deferred: remote push (open decision 7)                                          |
+
+"Imminent" was left undefined in the request and the owner chose one hour.
+
+Delivery is local to the device because remote push cannot be built here:
+Expo push needs FCM credentials uploaded to the EAS project and a sender the
+database can reach, neither of which exists. The consequence is deliberate and
+is recorded as risk R9 in `known-risks.md` — Android holds the deadline
+reminders and fires them with Odin closed, but a task becoming yours is only
+announced while the Odin process is alive.
+
+Nothing in the shared contract changed. Both triggers are derived from
+`getMyTasks` and `getUnassigned`, whose per-task `version` the contract already
+increments once per change, so no schema, RPC, DTO or error code moved and the
+two clients did not need coordinating.

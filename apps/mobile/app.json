@@ -33,6 +33,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-localization",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

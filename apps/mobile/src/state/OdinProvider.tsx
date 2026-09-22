@@ -7,6 +7,7 @@ import type { AuthUser, OdinSupabaseClient } from '@odin/data';
 import { getCurrentUser, onAuthStateChange, signOut as signOutUser } from '@odin/data';
 import { createTranslator, resolveLocale, type Locale } from '@odin/i18n';
 
+import { cancelAllReminders } from '../notifications/adapter.ts';
 import { OdinContext, type OdinContextValue } from './OdinContext.ts';
 import { clearPendingInvitation } from './pending-invitation.ts';
 import { useSessionRefresh } from './useSessionRefresh.ts';
@@ -86,7 +87,14 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
         setLocale(deviceLocale());
         // Only a change away from a signed-in account discards the invitation;
         // signing in to redeem one must keep it.
-        if (identityRef.current !== null) clearPendingInvitation();
+        if (identityRef.current !== null) {
+          clearPendingInvitation();
+          // A scheduled reminder carries a task title, so it must not survive
+          // the account it belongs to. A cold start is deliberately excluded:
+          // reminders are rebuilt from a fetch, and wiping them before one
+          // succeeds would silently disarm an offline device.
+          void cancelAllReminders().catch(() => undefined);
+        }
         identityRef.current = nextId;
       }
       setUser(next);

@@ -180,6 +180,29 @@ export const en = {
   'settings.invite.dismiss': 'Done',
   'settings.household.heading': 'Household',
 
+  'settings.notifications.heading': 'Notifications',
+  'settings.notifications.description':
+    'Odin tells you when a task becomes yours, when one of your tasks changes, and as a deadline approaches — 24 hours, 4 hours and 1 hour before.',
+  'settings.notifications.device_only':
+    'This setting belongs to this device. Another device keeps its own.',
+  'settings.notifications.enable': 'Turn on notifications',
+  'settings.notifications.disable': 'Turn off notifications',
+  'settings.notifications.on': 'Notifications are on.',
+  'settings.notifications.off': 'Notifications are off.',
+  'settings.notifications.blocked':
+    'Android is blocking notifications for Odin. Turn them on in the Android settings for this app.',
+
+  'notification.body': '{title} — in {list}',
+  'notification.assigned.title': 'A task is now yours',
+  'notification.assigned.many.title': 'New tasks for you',
+  'notification.assigned.many.body': '{count} tasks are now yours',
+  'notification.updated.title': 'One of your tasks changed',
+  'notification.updated.many.title': 'Your tasks changed',
+  'notification.updated.many.body': '{count} of your tasks were edited',
+  'notification.due.day.title': 'Due in 24 hours',
+  'notification.due.hours.title': 'Due in 4 hours',
+  'notification.due.imminent.title': 'Due in 1 hour',
+
   'state.loading': 'Loading…',
   'state.offline': 'You are offline. Showing the last loaded data.',
   'state.stale': 'Reconnecting… showing the last loaded data.',

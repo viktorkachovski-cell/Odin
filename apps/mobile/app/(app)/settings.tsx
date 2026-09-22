@@ -13,6 +13,7 @@ import { useHouseholdQuery, useMembersQuery, useProfileQuery } from '../../src/s
 import { Avatar } from '../../src/components/Avatar.tsx';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
+import { NotificationToggle } from '../../src/components/NotificationToggle.tsx';
 import { PrimaryButton, SecondaryButton } from '../../src/components/Button.tsx';
 import { Field } from '../../src/components/Field.tsx';
 import { LoadingState, Screen } from '../../src/components/Screen.tsx';
@@ -142,6 +143,14 @@ export default function SettingsScreen(): ReactNode {
         <Text style={[styles.note, { color: theme.colors.textMuted }]}>
           {t('settings.language.note')}
         </Text>
+
+        <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
+          {t('settings.notifications.heading')}
+        </Text>
+        <Text style={[styles.note, { color: theme.colors.textMuted }]}>
+          {t('settings.notifications.description')}
+        </Text>
+        <NotificationToggle />
 
         <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
           {t('settings.household.heading')}

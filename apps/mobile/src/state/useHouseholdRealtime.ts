@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { useCallback, useEffect } from 'react';
 
 import {
   keysAffectedByListChange,
@@ -12,6 +11,7 @@ import {
 } from '@odin/data';
 
 import { useOdin } from './OdinContext.ts';
+import { useAppForeground } from './useAppForeground.ts';
 
 /**
  * Realtime hints drive invalidation; they are never treated as the source of
@@ -36,7 +36,7 @@ function keysFor(kind: ChangeKind): readonly (readonly string[])[] {
 export function useHouseholdRealtime(householdId: string | null): void {
   const { client, setRealtimeHealthy, realtimeHealthy, online, markSynced } = useOdin();
   const queryClient = useQueryClient();
-  const [foreground, setForeground] = useState(AppState.currentState === 'active');
+  const foreground = useAppForeground();
   const reconcile = useCallback(async () => {
     await queryClient.invalidateQueries(
       { queryKey: queryKeys.household },
@@ -94,13 +94,6 @@ export function useHouseholdRealtime(householdId: string | null): void {
    * Authoritative membership is re-read first when the app returns to the
    * foreground, so a revoked member cannot keep acting on cached household data.
    */
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (status) => {
-      setForeground(status === 'active');
-    });
-    return () => subscription.remove();
-  }, []);
-
   useEffect(() => {
     if (householdId !== null && online && foreground) void reconcile();
   }, [householdId, online, foreground, reconcile]);
