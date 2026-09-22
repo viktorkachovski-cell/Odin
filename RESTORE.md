@@ -54,6 +54,6 @@ https://github.com/apps/claude/installations/select_target
 or reconnect GitHub from claude.ai settings:
 https://claude.ai/customize/connectors?auth_start=github&auth_start_force=1
 
-The same gap is already recorded in `docs/10-ACCESS.md` from the planning pass.
+The same gap is already recorded in `docs/operations.md` from the planning pass.
 The Vercel connection is separately read-only: creating the hosting project
 returned 403 `forbidden`, so no preview deployment exists yet.

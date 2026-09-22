@@ -1,16 +1,26 @@
-# Verification and release checklist
+# Verification
 
-Unchecked items below are remaining release/device evidence, not a statement
-that the application is unimplemented. Current automated evidence is in
-`11-TOOLING-VALIDATION.md`, `17-MOBILE-QA.md` and `22-MOBILE-WEB-PARITY.md`.
+What is proven, how, and what is still unproven. Unchecked boxes are missing
+_evidence_, not missing implementation — the application is built and
+deployed.
 
-## Current implementation status — 2026-09-21
+## Proven on every push
 
-The web and Android clients, shared data adapter, task notes/templates and
-production Supabase migrations are implemented. GitHub Quality passed for
-commit `8c74b84`; Vercel production deployment completed successfully. The
-remaining unchecked items are hosted email delivery, physical Android/device
-checks, two-client manual synchronization and performance measurements.
+The `Quality` workflow runs lint and formatting, typecheck, tooling tests,
+shared and web tests, the web production build, and the Android job (Jest,
+Expo Doctor, Android export). The `Database` workflow starts a disposable
+Supabase stack and runs `supabase db lint` with warnings failing the job, the
+pgTAP suites and the parallel-transaction concurrency suite.
+
+Locally the same set runs as `npm run check` plus `npm run build`. Current
+counts at the latest release commit: 12 tooling tests, 18 Vitest files with 165
+tests, 12 Android Jest suites with 93 tests, pgTAP planning 32 and 47
+assertions, Expo Doctor 21/21 in CI, and a successful Android export and web
+production build.
+
+Two Expo Doctor checks — the config schema and the React Native Directory
+lookup — fail in a sandbox without outbound network. That is an environment
+limitation, not a project finding; CI reports 21/21.
 
 ## Requirements traceability
 
@@ -59,14 +69,50 @@ Measure Home and List Detail usable-data time at the 75th percentile against the
 ## Release gates
 
 - [ ] Exact platform/browser matrix and distribution/signing owner chosen.
-- [ ] Proposed invitation/onboarding defaults, seed translations and membership/account lifecycle reviewed.
-- [x] Single Odin production environment selected; a separate staging project is intentionally out of scope for this hobby project.
-- [x] Workspace lint/typecheck/tests/builds and database checks pass on CI at the current release commit.
-- [ ] Database backup/restore strategy is rehearsed against disposable data without resetting production.
-- [x] Production keys and Auth redirects are configured; no secret appears in browser/Android bundles.
-- [ ] Android install, web nested-route refresh, app/invite links and two-client sync pass on production with controlled test accounts.
-- [ ] Product owner reviews UI against original sketches and approves documented adaptations.
-- [ ] Record release SHA, migration IDs, deployment URL/build ID, tests and rollback procedure; then promote approved production artifacts.
+- [ ] Proposed invitation and onboarding defaults, and the membership/account
+      lifecycle, reviewed. Seed translations are no longer a gate: a household
+      starting with no templates is intended (`decisions.md` item 4).
+- [x] Single Odin production environment selected; a separate staging project
+      is intentionally out of scope for this hobby project.
+- [x] Workspace lint, typecheck, tests, builds and database checks pass in CI
+      at the current release commit.
+- [ ] Database backup/restore strategy rehearsed against disposable data
+      without resetting production.
+- [x] Production keys and Auth redirects configured; no secret appears in a
+      browser or Android bundle.
+- [ ] Hosted email delivery works. Custom SMTP is unconfigured, so confirmation
+      and recovery mail cannot reach a general recipient — risk R1 in
+      `known-risks.md`, and the one gate that blocks a real member today.
+- [ ] Android install, web nested-route refresh, app/invite links and
+      two-client sync pass on production with controlled test accounts.
+- [ ] Product owner reviews the UI against the original sketches and approves
+      the documented adaptations. Review at narrow phone width, large Android
+      font, tablet and desktop, in both languages, covering long titles and
+      initials and the empty, busy, offline, conflict and success states.
+- [ ] Record release SHA, migration IDs, deployment URL/build ID, tests and
+      rollback procedure, then promote approved production artifacts.
+
+## Device verification — deferred
+
+No Android binary has been built or installed: this environment has no Android
+SDK, emulator or device, and an export is not an installation. Deferred by
+owner decision of 2026-09-22 and tracked in the accepted section of
+`known-risks.md` rather than as an open risk. A device pass would have to cover:
+
+1. `npx expo run:android` or an EAS build, installed on a device or emulator.
+2. Secure-store session persistence across restarts, including token refresh
+   and the chunked-value path, on real hardware.
+3. Registration, confirmation and recovery end to end in a real inbox. Every
+   automated test here mocks the auth call and proves client behaviour only.
+4. One account signing in on Android and web with the same password, and an
+   existing one-time-code account gaining a password through recovery with its
+   user ID and household unchanged.
+5. Deep-link redemption of a real invitation.
+6. TalkBack traversal, password-manager autofill, paste, dynamic font scaling,
+   long Bulgarian labels and contrast.
+7. One Android client against one web client as two members of one household,
+   including disconnect and reconnect.
+8. Screen sizes, OS/API levels, build identifier and screenshots recorded.
 
 ## Completion report template
 

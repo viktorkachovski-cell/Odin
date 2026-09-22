@@ -96,7 +96,7 @@ export function readEnv(source: MobileEnvSource = inlinedEnv()): MobileEnv {
  * link matches the one the web app produces, so a recipient without the Android
  * app installed can still redeem it in a browser. Without it, only the app's
  * own scheme is available and the link is useless to anyone who has not
- * installed the app -- see docs/14-MOBILE-IMPLEMENTATION.md.
+ * installed the app -- see docs/android.md.
  */
 export function inviteLinkBase(): string {
   const origin = (process.env.EXPO_PUBLIC_WEB_ORIGIN ?? '').trim();

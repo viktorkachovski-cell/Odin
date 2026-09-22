@@ -65,7 +65,7 @@ function dueRow(
 }
 
 describe('progressPercent', () => {
-  // The exact cases docs/02-CONTRACT.md names.
+  // The exact cases docs/contract.md names.
   it.each([
     [0, 0, 0],
     [1, 3, 33],

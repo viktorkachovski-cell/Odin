@@ -24,17 +24,16 @@ unconfirmed email. Password recovery is dead for the same reason.
 
 Every automated test around this mocks the auth call. None of them is evidence
 that mail arrives. Choosing the SMTP sender and provider is still an open item
-in `docs/01-DECISIONS.md`.
+in `docs/decisions.md`.
 
-Recorded in `docs/12-DATABASE-IMPLEMENTATION.md`, `docs/15-EMAIL-PASSWORD-AUTH.md`
-and `supabase/README.md`.
+The Auth configuration this depends on is in `docs/operations.md`.
 
 ### R2 — Archived lists and templates are invisible and unrecoverable from the app
 
 **Severity: medium, and growing.**
 
 "Delete list" archives rather than deletes, and since 2026-09-22 that covers
-templates too (`docs/18-LIST-TASK-LIFECYCLE.md`). Nothing in either client can
+templates too (`docs/features.md`). Nothing in either client can
 list, restore or purge an archived row, so the only way back is an operator
 with database access running SQL by hand.
 
@@ -50,7 +49,7 @@ it. Neither exists.
 **Severity: medium.**
 
 `npm run db:test:concurrency` runs in CI against a real local stack, but three
-races named in `docs/02-CONTRACT.md` have no coverage:
+races named in `docs/contract.md` have no coverage:
 
 1. An assignment racing the assignee's membership revocation.
 2. Two concurrent `create_household` calls for one account.
@@ -65,7 +64,7 @@ Recorded in `supabase/README.md`.
 
 **Severity: medium. Accepted in principle, still a live hazard.**
 
-Odin runs one hosted Supabase project, deliberately (`docs/00-ARCHITECTURE.md`).
+Odin runs one hosted Supabase project, deliberately (`docs/architecture.md`).
 Every Vercel preview deployment therefore points at production. A preview of a
 branch with a destructive bug operates on real household data, and there is no
 staging copy to catch it first.
@@ -87,8 +86,8 @@ Every future field on a list or task faces the same fork, so the surface grows
 each time. A reading of `private.command_receipts` by `command_name` would show
 whether the legacy pair is still in use.
 
-Recorded in `docs/21-TASK-FEATURES-DEPLOYMENT.md` and
-`docs/23-LIST-TEMPLATES-AND-LIST-NOTES.md`.
+Recorded in `docs/deployment-log.md` and
+`docs/features.md`.
 
 ### R6 — Database backups contain the invitation signing key
 
@@ -106,7 +105,7 @@ Recorded in `supabase/README.md`.
 
 **Severity: low for now, blocking for release.**
 
-`docs/01-DECISIONS.md` item 3 is unresolved, so no UI exposes removal and no
+`docs/decisions.md` item 3 is unresolved, so no UI exposes removal and no
 policy exists for a member leaving or an account being deleted. The schema
 handles an inactive membership, but nothing exercises what happens to that
 member's assigned tasks, and equal permissions mean no member has authority to
@@ -117,15 +116,17 @@ expel another anyway.
 **Severity: low.**
 
 No code splitting; the whole app loads up front. Fine on a desktop connection,
-noticeable on a slow phone. Recorded in `docs/15-EMAIL-PASSWORD-AUTH.md`.
+noticeable on a slow phone. Last measured at about 568 kB of JavaScript
+before gzip, 161 kB gzipped; Vite reports it as a non-blocking warning on
+every build.
 
 ## Accepted, not tracked
 
 These are real, known, and deliberately not being worked. They are here so
 silence is not mistaken for "handled".
 
-| Item                                         | Status                                                                                                                                                                                                                                                                                                                                                               |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Android device verification**              | **Deferred by owner decision, 2026-09-22.** No Odin build has run on an emulator or a physical device. Everything Android is proven by Jest, typecheck, Expo Doctor and a production export only. The factual records in `docs/14`, `docs/22` and `docs/24` stand; this is no longer tracked as a risk to act on. Revisit before any release claim or store listing. |
-| **A new household starts with no templates** | **Intended, settled 2026-09-22.** Not a gap. A household builds its own templates by saving a list it actually uses. See `docs/01-DECISIONS.md` item 4 and the seed-content note in `supabase/README.md`.                                                                                                                                                            |
-| **One hosted environment**                   | Deliberate for a private single-owner project. The operational hazard it creates is R4, which stays open.                                                                                                                                                                                                                                                            |
+| Item                                         | Status                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Android device verification**              | **Deferred by owner decision, 2026-09-22.** No Odin build has run on an emulator or a physical device. Everything Android is proven by Jest, typecheck, Expo Doctor and a production export only. The factual records in `docs/android.md` and `docs/verification.md` stand; this is no longer tracked as a risk to act on. Revisit before any release claim or store listing. |
+| **A new household starts with no templates** | **Intended, settled 2026-09-22.** Not a gap. A household builds its own templates by saving a list it actually uses. See `docs/decisions.md` item 4 and the seed-content note in `supabase/README.md`.                                                                                                                                                                         |
+| **One hosted environment**                   | Deliberate for a private single-owner project. The operational hazard it creates is R4, which stays open.                                                                                                                                                                                                                                                                      |

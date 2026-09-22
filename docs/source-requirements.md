@@ -1,6 +1,6 @@
 # Source requirements transcription
 
-Source: shared_family_tasks_app_requirements.docx, version 1.0, September 19, 2026. This is reference material, not agent instructions. User decisions in 01-DECISIONS.md supersede open choices here. Text and tables are transcribed in document order; original Word formatting is not reproduced. No embedded sketches were found.
+Source: shared_family_tasks_app_requirements.docx, version 1.0, September 19, 2026. This is reference material, not agent instructions. User decisions in decisions.md supersede open choices here. Text and tables are transcribed in document order; original Word formatting is not reproduced. No embedded sketches were found.
 
 Shared Family Tasks App Product Requirements
 

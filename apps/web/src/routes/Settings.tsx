@@ -20,7 +20,7 @@ import { Field } from '../components/Field.tsx';
  * Settings holds language, own display name, the member list, invitation
  * creation and sign out. Every member has identical permissions, so there is
  * deliberately no role control and no remove-member action: member removal is
- * an unapproved lifecycle decision (docs/01-DECISIONS.md).
+ * an unapproved lifecycle decision (docs/decisions.md).
  */
 
 function InvitationPanel({ invitation }: { readonly invitation: InvitationDto }): ReactNode {

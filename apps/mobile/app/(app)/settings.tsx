@@ -23,7 +23,7 @@ import { useTheme } from '../../src/theme.ts';
  * Settings offers exactly what the decisions allow: language, own display
  * name, the member list and invitation creation. There is deliberately no
  * remove-member, delete or expel control -- that authority is undecided
- * (docs/01-DECISIONS.md) and must not be invented here.
+ * (docs/decisions.md) and must not be invented here.
  *
  * The invitation link is shown once, copied on demand and never persisted.
  */
