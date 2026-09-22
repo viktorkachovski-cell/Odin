@@ -5,13 +5,15 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "odin",
+    "icon": "./assets/splash-icon.png",
     "userInterfaceStyle": "automatic",
     "platforms": ["android"],
     "android": {
       "package": "app.odin.household",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#1f5fbf"
+        "foregroundImage": "./assets/splash-icon.png",
+        "backgroundColor": "#f2ede2"
       },
       "intentFilters": [
         {
@@ -35,11 +37,21 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#f6f7f9",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
           "dark": {
-            "backgroundColor": "#101317"
+            "backgroundColor": "#101317",
+            "image": "./assets/splash-icon.png"
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "89497d60-803b-4a7d-8583-dfd3903166a5"
+      }
+    }
   }
 }

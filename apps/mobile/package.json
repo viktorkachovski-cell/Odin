@@ -6,8 +6,10 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
+    "eas-build-pre-install": "node scripts/validate-build-env.mjs",
+    "build:env:check": "node scripts/validate-build-env.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "jest --ci",
+    "test": "jest --ci && node --test scripts/validate-build-env.test.mjs",
     "doctor": "expo-doctor",
     "build:check": "expo export --platform android --output-dir dist"
   },

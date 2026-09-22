@@ -174,6 +174,20 @@ was built. The publishable key is public by design -- it ships inside every
 client bundle -- but it still belongs in the build environment, never in a
 committed file. `apps/mobile/.env.example` holds the names and placeholders only.
 
+### EAS release rule
+
+Every build from `main` must use the `production` EAS profile. `apps/mobile/eas.json`
+maps the development, preview and production profiles to their same-named EAS
+environments explicitly; do not remove those mappings or rely on a local `.env`
+file, because ignored local files are not uploaded to EAS Build.
+
+Before starting a release, confirm that the production environment contains
+`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` with
+`npx eas-cli@latest env:list --environment production`. Never paste a secret or
+service-role key into an `EXPO_PUBLIC_` variable. The `eas-build-pre-install`
+hook validates that both values target the hosted Odin project and fails the
+remote build before dependency installation if they are missing or wrong.
+
 ## Owner decisions still required
 
 These are proposals, not settled product scope (`docs/decisions.md` item 5):
