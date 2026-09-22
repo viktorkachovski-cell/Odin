@@ -95,3 +95,41 @@ signature, DTO field or error code changes.
 a response from a database that predates this change parses a missing `notes`
 as `null`, so the order of deployment between database and clients is not
 load-bearing.
+
+## Production record — 2026-09-22
+
+Applied migration `list_templates_and_notes` (hosted version `20260922060702`),
+mirroring `supabase/migrations/20260922120000_list_templates_and_notes.sql`:
+`lists.notes` and its constraint, the dropped `lists_template_seed_key`, the
+note-aware `create_list_v2`/`update_list_v2`, `save_list_template`, a
+note-carrying `copy_template`, a note-projecting `get_home`, and explicit
+revokes and grants for the new functions.
+
+The production-safe smoke script in `supabase/smoke/list-templates-smoke.sql`
+ran against the hosted project inside a transaction that was forced to roll
+back, so no synthetic row survived it. Row counts before and after were
+identical. It passed: list-note creation, the 5,000-code-point boundary, legacy
+`update_list` preserving an existing note, `update_list_v2` replacing it,
+saving a list as a template with both of its tasks, the template carrying the
+list note and the task notes, task runtime state being reset, idempotent
+replay, a template not being saveable as a template, no task template being
+written, `copy_template` carrying the note and tasks back, `get_home`
+projecting the note, and cross-household denial.
+
+Privilege verification showed the three new public wrappers are
+`SECURITY INVOKER` with `search_path` pinned, their private helpers are
+`SECURITY DEFINER`, `anon` can execute none of them, and `authenticated` can
+execute exactly the public and private pairs the migration grants.
+
+Security and performance advisors reported no new finding. The two standing
+security notices (default-deny RLS on `task_templates`, and Auth's leaked
+password protection being off) and the four standing performance notices
+predate this change.
+
+Rollback requires a reviewed forward migration: revoke and drop
+`create_list_v2`, `update_list_v2` and `save_list_template` with their private
+helpers, restore the previous `copy_template` and `get_home` bodies, and drop
+`lists.notes` only after confirming no note must be retained. Restoring
+`lists_template_seed_key` first requires deleting or re-keying every
+member-saved template. Do not run a production reset or destructive rollback
+automatically.
