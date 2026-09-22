@@ -55,6 +55,7 @@ export {
   newRequestId,
   redeemInvitation,
   revokeInvitation,
+  saveListTemplate,
   setTaskCompleted,
   updateList,
   updateProfile,

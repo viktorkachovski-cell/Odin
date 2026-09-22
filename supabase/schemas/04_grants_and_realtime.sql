@@ -30,6 +30,9 @@ grant execute on function private.update_profile(uuid, text, text, text) to auth
 grant execute on function private.create_household(uuid, text, text) to authenticated;
 grant execute on function private.create_list(uuid, text, text) to authenticated;
 grant execute on function private.update_list(uuid, uuid, bigint, text, text) to authenticated;
+grant execute on function private.create_list_v2(uuid, text, text, text) to authenticated;
+grant execute on function private.update_list_v2(uuid, uuid, bigint, text, text, text) to authenticated;
+grant execute on function private.save_list_template(uuid, uuid) to authenticated;
 grant execute on function private.copy_template(uuid, uuid) to authenticated;
 grant execute on function private.create_task(uuid, uuid, text, uuid, timestamptz) to authenticated;
 grant execute on function private.update_task(uuid, uuid, bigint, text, uuid, timestamptz) to authenticated;
@@ -45,6 +48,9 @@ grant execute on function public.update_profile(uuid, text, text, text) to authe
 grant execute on function public.create_household(uuid, text, text) to authenticated;
 grant execute on function public.create_list(uuid, text, text) to authenticated;
 grant execute on function public.update_list(uuid, uuid, bigint, text, text) to authenticated;
+grant execute on function public.create_list_v2(uuid, text, text, text) to authenticated;
+grant execute on function public.update_list_v2(uuid, uuid, bigint, text, text, text) to authenticated;
+grant execute on function public.save_list_template(uuid, uuid) to authenticated;
 grant execute on function public.copy_template(uuid, uuid) to authenticated;
 grant execute on function public.create_task(uuid, uuid, text, uuid, timestamptz) to authenticated;
 grant execute on function public.update_task(uuid, uuid, bigint, text, uuid, timestamptz) to authenticated;

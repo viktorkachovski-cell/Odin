@@ -22,6 +22,8 @@ export function ListCard({
   copyPending = false,
   onDelete,
   deletePending = false,
+  onSaveTemplate,
+  saveTemplatePending = false,
 }: {
   readonly list: ListSummaryDto;
   readonly t: Translator;
@@ -29,6 +31,8 @@ export function ListCard({
   readonly copyPending?: boolean;
   readonly onDelete?: ((list: ListSummaryDto) => void) | undefined;
   readonly deletePending?: boolean;
+  readonly onSaveTemplate?: ((list: ListSummaryDto) => void) | undefined;
+  readonly saveTemplatePending?: boolean;
 }): ReactNode {
   const theme = useTheme();
   const isTemplate = list.kind === 'template';
@@ -57,19 +61,26 @@ export function ListCard({
           <ActionMenu
             accessibilityLabel={`${t('list.actions')}: ${list.title}`}
             actions={[
+              ...(onSaveTemplate === undefined
+                ? []
+                : [{ label: t('list.template.save'), onPress: () => onSaveTemplate(list) }]),
               {
                 label: t('list.delete'),
                 onPress: () => onDelete(list),
                 destructive: true,
               },
             ]}
-            disabled={deletePending}
+            disabled={deletePending || saveTemplatePending}
           />
         )}
       </View>
 
       {list.subtitle !== null && (
         <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>{list.subtitle}</Text>
+      )}
+
+      {list.notes !== null && (
+        <Text style={[styles.notes, { color: theme.colors.textMuted }]}>{list.notes}</Text>
       )}
 
       {!isTemplate && <Progress completed={list.completed_tasks} t={t} total={list.total_tasks} />}
@@ -91,6 +102,7 @@ const styles = StyleSheet.create({
   card: { gap: 8, padding: 12 },
   header: { alignItems: 'flex-start', flexDirection: 'row' },
   link: { flex: 1, justifyContent: 'center' },
+  notes: { fontSize: 14 },
   subtitle: { fontSize: 14 },
   title: { fontSize: 17, fontWeight: '600' },
 });

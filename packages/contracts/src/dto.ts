@@ -56,6 +56,8 @@ export interface ListDto {
   readonly kind: ListKind;
   readonly title: string;
   readonly subtitle: string | null;
+  /** Shared, optional list note. Rendered under the subtitle on both clients. */
+  readonly notes: string | null;
   readonly status: ListStatus;
   readonly seed_key: string | null;
   readonly created_by: string;
@@ -64,18 +66,24 @@ export interface ListDto {
   readonly version: number;
 }
 
-/** Home card. `get_home` returns both kinds in one paginated, id-ordered page. */
+/**
+ * Home card. `get_home` returns both list kinds -- list templates and active
+ * lists -- in one paginated, id-ordered page. Task templates are a separate
+ * type and never appear here; they come from `getTaskTemplates`.
+ */
 export interface ListSummaryDto {
   readonly id: string;
   readonly kind: ListKind;
   readonly title: string;
   readonly subtitle: string | null;
+  readonly notes: string | null;
   readonly status: ListStatus;
   readonly version: number;
   readonly total_tasks: number;
   readonly completed_tasks: number;
 }
 
+/** A single saved task. Loading one never pulls in a list template. */
 export interface TaskTemplateDto {
   readonly id: string;
   readonly title: string;

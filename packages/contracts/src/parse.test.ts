@@ -114,6 +114,77 @@ describe('parseHomePage', () => {
   });
 });
 
+describe('list notes', () => {
+  const listRow = {
+    id: 'l1',
+    household_id: 'h1',
+    kind: 'active',
+    title: 'Pantry',
+    subtitle: 'Weekly',
+    status: 'open',
+    seed_key: null,
+    created_by: 'u1',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    version: 1,
+  };
+
+  it('reads the shared list note', () => {
+    const page = parseListPage({
+      list: { ...listRow, notes: 'Buy the good olive oil' },
+      tasks: [],
+      total_tasks: 0,
+      completed_tasks: 0,
+      progress_percent: 0,
+      next_cursor: null,
+    });
+    expect(page.list.notes).toBe('Buy the good olive oil');
+  });
+
+  it('reads a database that predates the list note as having none', () => {
+    const page = parseListPage({
+      list: listRow,
+      tasks: [],
+      total_tasks: 0,
+      completed_tasks: 0,
+      progress_percent: 0,
+      next_cursor: null,
+    });
+    expect(page.list.notes).toBeNull();
+  });
+
+  it('carries the note onto Home cards and tolerates its absence', () => {
+    const home = parseHomePage({
+      items: [
+        {
+          id: 'l1',
+          kind: 'template',
+          title: 'Weekly cleaning',
+          subtitle: null,
+          notes: 'Start on Saturday',
+          status: 'open',
+          version: 1,
+          total_tasks: 4,
+          completed_tasks: 0,
+        },
+        {
+          id: 'l2',
+          kind: 'active',
+          title: 'This week',
+          subtitle: null,
+          status: 'open',
+          version: 1,
+          total_tasks: 0,
+          completed_tasks: 0,
+        },
+      ],
+      next_cursor: null,
+    });
+    expect(home.items[0]?.notes).toBe('Start on Saturday');
+    expect(home.items[1]?.notes).toBeNull();
+  });
+});
+
 describe('parseListPage', () => {
   it('keeps the server cursor and whole-list totals', () => {
     const page = parseListPage({

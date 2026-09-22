@@ -20,6 +20,10 @@ const taskFeaturesMigration = await readFile(
   'supabase/migrations/20260921180500_task_notes_templates.sql',
   'utf8',
 );
+const listTemplateMigration = await readFile(
+  'supabase/migrations/20260922120000_list_templates_and_notes.sql',
+  'utf8',
+);
 
 test('database schema preserves product boundaries', () => {
   const listTable = schema.match(/create table public\.lists \(([\s\S]*?)\n\);/i)?.[1];
@@ -112,6 +116,40 @@ test('task notes and household templates preserve validation and authorization b
   );
   assert.match(taskFeaturesMigration, /p_expected_version bigint/i);
   assert.match(taskFeaturesMigration, /'update_task_v2'/i);
+});
+
+test('list templates and list notes keep their documented boundaries', () => {
+  // A list template and a task template are separate types: saving a list must
+  // never write public.task_templates, or a task template stops being loadable
+  // on its own.
+  assert.match(listTemplateMigration, /create or replace function private\.save_list_template/i);
+  assert.doesNotMatch(
+    listTemplateMigration,
+    /insert into public\.task_templates/i,
+    'saving a list must not create task templates',
+  );
+  assert.match(listTemplateMigration, /kind = 'active' and status = 'open'/i);
+  assert.match(
+    listTemplateMigration,
+    /insert into public\.tasks \(household_id, list_id, title, sort_order, notes\)/i,
+    'a saved template copies task text and order only',
+  );
+  assert.match(listTemplateMigration, /char_length\(notes\) <= 5000/i);
+  assert.match(
+    listTemplateMigration,
+    /private\.lock_active_members\(v_household, array\[v_actor\]\)/i,
+  );
+  assert.match(listTemplateMigration, /'update_list_v2'/i);
+  assert.match(
+    listTemplateMigration,
+    /revoke all on function public\.save_list_template[^;]+from public, anon/i,
+  );
+  assert.match(schema, /constraint lists_notes_normalized/i);
+  assert.doesNotMatch(
+    schema,
+    /constraint lists_template_seed_key/i,
+    'member-saved templates carry no seed key',
+  );
 });
 
 test('every collected database test declares a pgTAP plan', async () => {

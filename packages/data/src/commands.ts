@@ -90,19 +90,34 @@ export function updateProfile(
   );
 }
 
+/**
+ * Omitting `notes` keeps the legacy RPC, so an older installed client and this
+ * one call the same function they always did. Supplying it -- even as null --
+ * selects the additive note-aware RPC.
+ */
 export function createList(
   client: OdinSupabaseClient,
   requestId: string,
-  input: { readonly title: string; readonly subtitle?: string | null },
+  input: {
+    readonly title: string;
+    readonly subtitle?: string | null;
+    readonly notes?: string | null;
+  },
 ): Promise<CommandResult<ListDto>> {
   return command(
     client,
-    'create_list',
-    { request_id: requestId, title: input.title, subtitle: input.subtitle ?? null },
+    input.notes === undefined ? 'create_list' : 'create_list_v2',
+    {
+      request_id: requestId,
+      title: input.title,
+      subtitle: input.subtitle ?? null,
+      ...(input.notes === undefined ? {} : { notes: input.notes }),
+    },
     (data) => parseList(data),
   );
 }
 
+/** Legacy `update_list` leaves an existing note untouched; see `createList`. */
 export function updateList(
   client: OdinSupabaseClient,
   requestId: string,
@@ -111,17 +126,19 @@ export function updateList(
     readonly expectedVersion: number;
     readonly title: string;
     readonly subtitle?: string | null;
+    readonly notes?: string | null;
   },
 ): Promise<CommandResult<ListDto>> {
   return command(
     client,
-    'update_list',
+    input.notes === undefined ? 'update_list' : 'update_list_v2',
     {
       request_id: requestId,
       list_id: input.listId,
       expected_version: input.expectedVersion,
       title: input.title,
       subtitle: input.subtitle ?? null,
+      ...(input.notes === undefined ? {} : { notes: input.notes }),
     },
     (data) => parseList(data),
   );
@@ -136,6 +153,25 @@ export function deleteList(
     client,
     'delete_list',
     { request_id: requestId, list_id: input.listId, expected_version: input.expectedVersion },
+    parseListId,
+  );
+}
+
+/**
+ * Saves an active list as a list template, tasks included. A list template and
+ * a task template are separate types: this never writes a task template, so a
+ * task template stays loadable on its own. The source list is unchanged, so
+ * there is no expected version to pass.
+ */
+export function saveListTemplate(
+  client: OdinSupabaseClient,
+  requestId: string,
+  listId: string,
+): Promise<CommandResult<string>> {
+  return command(
+    client,
+    'save_list_template',
+    { request_id: requestId, list_id: listId },
     parseListId,
   );
 }

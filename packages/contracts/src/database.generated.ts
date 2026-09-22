@@ -45,6 +45,7 @@ export type Database = {
           household_id: string
           id: string
           kind: string
+          notes: string | null
           seed_key: string | null
           status: string
           subtitle: string | null
@@ -58,6 +59,7 @@ export type Database = {
           household_id: string
           id?: string
           kind: string
+          notes?: string | null
           seed_key?: string | null
           status?: string
           subtitle?: string | null
@@ -71,6 +73,7 @@ export type Database = {
           household_id?: string
           id?: string
           kind?: string
+          notes?: string | null
           seed_key?: string | null
           status?: string
           subtitle?: string | null
@@ -247,14 +250,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      delete_list: {
-        Args: { expected_version: number; list_id: string; request_id: string }
-        Returns: Json
-      }
-      delete_task: {
-        Args: { expected_version: number; request_id: string; task_id: string }
-        Returns: Json
-      }
       claim_task: {
         Args: { expected_version: number; request_id: string; task_id: string }
         Returns: Json
@@ -270,6 +265,15 @@ export type Database = {
       create_invitation: { Args: { request_id: string }; Returns: Json }
       create_list: {
         Args: { request_id: string; subtitle?: string; title: string }
+        Returns: Json
+      }
+      create_list_v2: {
+        Args: {
+          notes?: string
+          request_id: string
+          subtitle?: string
+          title: string
+        }
         Returns: Json
       }
       create_task: {
@@ -293,18 +297,26 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_list: {
+        Args: { expected_version: number; list_id: string; request_id: string }
+        Returns: Json
+      }
+      delete_task: {
+        Args: { expected_version: number; request_id: string; task_id: string }
+        Returns: Json
+      }
       get_home: { Args: { p_cursor?: string; p_limit?: number }; Returns: Json }
       get_list: {
         Args: { p_cursor?: string; p_limit?: number; p_list_id: string }
         Returns: Json
       }
       get_members: { Args: never; Returns: Json }
-      get_task_templates: { Args: never; Returns: Json }
       get_my_household: { Args: never; Returns: Json }
       get_my_tasks: {
         Args: { p_cursor?: string; p_limit?: number }
         Returns: Json
       }
+      get_task_templates: { Args: never; Returns: Json }
       get_unassigned: {
         Args: { p_cursor?: string; p_limit?: number }
         Returns: Json
@@ -317,6 +329,14 @@ export type Database = {
         Args: { invitation_id: string; request_id: string }
         Returns: Json
       }
+      save_list_template: {
+        Args: { list_id: string; request_id: string }
+        Returns: Json
+      }
+      save_task_template: {
+        Args: { notes?: string; request_id: string; title: string }
+        Returns: Json
+      }
       set_task_completed: {
         Args: {
           completed: boolean
@@ -326,14 +346,21 @@ export type Database = {
         }
         Returns: Json
       }
-      save_task_template: {
-        Args: { notes?: string; request_id: string; title: string }
-        Returns: Json
-      }
       update_list: {
         Args: {
           expected_version: number
           list_id: string
+          request_id: string
+          subtitle?: string
+          title: string
+        }
+        Returns: Json
+      }
+      update_list_v2: {
+        Args: {
+          expected_version: number
+          list_id: string
+          notes?: string
           request_id: string
           subtitle?: string
           title: string
