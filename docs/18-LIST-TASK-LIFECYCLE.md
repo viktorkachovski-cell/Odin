@@ -23,6 +23,11 @@ The owner decision on 2026-09-21 adds removal controls to both clients.
   title and deadline while sending `assignee_id: null`. It uses the same
   expected-version and household-membership checks as any task edit.
 
+Archiving has no counterpart in either client: nothing lists, restores or
+purges an archived row, so recovery needs an operator with database access.
+That is risk R2 in `docs/25-KNOWN-RISKS.md`, and it grows faster now that
+templates archive too.
+
 All three actions are actor-scoped, idempotent by `request_id`, and available
 to any active household member. The UI confirms destructive actions and
 invalidates Home, list detail, My Tasks, and Unassigned queries after success.

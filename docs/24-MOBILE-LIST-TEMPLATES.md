@@ -78,9 +78,13 @@ Automated, on every push: Android Jest suites (including `ListCard` coverage
 for the note, the save action and the absence of any task-template entry),
 typecheck, lint, Expo Doctor and a production Android export.
 
-Not verified, and required before any release claim: nothing in this work has
-been exercised on an emulator or a physical device. The new overflow entries,
-the multiline note field's keyboard behaviour, TalkBack traversal of the new
-controls and dynamic font scaling all still need a device pass, as
-`docs/22-MOBILE-WEB-PARITY.md` and `docs/14-MOBILE-IMPLEMENTATION.md` already
-record for the wider app.
+Not verified: nothing in this work has been exercised on an emulator or a
+physical device. The new overflow entries, the multiline note field's keyboard
+behaviour, TalkBack traversal of the new controls and dynamic font scaling have
+had no device pass, as `docs/22-MOBILE-WEB-PARITY.md` and
+`docs/14-MOBILE-IMPLEMENTATION.md` already record for the wider app.
+
+Device verification is deferred by owner decision of 2026-09-22 and is not
+tracked as an open risk; see the accepted section of `docs/25-KNOWN-RISKS.md`.
+The gap is still real, so revisit it before any release claim or store
+listing.
