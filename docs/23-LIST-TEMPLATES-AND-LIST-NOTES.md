@@ -150,3 +150,27 @@ helpers, restore the previous `copy_template` and `get_home` bodies, and drop
 `lists_template_seed_key` first requires deleting or re-keying every
 member-saved template. Do not run a production reset or destructive rollback
 automatically.
+
+## Production record — template deletion, 2026-09-22
+
+Applied migration `deletable_list_templates` (hosted version `20260922065428`),
+mirroring `supabase/migrations/20260922140000_deletable_list_templates.sql`. It
+replaces the body of `private.delete_list` only: no signature, DTO, error code,
+grant or column changes, so `packages/contracts/src/database.generated.ts` is
+unaffected and was not regenerated.
+
+`supabase/smoke/list-templates-smoke.sql` grew the delete assertions and ran
+against the hosted project inside a transaction forced to roll back. Row counts
+before and after were identical. It passed: a template deletes and comes back
+`archived`, its tasks survive, it leaves `get_home`, `copy_template` on it
+returns `NOT_FOUND`, a second delete returns `NOT_FOUND`, an active list still
+deletes exactly as before, a stale `expected_version` still returns `CONFLICT`
+rather than deleting, and another household's list is still denied with
+`NOT_FOUND`.
+
+Security and performance advisors reported no new finding; the standing notices
+predate this change.
+
+Rollback is a reviewed forward migration restoring `kind = 'active'` to the
+`select` in `private.delete_list`. Templates archived in the meantime stay
+archived and would need an operator to set `status` back to `open`.
