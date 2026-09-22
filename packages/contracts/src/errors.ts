@@ -1,5 +1,5 @@
 /**
- * Command response envelope and error model from docs/02-CONTRACT.md.
+ * Command response envelope and error model from docs/contract.md.
  * Both clients and the server agree on these codes; the data layer maps
  * transport and auth failures into the same shape.
  */

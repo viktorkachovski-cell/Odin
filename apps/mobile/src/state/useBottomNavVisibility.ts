@@ -6,7 +6,7 @@ import { AccessibilityInfo, type NativeScrollEvent, type NativeSyntheticEvent } 
  * reveal on upward scroll. It must stay visible at the top and at the end of
  * the content, and the hiding behaviour is suspended entirely when the user has
  * asked the system to reduce motion -- an approved accessibility accommodation
- * recorded in docs/14-MOBILE-IMPLEMENTATION.md rather than a silent change.
+ * recorded in docs/android.md rather than a silent change.
  */
 
 /** Ignore jitter; only a deliberate drag changes visibility. */

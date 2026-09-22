@@ -1,10 +1,18 @@
 # Code standards and executable quality checks
 
-## Delivered now
+## Running the checks
 
-The repository includes a real ESLint flat config, pinned dependencies/root lockfile, Prettier config, strict TypeScript base, linter regression test and GitHub Actions quality workflow. There is no app scaffold yet. Run `npm ci --ignore-scripts` then `npm run check`. Use `npm run lint:fix` or `npm run format` locally, inspect their diff, and rerun checks.
+`npm ci --ignore-scripts` then `npm run check` — lint, formatting, every
+workspace typecheck, tooling tests, shared/web tests and Android tests. Use
+`npm run lint:fix` or `npm run format` locally, inspect the diff, and rerun.
+`npm run build` and the database scripts in `supabase/README.md` complete the
+picture.
 
-ESLint is configured for JavaScript tooling and typed TypeScript under `apps/` and `packages/`. Once an app/package is created, its own `tsconfig.json` must include its source files and extend/adopt the strict base. The type-aware parser deliberately fails on source outside a configured project. Edge Functions use their supported Deno lint/typecheck workflow and are not falsely counted as checked by this config.
+ESLint is configured for JavaScript tooling and typed TypeScript under `apps/`
+and `packages/`. Every package's own `tsconfig.json` includes its sources and
+adopts the strict base; the type-aware parser deliberately fails on source
+outside a configured project. Edge Functions would use their own Deno
+lint/typecheck workflow and are not covered by this config.
 
 ## Enforced rules
 
@@ -41,17 +49,19 @@ Import lint covers named package/deep-import patterns, not every conceivable rel
 - Catch errors and pretend success; count mocked tests as live integration; change tests simply to accept broken behavior.
 - Add unbounded refetch loops or listeners without cleanup. Avoid a single giant global state object.
 
-## Required scripts as implementation arrives
+## Required gates per layer
 
-| Layer    | Required gates                                                                                                       |
-| -------- | -------------------------------------------------------------------------------------------------------------------- |
-| Shared   | lint, `tsc --noEmit`, domain/contract/data tests, locale parity                                                      |
-| Web      | shared gates, component tests, Playwright acceptance, production build                                               |
-| Mobile   | shared gates, component tests, Expo Doctor, Android bundle/build, device flow evidence                               |
-| Database | schema replay on disposable DB, SQL lint, pgTAP/RLS tests, parallel-command integration tests, type generation drift |
-| Release  | cross-client acceptance, security regression, access revocation, environment/redirect routing and restore rehearsal  |
+| Layer    | Gates                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| Shared   | lint, `tsc --noEmit`, domain/contract/data tests, locale parity                                                     |
+| Web      | shared gates, component tests, production build                                                                     |
+| Mobile   | shared gates, component tests, Expo Doctor, Android export                                                          |
+| Database | schema replay on a disposable database, SQL lint, pgTAP/RLS tests, parallel-command tests, type-generation drift    |
+| Release  | cross-client acceptance, security regression, access revocation, environment/redirect routing and restore rehearsal |
 
-Extend `.github/workflows/quality.yml` with actual named jobs as code arrives. Missing tests/builds must fail once a workspace exists; do not use `--if-present` to hide missing scripts. Typechecking is separate from ESLint and required. Never label the current tooling-only workflow as full release validation.
+A missing test or build must fail; never use `--if-present` to hide a missing
+script. Typechecking is separate from ESLint and required in its own right. Add
+a new workspace to CI when you create it.
 
 ## Testing style and evidence
 
@@ -61,8 +71,20 @@ Each workstream's completion report includes changed paths, requirements met, ex
 
 ## Exceptions and maintenance
 
-The current ESLint 9 pin is deprecated upstream but compatible with the web accessibility plugin's published peer range. See `11-TOOLING-VALIDATION.md` for evidence and the required upgrade follow-up. Do not misrepresent it as a supported newest-version stack.
+ESLint 9.39.5 is pinned because the current `eslint-plugin-jsx-a11y` peer range
+excludes ESLint 10, and npm marks ESLint 9 end-of-life. This is a live
+maintenance risk: track accessibility-plugin compatibility and upgrade when
+supported, or deliberately replace the plugin with equivalent verified checks.
+Do not install with `--force` to conceal the incompatibility, and do not
+describe the pin as a newest-version stack. Other dependency warnings are
+triaged in `operations.md`.
 
-A narrowly justified lint exception needs a comment explaining the technical reason and a review note. It cannot waive authorization, idempotency or product rules. Do not turn a hard error into a warning globally. Revisit limits only with evidence that decomposition would reduce clarity.
+A narrowly justified lint exception needs a comment explaining the technical
+reason and a review note. It cannot waive authorization, idempotency or product
+rules. Do not turn a hard error into a warning globally. Revisit the complexity
+and file-size limits only with evidence that decomposition would reduce
+clarity.
 
-References: [ESLint flat configuration](https://eslint.org/docs/latest/use/configure/configuration-files), [typescript-eslint setup](https://typescript-eslint.io/getting-started/). The committed versions are deliberate compatible pins, not a claim to be the newest releases.
+References: [ESLint flat configuration](https://eslint.org/docs/latest/use/configure/configuration-files),
+[typescript-eslint setup](https://typescript-eslint.io/getting-started/). The
+committed versions are deliberate compatible pins.

@@ -103,7 +103,7 @@ select is(public.copy_template(
   '10000000-0000-0000-0000-000000000009', '20000000-0000-0000-0000-000000000001'
 ) #>> '{data,list_id}', (select value from fixture_state where key = 'copied_list'), 'copy is idempotent');
 
--- List notes and list templates (docs/23-LIST-TEMPLATES-AND-LIST-NOTES.md).
+-- List notes and list templates (docs/features.md).
 insert into fixture_state values (
   'noted_list', public.create_list_v2(
     '10000000-0000-0000-0000-000000000020', 'Pantry', 'Weekly', 'Buy the good olive oil'
@@ -182,7 +182,7 @@ select is(
 );
 
 -- A member who can save a template must be able to remove one, and removing it
--- archives rather than drops (docs/18-LIST-TASK-LIFECYCLE.md).
+-- archives rather than drops (docs/features.md).
 select is(public.delete_list(
   '10000000-0000-0000-0000-000000000028',
   (select value::uuid from fixture_state where key = 'saved_template'), 1

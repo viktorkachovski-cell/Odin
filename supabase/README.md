@@ -58,7 +58,7 @@ Invitation raw tokens are never stored. A private random HMAC key is generated i
 
 ## Seed content
 
-`seed.sql` intentionally contains no production templates because English/Bulgarian wording is awaiting product-owner approval. `private.seed_lists` and `private.seed_tasks` are ready for a reviewed, versioned seed migration. Empty seed tables do not block household creation; the new household starts without templates until content is approved.
+`seed.sql` intentionally contains no production templates, and **owner decision 2026-09-22 settles that as the intended behaviour**: a new household starts empty and builds its own templates by saving a list it actually uses. This is no longer an open approval. `private.seed_lists` and `private.seed_tasks` stay in the schema so a reviewed, versioned seed migration remains possible if the owner ever reverses that, and empty seed tables do not block household creation.
 
 ## Hosted rollout
 
@@ -78,7 +78,7 @@ user's explicit instruction, so the clients have a backend to run against.
 
 **Owner decision (2026-09-20): this is the production database.** Odin runs a
 single hosted environment because it is a private, single-owner hobby project;
-see `docs/00-ARCHITECTURE.md`. Vercel previews therefore read and write the same
+see `docs/architecture.md`. Vercel previews therefore read and write the same
 data as production, which is an accepted trade, not an oversight. Recorded for
 the next agent:
 
@@ -91,8 +91,8 @@ the next agent:
   `invitation_secret`, `save_command`, `replay_command`, `normalized_text`,
   `command_hash`) not executable by `authenticated`.
 - Types were regenerated into `packages/contracts/src/database.generated.ts`.
-- `seed.sql` stays empty, so a new household starts with no templates until the
-  English/Bulgarian wording is approved.
+- `seed.sql` stays empty, so a new household starts with no templates. That is
+  intended, not pending: see the seed-content note above.
 - Verification fixtures (three `@example.invalid` accounts and their data) were
   created and then deleted. The project has since been in real use and holds
   live household data, so treat it as production: never reset it, and run
@@ -101,12 +101,12 @@ the next agent:
 This project is the backend for the Vercel production deployment and its
 previews of the web client. A build logs the host it targets (`[odin] building against
 <project-ref>.supabase.co`), so the Vercel build log shows which project a given
-deployment talks to; see `docs/13-WEB-DEPLOYMENT.md`.
+deployment talks to; see `docs/operations.md`.
 
 The two-backend concurrency suite does run: `npm run db:test:concurrency`
 executes in the `Database` workflow's `verify` job against a real local stack,
 alongside `supabase db lint` and the pgTAP suite. Three races from
-`docs/02-CONTRACT.md` are nonetheless still uncovered — assignment racing
+`docs/contract.md` are nonetheless still uncovered — assignment racing
 membership revocation, two concurrent `create_household` calls for one account,
 and two accounts redeeming one invitation simultaneously.
 

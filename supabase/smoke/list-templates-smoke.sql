@@ -104,7 +104,7 @@ begin
   end if;
 
   -- A saved template must be removable, and removing it must archive rather
-  -- than drop (docs/18-LIST-TASK-LIFECYCLE.md).
+  -- than drop (docs/features.md).
   response := public.delete_list(gen_random_uuid(), v_template_id, 1);
   if response #>> '{data,list_id}' is distinct from v_template_id::text then
     raise exception 'a list template could not be deleted: %', response;

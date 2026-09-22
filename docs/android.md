@@ -1,8 +1,8 @@
 # Odin Android implementation
 
-Implements `docs/04-MOBILE-AGENT.md`. The app lives in `apps/mobile` and shares
-the contract, domain rules, translations, design tokens and data adapter with
-the web client.
+The app lives in `apps/mobile` and shares the contract, domain rules,
+translations, design tokens and data adapter with the web client. What the
+app _does_ is `features.md`; this file is how Android does it.
 
 ## Stack
 
@@ -65,8 +65,7 @@ repositories and query keys.
 
 ## Email and password sign-in
 
-Implements `docs/16-MOBILE-PASSWORD-AUTH-AGENT.md`. Android now registers and
-signs in with the same Supabase accounts as the web client, through the shared
+Android registers and signs in with the same Supabase accounts as the web client, through the shared
 `registerWithPassword` / `signInWithPassword` / `requestPasswordReset` /
 `resendConfirmation` wrappers in `@odin/data`. No authentication rule is
 reimplemented here, and no schema change was needed.
@@ -109,25 +108,59 @@ reimplemented here, and no schema change was needed.
   or a back-stack entry does not hit an unresolvable route. The OTP exports in
   `@odin/data` are left in place for builds still on the old flow.
 
-## Owner decisions still required
+## Presentation
 
-These are proposals, not settled product scope (`docs/01-DECISIONS.md` item 5):
+Android adapts the presentation, never the rules. Shared commands, labels,
+permissions and task behaviour stay aligned with the web client.
 
-| Topic                | Proposed                       | Needs                                                                                                                                                                                          |
-| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package identifier   | `app.odin.household`           | Owner approval before any store listing or signed build                                                                                                                                        |
-| Distribution         | Private APK first              | Owner choice; no keystore exists and none may be committed                                                                                                                                     |
-| Invitation link base | `EXPO_PUBLIC_WEB_ORIGIN`       | **Settled**: point it at the deployed web client, `https://odin-ten-tau.vercel.app`. Left unset, links fall back to `odin://invite`, which is useless to a recipient without the app installed |
-| Deep links           | `odin://invite#token=…` scheme | Verified Android App Links need a domain and `assetlinks.json`                                                                                                                                 |
+- Extended floating action buttons for the primary create action on Home and
+  list detail.
+- Secondary task and list actions use Android overflow controls and modal
+  bottom menus rather than rows of desktop buttons.
+- Task-template selection uses a scrollable bottom picker, so long titles and a
+  growing template collection do not crowd the editor.
+- List detail has an explicit in-app back control alongside Android system
+  back.
+- Destructive actions keep the native confirmation alert.
+- Completion and Claim stay directly reachable: they are the primary action of
+  their row.
+- Template cards keep their border; active cards do not.
+- A template's tasks are read-only — no completion, edit, delete or unassign
+  control is rendered on them.
+- Touch targets stay at least 48 dp, every control carries a TalkBack label,
+  and English/Bulgarian text is shared with web.
 
-The token is read only from the link fragment. A query parameter is deliberately
-rejected so the contract's "keep tokens out of request paths" rule cannot be
-undone by accident.
+## Lists, templates and notes on Android
+
+| Action                     | Where it lives                                      | Command               |
+| -------------------------- | --------------------------------------------------- | --------------------- |
+| Save a list as a template  | Overflow on the Home card, and on list detail       | `save_list_template`  |
+| Delete a list or template  | Overflow on the Home card, and on list detail       | `delete_list`         |
+| Read a list's shared note  | Under the subtitle on the Home card and list detail | `get_home`/`get_list` |
+| Write a list's shared note | Note field under the subtitle field in the editor   | `update_list_v2`      |
+
+- `Save as list template` sits in the same `ActionMenu` that carries
+  `Delete list`. It is not destructive, so it takes no confirmation alert — the
+  new template card appearing on Home is the confirmation, backed by a polite
+  live-region line. It invalidates Home only: the source list is unmodified and
+  keeps its version.
+- `Delete list` appears on template cards as well as active ones, with the same
+  destructive alert and the same `expected_version` from the summary. The
+  summary DTO already carries `version`, so deleting from Home needs no extra
+  read.
+- Saving a list writes **one list template** and never a task template, so the
+  task editor's picker keeps reading `get_task_templates` alone.
+- The list note is a `multiline` field with `numberOfLines={4}` under the
+  subtitle field, validated with the shared `validateNotes`. An empty field
+  submits `null`, never an empty string. `updateList` is called with `notes`,
+  which routes to `update_list_v2`; omitting `notes` entirely would keep the
+  legacy note-preserving `update_list`, a path that exists for installed builds
+  rather than this one.
 
 ## Build-time configuration
 
 Odin runs a single hosted environment, treated as production (see
-`docs/00-ARCHITECTURE.md`). An Android build therefore takes the same Supabase
+`docs/architecture.md`). An Android build therefore takes the same Supabase
 project the web client uses:
 
 ```sh
@@ -141,51 +174,32 @@ was built. The publishable key is public by design -- it ships inside every
 client bundle -- but it still belongs in the build environment, never in a
 committed file. `apps/mobile/.env.example` holds the names and placeholders only.
 
-## Verified in the current release
+## Owner decisions still required
 
-Commands and results, run at the repository root unless noted:
+These are proposals, not settled product scope (`docs/decisions.md` item 5):
 
-- `npm run lint` — clean, zero warnings.
-- `npm run typecheck` — clean across all workspaces.
-- `npm run test` — 133 Vitest tests over 15 files (shared packages and web).
-- `npm run test:mobile` — 89 Jest tests over 11 suites: environment contract,
-  chunked secure storage, deep-link and redirect safety (including the
-  post-login destination rules), `TaskRow` behaviour, the bottom-navigation
-  visibility rule, the three password screens, the auth-request guards, and
-  provider identity handling.
-- `npm run build` — web production build succeeds.
-- `npm run build:check --workspace @odin/mobile` — Android export succeeds,
-  producing a 4.8MB Hermes bundle from the full graph including every shared
-  workspace package.
-- `npx expo-doctor` (in `apps/mobile`) — 21/21 checks passed in CI and locally
-  when run with the required process/network access.
-- Commit `8c74b84` adds the Android-specific FAB, overflow menus, template
-  picker, explicit list back affordance and matching English/Bulgarian labels.
-  See `docs/22-MOBILE-WEB-PARITY.md`.
+| Topic                | Proposed                       | Needs                                                                                                                                                                                          |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package identifier   | `app.odin.household`           | Owner approval before any store listing or signed build                                                                                                                                        |
+| Distribution         | Private APK first              | Owner choice; no keystore exists and none may be committed                                                                                                                                     |
+| Invitation link base | `EXPO_PUBLIC_WEB_ORIGIN`       | **Settled**: point it at the deployed web client, `https://odin-ten-tau.vercel.app`. Left unset, links fall back to `odin://invite`, which is useless to a recipient without the app installed |
+| Deep links           | `odin://invite#token=…` scheme | Verified Android App Links need a domain and `assetlinks.json`                                                                                                                                 |
 
-## NOT verified — required before any release claim
+The token is read only from the link fragment. A query parameter is deliberately
+rejected so the contract's "keep tokens out of request paths" rule cannot be
+undone by accident.
 
-No Android binary was built or installed, because this environment has no
-Android SDK, emulator or device. An export is not an installation. Still
-outstanding:
+## Device verification
 
-1. `npx expo run:android` or an EAS build, installed on a device/emulator.
-2. Secure-store session persistence across app restarts, including token
-   refresh and the chunked-value path, on real hardware.
-3. Registration, email confirmation and password recovery end to end. SMTP is
-   still unconfigured, so no confirmation or recovery mail can be delivered.
-   Every test here mocks the auth calls and proves client-side behaviour
-   only; none of them is evidence that mail arrives.
-4. One account signing in on Android and on web with the same password, and an
-   existing one-time-code account gaining a password through recovery with its
-   user ID and household unchanged.
-5. Deep-link redemption of a real invitation.
-6. TalkBack traversal, password-manager autofill, paste, dynamic font scaling,
-   long Bulgarian labels and contrast on a device.
-7. One Android client against one web client as two members of one household,
-   including disconnect/reconnect.
-8. Screen sizes, OS/API levels, build identifier and screenshots recorded per
-   `docs/08-VERIFICATION.md`.
+Nothing in the Android client has been exercised on an emulator or a physical
+device: this environment has no Android SDK, emulator or device, and an export
+is not an installation. Everything Android is proven by Jest, typecheck, Expo
+Doctor and a production export only.
 
-Native dependency changes require rebuilding the Android binary; deploying the
+Device verification is **deferred by owner decision of 2026-09-22** and is not
+tracked as an open risk; see the accepted section of `known-risks.md`. The gap
+is real, so revisit it before any release claim or store listing. What a device
+pass would have to cover is listed in `verification.md`.
+
+Native dependency changes require rebuilding the Android binary. Deploying the
 web app does not update an Android install.
