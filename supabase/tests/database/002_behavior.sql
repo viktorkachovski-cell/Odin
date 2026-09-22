@@ -167,11 +167,17 @@ select is(
     where id = (select value::uuid from fixture_state where key = 'noted_template')),
   'Own brand is fine', 'a saved list template carries the list note'
 );
-select is(
-  (select notes from public.lists where id = (public.copy_template(
+-- The copy and the read must be separate statements: a row a volatile function
+-- inserts mid-statement is not visible to that statement's own snapshot.
+insert into fixture_state values (
+  'noted_copy', public.copy_template(
     '10000000-0000-0000-0000-000000000026',
     (select value::uuid from fixture_state where key = 'noted_template')
-  ) #>> '{data,list_id}')::uuid),
+  ) #>> '{data,list_id}'
+);
+select is(
+  (select notes from public.lists
+    where id = (select value::uuid from fixture_state where key = 'noted_copy')),
   'Own brand is fine', 'copying a list template carries the note onto the new list'
 );
 
