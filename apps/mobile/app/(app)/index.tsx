@@ -9,6 +9,7 @@ import {
   deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  saveListTemplate,
   useCommand,
 } from '@odin/data';
 
@@ -25,8 +26,9 @@ import { useTheme } from '../../src/theme.ts';
 
 /**
  * Home shows two clearly labelled sections. `get_home` returns both kinds in
- * one id-ordered page, so the split into Templates and Active lists happens
- * here rather than in two round trips.
+ * one id-ordered page, so the split into List templates and Active lists
+ * happens here rather than in two round trips. Task templates are a separate
+ * type and are loaded from inside the task editor, never from Home.
  */
 
 export default function HomeScreen(): ReactNode {
@@ -36,6 +38,7 @@ export default function HomeScreen(): ReactNode {
   const home = useHomeQuery(true);
   const { client } = useOdin();
   const [creating, setCreating] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const copy = useCommand(
     (requestId, input: { readonly templateId: string }) =>
@@ -47,9 +50,23 @@ export default function HomeScreen(): ReactNode {
   );
 
   const create = useCommand(
-    (requestId, input: { readonly title: string; readonly subtitle: string | null }) =>
-      createList(client, requestId, input),
+    (
+      requestId,
+      input: {
+        readonly title: string;
+        readonly subtitle: string | null;
+        readonly notes: string | null;
+      },
+    ) => createList(client, requestId, input),
     { invalidate: keysAffectedByListChange(), onSuccess: () => setCreating(false) },
+  );
+
+  // Saving a list template writes a new list, so Home is the cache to refresh;
+  // the new template card appearing is itself most of the confirmation.
+  const saveTemplate = useCommand(
+    (requestId, input: { readonly listId: string }) =>
+      saveListTemplate(client, requestId, input.listId),
+    { invalidate: keysAffectedByListChange(), onSuccess: () => setTemplateSaved(true) },
   );
 
   const remove = useCommand(
@@ -101,6 +118,15 @@ export default function HomeScreen(): ReactNode {
                 : undefined
             }
             deletePending={remove.state.pending}
+            onSaveTemplate={
+              item.kind === 'active'
+                ? (selected) => {
+                    setTemplateSaved(false);
+                    void saveTemplate.run({ listId: selected.id });
+                  }
+                : undefined
+            }
+            saveTemplatePending={saveTemplate.state.pending}
             t={t}
           />
         ))
@@ -124,6 +150,14 @@ export default function HomeScreen(): ReactNode {
         )}
         {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
         {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
+        {saveTemplate.state.error !== null && (
+          <ErrorBanner error={saveTemplate.state.error} t={t} />
+        )}
+        {templateSaved && saveTemplate.state.error === null && (
+          <Text accessibilityLiveRegion="polite" style={{ color: theme.colors.textMuted }}>
+            {t('list.template.saved')}
+          </Text>
+        )}
 
         {section(
           t('home.templates.heading'),

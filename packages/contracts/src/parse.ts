@@ -125,6 +125,9 @@ export function parseList(value: unknown, field = 'list'): ListDto {
     kind: parseListKind(raw['kind'], `${field}.kind`),
     title: str(raw['title'], `${field}.title`),
     subtitle: nullableStr(raw['subtitle'], `${field}.subtitle`),
+    // Tolerated as absent so a client can read a database that predates the
+    // list note, exactly as `parseTask` already tolerates a missing task note.
+    notes: raw['notes'] === undefined ? null : nullableStr(raw['notes'], `${field}.notes`),
     status: parseListStatus(raw['status'], `${field}.status`),
     seed_key: nullableStr(raw['seed_key'], `${field}.seed_key`),
     created_by: str(raw['created_by'], `${field}.created_by`),
@@ -141,6 +144,7 @@ function parseListSummary(value: unknown, field: string): ListSummaryDto {
     kind: parseListKind(raw['kind'], `${field}.kind`),
     title: str(raw['title'], `${field}.title`),
     subtitle: nullableStr(raw['subtitle'], `${field}.subtitle`),
+    notes: raw['notes'] === undefined ? null : nullableStr(raw['notes'], `${field}.notes`),
     status: parseListStatus(raw['status'], `${field}.status`),
     version: num(raw['version'], `${field}.version`),
     total_tasks: num(raw['total_tasks'], `${field}.total_tasks`),

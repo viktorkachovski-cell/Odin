@@ -8,6 +8,7 @@ import {
   deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  saveListTemplate,
   setTaskCompleted,
   updateList,
   updateTask,
@@ -24,6 +25,7 @@ import {
   DestructiveConfirm,
   ListHeader,
   ListTasks,
+  TemplateSavedNotice,
   type PendingConfirm,
 } from '../components/ListDetailParts.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
@@ -47,6 +49,7 @@ export function ListDetail(): ReactNode {
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const invalidateTask = keysAffectedByTaskChange(listId);
 
@@ -106,6 +109,7 @@ export function ListDetail(): ReactNode {
         readonly expectedVersion: number;
         readonly title: string;
         readonly subtitle: string | null;
+        readonly notes: string | null;
       },
     ) =>
       updateList(client, requestId, {
@@ -113,10 +117,22 @@ export function ListDetail(): ReactNode {
         expectedVersion: input.expectedVersion,
         title: input.title,
         subtitle: input.subtitle,
+        notes: input.notes,
       }),
     {
       invalidate: keysAffectedByListChange(listId),
       onSuccess: () => setEditingList(false),
+    },
+  );
+
+  // A saved list template is a new list, so only Home's cache changes; this
+  // list is untouched and keeps its version.
+  const saveTemplate = useCommand(
+    (requestId, input: { readonly listId: string }) =>
+      saveListTemplate(client, requestId, input.listId),
+    {
+      invalidate: keysAffectedByListChange(),
+      onSuccess: () => setTemplateSaved(true),
     },
   );
 
@@ -190,11 +206,18 @@ export function ListDetail(): ReactNode {
           })
         }
         onEdit={() => setEditingList(true)}
-        pending={removeList.state.pending}
+        onSaveTemplate={() => {
+          setTemplateSaved(false);
+          void saveTemplate.run({ listId: page.list.id });
+        }}
+        notes={page.list.notes}
+        pending={anyPending([removeList.state, saveTemplate.state])}
         subtitle={page.list.subtitle}
         t={t}
         title={page.list.title}
       />
+
+      <TemplateSavedNotice error={saveTemplate.state.error} saved={templateSaved} t={t} />
 
       {!isTemplate && <Progress completed={page.completed_tasks} t={t} total={page.total_tasks} />}
 
@@ -204,6 +227,7 @@ export function ListDetail(): ReactNode {
           { error: removeList.state.error, retry: () => void removeList.retry() },
           { error: removeTask.state.error, retry: () => void removeTask.retry() },
           { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
+          { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
         ]}
         onRetry={() => void completeCommand.retry()}
         t={t}
@@ -313,6 +337,7 @@ export function ListDetail(): ReactNode {
               expectedVersion: page.list.version,
               title: input.title,
               subtitle: input.subtitle,
+              notes: input.notes,
             })
           }
           pending={saveList.state.pending}

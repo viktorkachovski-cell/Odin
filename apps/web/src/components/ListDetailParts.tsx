@@ -62,21 +62,25 @@ export function ListTasks({
 export function ListHeader({
   title,
   subtitle,
+  notes,
   isTemplate,
   t,
   pending,
   onEdit,
   onAddTask,
   onDelete,
+  onSaveTemplate,
 }: {
   readonly title: string;
   readonly subtitle: string | null;
+  readonly notes: string | null;
   readonly isTemplate: boolean;
   readonly t: Translator;
   readonly pending: boolean;
   readonly onEdit: () => void;
   readonly onAddTask: () => void;
   readonly onDelete: () => void;
+  readonly onSaveTemplate: () => void;
 }): ReactNode {
   return (
     <div className="page-header page-header--sticky">
@@ -84,6 +88,7 @@ export function ListHeader({
         <Link to="/">{t('list.back')}</Link>
         <h1>{title}</h1>
         {subtitle !== null && <p className="card__subtitle">{subtitle}</p>}
+        {notes !== null && <p className="card__notes">{notes}</p>}
       </div>
       {!isTemplate && (
         <div className="action-group">
@@ -91,6 +96,12 @@ export function ListHeader({
             disabled={pending}
             items={[
               { key: 'edit', label: t('list.edit'), glyph: '✎', onSelect: onEdit },
+              {
+                key: 'save-template',
+                label: t('list.template.save'),
+                glyph: '⧉',
+                onSelect: onSaveTemplate,
+              },
               {
                 key: 'delete',
                 label: t('list.delete'),
@@ -111,6 +122,28 @@ export function ListHeader({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The confirmation after saving a list template. It lives here so the route
+ * stays data and command wiring, and renders nothing while a command error is
+ * already on screen.
+ */
+export function TemplateSavedNotice({
+  saved,
+  error,
+  t,
+}: {
+  readonly saved: boolean;
+  readonly error: CommandError | null;
+  readonly t: Translator;
+}): ReactNode {
+  if (!saved || error !== null) return null;
+  return (
+    <p className="empty" role="status">
+      {t('list.template.saved')}
+    </p>
   );
 }
 

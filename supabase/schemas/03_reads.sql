@@ -126,7 +126,7 @@ begin
   v_after := nullif(v_cursor ->> 'id', '')::uuid;
 
   with page as (
-    select l.id, l.kind, l.title, l.subtitle, l.status, l.version,
+    select l.id, l.kind, l.title, l.subtitle, l.notes, l.status, l.version,
       count(t.id)::integer as total_tasks,
       count(t.id) filter (where t.completed)::integer as completed_tasks
     from public.lists l

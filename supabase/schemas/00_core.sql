@@ -65,6 +65,7 @@ create table public.lists (
   kind text not null,
   title text not null,
   subtitle text,
+  notes text,
   status text not null default 'open',
   seed_key text,
   created_by uuid not null references auth.users(id),
@@ -84,8 +85,13 @@ create table public.lists (
       and char_length(subtitle) <= 300
     )
   ),
+  constraint lists_notes_normalized check (
+    notes is null
+    or (notes = private.normalized_text(notes) and char_length(notes) <= 5000)
+  ),
   constraint lists_version_positive check (version > 0),
-  constraint lists_template_seed_key check (kind = 'active' or seed_key is not null),
+  -- Templates seeded by create_household carry a seed_key; member-saved
+  -- templates have none, so only the uniqueness of a seed_key is enforced.
   unique (household_id, id),
   unique (household_id, seed_key)
 );

@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(42);
 
 create temporary table fixture_state (
   key text primary key,
@@ -103,6 +103,78 @@ select is(public.copy_template(
   '10000000-0000-0000-0000-000000000009', '20000000-0000-0000-0000-000000000001'
 ) #>> '{data,list_id}', (select value from fixture_state where key = 'copied_list'), 'copy is idempotent');
 
+-- List notes and list templates (docs/23-LIST-TEMPLATES-AND-LIST-NOTES.md).
+insert into fixture_state values (
+  'noted_list', public.create_list_v2(
+    '10000000-0000-0000-0000-000000000020', 'Pantry', 'Weekly', 'Buy the good olive oil'
+  ) #>> '{data,id}'
+);
+select is(
+  (select notes from public.lists
+    where id = (select value::uuid from fixture_state where key = 'noted_list')),
+  'Buy the good olive oil', 'create_list_v2 stores the shared list note'
+);
+select is(public.update_list(
+  '10000000-0000-0000-0000-000000000021',
+  (select value::uuid from fixture_state where key = 'noted_list'), 1, 'Pantry', 'Weekly'
+) #>> '{data,notes}', 'Buy the good olive oil', 'legacy update_list preserves an existing note');
+select is(public.update_list_v2(
+  '10000000-0000-0000-0000-000000000022',
+  (select value::uuid from fixture_state where key = 'noted_list'), 2,
+  'Pantry', 'Weekly', 'Own brand is fine'
+) #>> '{data,notes}', 'Own brand is fine', 'update_list_v2 replaces the note');
+
+insert into fixture_state values (
+  'saved_template', public.save_list_template(
+    '10000000-0000-0000-0000-000000000023',
+    (select value::uuid from fixture_state where key = 'list_a')
+  ) #>> '{data,list_id}'
+);
+select is(
+  (select kind from public.lists
+    where id = (select value::uuid from fixture_state where key = 'saved_template')),
+  'template', 'a saved list becomes a list template'
+);
+select is((select count(*)::text from public.tasks where list_id = (
+  select value::uuid from fixture_state where key = 'saved_template'
+)), '2', 'saving a list keeps every task inside it');
+select is((select count(*)::text from public.tasks where list_id = (
+  select value::uuid from fixture_state where key = 'saved_template'
+) and (completed or assignee_id is not null or due_at is not null)),
+  '0', 'saved template tasks carry no runtime state');
+select is(public.save_list_template(
+  '10000000-0000-0000-0000-000000000023',
+  (select value::uuid from fixture_state where key = 'list_a')
+) #>> '{data,list_id}', (select value from fixture_state where key = 'saved_template'),
+  'saving a list as a template is idempotent');
+select is(public.save_list_template(
+  '10000000-0000-0000-0000-000000000024',
+  (select value::uuid from fixture_state where key = 'saved_template')
+) #>> '{error,code}', 'NOT_FOUND', 'a list template cannot itself be saved as a template');
+select is(
+  jsonb_array_length(public.get_task_templates() #> '{data,items}')::text,
+  '0', 'saving a list never writes a task template'
+);
+
+insert into fixture_state values (
+  'noted_template', public.save_list_template(
+    '10000000-0000-0000-0000-000000000025',
+    (select value::uuid from fixture_state where key = 'noted_list')
+  ) #>> '{data,list_id}'
+);
+select is(
+  (select notes from public.lists
+    where id = (select value::uuid from fixture_state where key = 'noted_template')),
+  'Own brand is fine', 'a saved list template carries the list note'
+);
+select is(
+  (select notes from public.lists where id = (public.copy_template(
+    '10000000-0000-0000-0000-000000000026',
+    (select value::uuid from fixture_state where key = 'noted_template')
+  ) #>> '{data,list_id}')::uuid),
+  'Own brand is fine', 'copying a list template carries the note onto the new list'
+);
+
 insert into fixture_state values (
   'invite_token', public.create_invitation(
     '10000000-0000-0000-0000-000000000010'
@@ -158,6 +230,9 @@ select is(public.update_list(
   '10000000-0000-0000-0000-000000000016',
   '30000000-0000-0000-0000-000000000002', 1, 'Attack', null
 ) #>> '{error,code}', 'NOT_FOUND', 'cross-household mutation is non-disclosing');
+select is(public.save_list_template(
+  '10000000-0000-0000-0000-000000000027', '30000000-0000-0000-0000-000000000002'
+) #>> '{error,code}', 'NOT_FOUND', 'a cross-household list cannot be saved as a template');
 select is(public.get_members() #>> '{data,0,display_name}', 'Alice', 'member projection returns household identities');
 select is(jsonb_array_length(public.get_members() #> '{data}')::text, '2', 'member projection includes both active members');
 

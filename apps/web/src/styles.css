@@ -404,6 +404,18 @@ a.card__title:hover {
   overflow-wrap: anywhere;
 }
 
+/*
+ * The shared list note sits directly under the subtitle and keeps the line
+ * breaks whoever wrote it typed, the way the task note already does.
+ */
+.card__notes {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Action groups ---------- */
 
 /*

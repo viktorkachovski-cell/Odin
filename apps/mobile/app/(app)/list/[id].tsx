@@ -9,6 +9,7 @@ import {
   deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  saveListTemplate,
   setTaskCompleted,
   updateList,
   updateTask,
@@ -24,10 +25,13 @@ import { SecondaryButton } from '../../../src/components/Button.tsx';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton.tsx';
 import { ListEditor } from '../../../src/components/ListEditor.tsx';
 import {
+  anyPending,
   CommandErrors,
   ListHeader as ActionHeader,
+  ListMeta,
   ListProgress,
   ListTasks,
+  TemplateSavedNotice,
 } from '../../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
 import { TaskEditor } from '../../../src/components/TaskEditor.tsx';
@@ -54,6 +58,7 @@ export default function ListDetailScreen(): ReactNode {
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
   const [addingTask, setAddingTask] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const invalidateTask = keysAffectedByTaskChange(id);
 
@@ -113,6 +118,7 @@ export default function ListDetailScreen(): ReactNode {
         readonly expectedVersion: number;
         readonly title: string;
         readonly subtitle: string | null;
+        readonly notes: string | null;
       },
     ) =>
       updateList(client, requestId, {
@@ -120,8 +126,17 @@ export default function ListDetailScreen(): ReactNode {
         expectedVersion: input.expectedVersion,
         title: input.title,
         subtitle: input.subtitle,
+        notes: input.notes,
       }),
     { invalidate: keysAffectedByListChange(id), onSuccess: () => setEditingList(false) },
+  );
+
+  // A saved list template is a new list, so only Home's cache changes; this
+  // list is untouched and keeps its version.
+  const saveTemplate = useCommand(
+    (requestId, input: { readonly listId: string }) =>
+      saveListTemplate(client, requestId, input.listId),
+    { invalidate: keysAffectedByListChange(), onSuccess: () => setTemplateSaved(true) },
   );
 
   const removeList = useCommand(
@@ -186,6 +201,7 @@ export default function ListDetailScreen(): ReactNode {
           t={t}
           total={page.total_tasks}
         />
+        <ListMeta notes={page.list.notes} subtitle={page.list.subtitle} />
         <ActionHeader
           isTemplate={isTemplate}
           onDelete={() =>
@@ -203,9 +219,15 @@ export default function ListDetailScreen(): ReactNode {
             ])
           }
           onEdit={() => setEditingList(true)}
-          pending={removeList.state.pending}
+          onSaveTemplate={() => {
+            setTemplateSaved(false);
+            void saveTemplate.run({ listId: page.list.id });
+          }}
+          pending={anyPending([removeList.state, saveTemplate.state])}
           t={t}
         />
+
+        <TemplateSavedNotice error={saveTemplate.state.error} saved={templateSaved} t={t} />
 
         <CommandErrors
           errors={[
@@ -213,6 +235,7 @@ export default function ListDetailScreen(): ReactNode {
             { error: removeList.state.error, retry: () => void removeList.retry() },
             { error: removeTask.state.error, retry: () => void removeTask.retry() },
             { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
+            { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
           ]}
           t={t}
         />
@@ -221,11 +244,7 @@ export default function ListDetailScreen(): ReactNode {
           <EmptyState label={t('list.empty')} />
         ) : (
           <ListTasks
-            busy={
-              completeCommand.state.pending ||
-              removeTask.state.pending ||
-              unassignTask.state.pending
-            }
+            busy={anyPending([completeCommand.state, removeTask.state, unassignTask.state])}
             isTemplate={isTemplate}
             locale={locale}
             members={members.data ?? []}
@@ -333,6 +352,7 @@ export default function ListDetailScreen(): ReactNode {
               expectedVersion: page.list.version,
               title: input.title,
               subtitle: input.subtitle,
+              notes: input.notes,
             })
           }
           pending={saveList.state.pending}

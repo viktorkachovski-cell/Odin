@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { CommandError, ListDto } from '@odin/contracts';
-import { validateSubtitle, validateTitle } from '@odin/domain';
+import { validateNotes, validateSubtitle, validateTitle } from '@odin/domain';
 import type { TranslationKey, Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -11,7 +11,11 @@ import { PrimaryButton, SecondaryButton } from './Button.tsx';
 import { Field } from './Field.tsx';
 import { Sheet } from './Sheet.tsx';
 
-/** Lists carry no deadline anywhere in the UI, matching the schema and DTOs. */
+/**
+ * Lists carry no deadline anywhere in the UI, matching the schema and DTOs.
+ * The shared note sits under the subtitle, in the field order the list itself
+ * is rendered in.
+ */
 
 export interface ListEditorProps {
   readonly list: ListDto | null;
@@ -19,7 +23,11 @@ export interface ListEditorProps {
   readonly pending: boolean;
   readonly error: CommandError | null;
   readonly onCancel: () => void;
-  readonly onSubmit: (input: { readonly title: string; readonly subtitle: string | null }) => void;
+  readonly onSubmit: (input: {
+    readonly title: string;
+    readonly subtitle: string | null;
+    readonly notes: string | null;
+  }) => void;
 }
 
 export function ListEditor({
@@ -33,22 +41,33 @@ export function ListEditor({
   const theme = useTheme();
   const [title, setTitle] = useState(list?.title ?? '');
   const [subtitle, setSubtitle] = useState(list?.subtitle ?? '');
+  const [notes, setNotes] = useState(list?.notes ?? '');
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [subtitleIssue, setSubtitleIssue] = useState<string | undefined>(undefined);
+  const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
 
   const submit = (): void => {
     const titleProblem = validateTitle(title);
     const subtitleProblem = validateSubtitle(subtitle);
+    const notesProblem = validateNotes(notes);
     setTitleIssue(
       titleProblem === null ? undefined : t(titleProblem.message_key as TranslationKey),
     );
     setSubtitleIssue(
       subtitleProblem === null ? undefined : t(subtitleProblem.message_key as TranslationKey),
     );
-    if (titleProblem !== null || subtitleProblem !== null) return;
+    setNotesIssue(
+      notesProblem === null ? undefined : t(notesProblem.message_key as TranslationKey),
+    );
+    if (titleProblem !== null || subtitleProblem !== null || notesProblem !== null) return;
 
-    const trimmed = subtitle.trim();
-    onSubmit({ title: title.trim(), subtitle: trimmed.length === 0 ? null : trimmed });
+    const trimmedSubtitle = subtitle.trim();
+    const trimmedNotes = notes.trim();
+    onSubmit({
+      title: title.trim(),
+      subtitle: trimmedSubtitle.length === 0 ? null : trimmedSubtitle,
+      notes: trimmedNotes.length === 0 ? null : trimmedNotes,
+    });
   };
 
   return (
@@ -83,6 +102,14 @@ export function ListEditor({
         label={t('list.subtitle.label')}
         onChangeText={setSubtitle}
         value={subtitle}
+      />
+      <Field
+        error={notesIssue}
+        label={t('list.notes.label')}
+        multiline
+        numberOfLines={4}
+        onChangeText={setNotes}
+        value={notes}
       />
     </Sheet>
   );

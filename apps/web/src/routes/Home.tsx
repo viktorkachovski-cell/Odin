@@ -8,6 +8,7 @@ import {
   deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  saveListTemplate,
   useCommand,
 } from '@odin/data';
 import type { Translator } from '@odin/i18n';
@@ -23,7 +24,9 @@ import { Progress } from '../components/Progress.tsx';
 
 /**
  * Home shows two clearly labelled sections. `get_home` returns both kinds in one
- * id-ordered page, so the split into Templates and Active lists happens here.
+ * id-ordered page, so the split into List templates and Active lists happens
+ * here. Task templates are a separate type and never appear on Home; they are
+ * loaded from inside the task editor.
  *
  * Template cards keep their border and active list cards do not, matching the
  * source design; the copy control is a sibling of the card's link rather than a
@@ -50,6 +53,7 @@ function TemplateCard({
     <li className="card card--template">
       <span className="card__title">{summary.title}</span>
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
+      {summary.notes !== null && <p className="card__notes">{summary.notes}</p>}
       <div className="card__actions">
         <button
           className="button button--accent"
@@ -68,11 +72,13 @@ function ActiveCard({
   summary,
   t,
   onDelete,
+  onSaveTemplate,
   busy,
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
   readonly onDelete: () => void;
+  readonly onSaveTemplate: () => void;
   readonly busy: boolean;
 }): ReactNode {
   return (
@@ -85,6 +91,12 @@ function ActiveCard({
           disabled={busy}
           items={[
             {
+              key: 'save-template',
+              label: t('list.template.save'),
+              glyph: '⧉',
+              onSelect: onSaveTemplate,
+            },
+            {
               key: 'delete',
               label: t('list.delete'),
               glyph: '⌫',
@@ -96,6 +108,7 @@ function ActiveCard({
         />
       </div>
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
+      {summary.notes !== null && <p className="card__notes">{summary.notes}</p>}
       <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
     </li>
   );
@@ -107,6 +120,7 @@ export function Home(): ReactNode {
   const home = useHomeQuery(true);
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ListSummaryDto | null>(null);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const copy = useCommand(
     (requestId, input: { readonly templateId: string }) =>
@@ -120,11 +134,28 @@ export function Home(): ReactNode {
   );
 
   const create = useCommand(
-    (requestId, input: { readonly title: string; readonly subtitle: string | null }) =>
-      createList(client, requestId, input),
+    (
+      requestId,
+      input: {
+        readonly title: string;
+        readonly subtitle: string | null;
+        readonly notes: string | null;
+      },
+    ) => createList(client, requestId, input),
     {
       invalidate: keysAffectedByListChange(),
       onSuccess: () => setCreating(false),
+    },
+  );
+
+  // Saving a list template writes a new list, so Home is the cache to refresh;
+  // the new template card appearing is itself most of the confirmation.
+  const saveTemplate = useCommand(
+    (requestId, input: { readonly listId: string }) =>
+      saveListTemplate(client, requestId, input.listId),
+    {
+      invalidate: keysAffectedByListChange(),
+      onSuccess: () => setTemplateSaved(true),
     },
   );
 
@@ -164,6 +195,12 @@ export function Home(): ReactNode {
 
       {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
       {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
+      {saveTemplate.state.error !== null && <ErrorBanner error={saveTemplate.state.error} t={t} />}
+      {templateSaved && saveTemplate.state.error === null && (
+        <p className="empty" role="status">
+          {t('list.template.saved')}
+        </p>
+      )}
 
       <section aria-labelledby="templates-heading" className="section">
         <h2 className="section__heading" id="templates-heading">
@@ -196,9 +233,13 @@ export function Home(): ReactNode {
           <ul className="card-grid">
             {active.map((summary) => (
               <ActiveCard
-                busy={remove.state.pending}
+                busy={remove.state.pending || saveTemplate.state.pending}
                 key={summary.id}
                 onDelete={() => setPendingDelete(summary)}
+                onSaveTemplate={() => {
+                  setTemplateSaved(false);
+                  void saveTemplate.run({ listId: summary.id });
+                }}
                 summary={summary}
                 t={t}
               />

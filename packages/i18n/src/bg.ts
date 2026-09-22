@@ -94,8 +94,8 @@ export const bg: Record<TranslationKey, string> = {
   'invite.missing': 'В тази връзка липсва кодът на поканата.',
 
   'home.title': 'Начало',
-  'home.templates.heading': 'Шаблони',
-  'home.templates.empty': 'Все още няма шаблони.',
+  'home.templates.heading': 'Шаблони за списъци',
+  'home.templates.empty': 'Все още няма шаблони за списъци.',
   'home.active.heading': 'Активни списъци',
   'home.active.empty': 'Все още няма активни списъци. Копирайте шаблон или създайте списък.',
   'home.create_list': 'Създай списък',
@@ -112,9 +112,14 @@ export const bg: Record<TranslationKey, string> = {
   'list.delete.confirm': 'Премахни списъка от активната работа? Задачите му ще останат в архива.',
   'list.title.label': 'Заглавие на списъка',
   'list.subtitle.label': 'Подзаглавие (по избор)',
+  'list.notes.label': 'Бележки (по избор)',
   'list.empty': 'Този списък още няма задачи.',
   'list.save': 'Запази списъка',
   'list.not_found': 'Този списък вече не е достъпен.',
+  'list.template.save': 'Запази като шаблон за списък',
+  'list.template.saved': 'Шаблонът за списък е запазен и е достъпен за домакинството.',
+  'list.template.hint':
+    'Копира този списък и всяка задача в него. Възлагането, крайният срок и изпълнението се нулират.',
 
   'task.new.title': 'Нова задача',
   'task.edit.title': 'Редактирай задачата',
@@ -224,9 +229,10 @@ export const bg: Record<TranslationKey, string> = {
   'task.due.optional': 'Часът не е задължителен. Ако няма час, срокът е краят на избрания ден.',
   'task.due.end_of_day': 'До края на деня',
   'task.template.choose': 'Използвай запазен шаблон за задача',
+  'task.template.heading': 'Шаблони за задачи',
   'task.template.none': 'Започни с празна задача',
-  'task.template.save': 'Запази като шаблон',
-  'task.template.saved': 'Шаблонът е запазен и е достъпен за домакинството.',
+  'task.template.save': 'Запази като шаблон за задача',
+  'task.template.saved': 'Шаблонът за задача е запазен и е достъпен за домакинството.',
   'task.template.hint':
     'Копират се само текущото заглавие и бележките. Отговорникът, срокът и изпълнението се изчистват.',
   'task.template.empty': 'Все още няма запазени шаблони за задачи.',

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import {
   taskRowFromTask,
@@ -10,6 +10,7 @@ import {
 } from '@odin/contracts';
 import type { Locale, Translator } from '@odin/i18n';
 
+import { useTheme } from '../theme.ts';
 import { ActionMenu } from './ActionMenu.tsx';
 import { ErrorBanner } from './Banner.tsx';
 import { Progress } from './Progress.tsx';
@@ -58,18 +59,45 @@ export function ListTasks({
   );
 }
 
+/**
+ * The list's own text. The screen header already carries the title, so this is
+ * the subtitle and, under it, the shared note.
+ */
+export function ListMeta({
+  subtitle,
+  notes,
+}: {
+  readonly subtitle: string | null;
+  readonly notes: string | null;
+}): ReactNode {
+  const theme = useTheme();
+  if (subtitle === null && notes === null) return null;
+  return (
+    <View style={styles.meta}>
+      {subtitle !== null && (
+        <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>{subtitle}</Text>
+      )}
+      {notes !== null && (
+        <Text style={[styles.metaText, { color: theme.colors.textMuted }]}>{notes}</Text>
+      )}
+    </View>
+  );
+}
+
 export function ListHeader({
   isTemplate,
   t,
   pending,
   onEdit,
   onDelete,
+  onSaveTemplate,
 }: {
   readonly isTemplate: boolean;
   readonly t: Translator;
   readonly pending: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  readonly onSaveTemplate: () => void;
 }): ReactNode {
   if (isTemplate) return null;
   return (
@@ -78,12 +106,36 @@ export function ListHeader({
         accessibilityLabel={t('list.actions')}
         actions={[
           { label: t('list.edit'), onPress: onEdit },
+          { label: t('list.template.save'), onPress: onSaveTemplate },
           { label: t('list.delete'), onPress: onDelete, destructive: true },
         ]}
         disabled={pending}
       />
     </View>
   );
+}
+
+/** True while any of the given commands is in flight. */
+export function anyPending(states: readonly { readonly pending: boolean }[]): boolean {
+  return states.some((state) => state.pending);
+}
+
+/**
+ * The confirmation after saving a list template. It lives here so the screen
+ * stays data and command wiring, and renders nothing while a command error is
+ * already on screen.
+ */
+export function TemplateSavedNotice({
+  saved,
+  error,
+  t,
+}: {
+  readonly saved: boolean;
+  readonly error: CommandError | null;
+  readonly t: Translator;
+}): ReactNode {
+  if (!saved || error !== null) return null;
+  return <Text accessibilityLiveRegion="polite">{t('list.template.saved')}</Text>;
 }
 
 export interface CommandErrorEntry {
@@ -130,3 +182,8 @@ export function ListProgress({
   if (isTemplate) return null;
   return <Progress completed={completed} t={t} total={total} />;
 }
+
+const styles = StyleSheet.create({
+  meta: { gap: 4 },
+  metaText: { fontSize: 14 },
+});
