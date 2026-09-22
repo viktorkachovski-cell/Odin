@@ -145,14 +145,16 @@ describe('ListHeader', () => {
     expect(onSaveTemplate).toHaveBeenCalledTimes(1);
   });
 
-  it('hides every list action on a read-only template', () => {
+  it('offers a template nothing but Delete, since it is otherwise read-only', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
     render(
       <MemoryRouter>
         <ListHeader
           isTemplate
           notes={null}
           onAddTask={vi.fn()}
-          onDelete={vi.fn()}
+          onDelete={onDelete}
           onEdit={vi.fn()}
           onSaveTemplate={vi.fn()}
           pending={false}
@@ -163,7 +165,30 @@ describe('ListHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByRole('button', { name: 'List actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add task' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'List actions' }));
+    const items = screen.getAllByRole('menuitem');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveAccessibleName('Delete list');
+
+    await user.click(screen.getByRole('menuitem', { name: 'Delete list' }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the full menu and the Add task primary on an active list', async () => {
+    const user = userEvent.setup();
+    renderHeader();
+
+    expect(screen.getByRole('button', { name: 'Add task' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'List actions' }));
+    const items = screen.getAllByRole('menuitem');
+    expect(items).toHaveLength(3);
+    expect(screen.getByRole('menuitem', { name: 'Edit list' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Save as list template' })).toBeInTheDocument();
+    // The overflow orders destructive entries last whatever the caller passed.
+    expect(items.at(-1)).toHaveAccessibleName('Delete list');
   });
 });
 

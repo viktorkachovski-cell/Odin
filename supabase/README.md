@@ -42,6 +42,8 @@ The `authenticated` role can select RLS-filtered rows and execute public RPCs. I
 | `create_list_v2`, `update_list_v2` | matching private helper          | As above plus the shared list note; legacy pair stays note-preserving             |
 | `save_list_template`               | `private.save_list_template`     | One transaction; active/open source unchanged; tasks copied without runtime state |
 | `copy_template`                    | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                           |
+| `delete_list`                      | `private.delete_list`            | Archives any open list, template or active; optimistic version; tasks kept        |
+| `delete_task`                      | `private.delete_task`            | Permanent; active/open parent only; optimistic version                            |
 | `create_task`, `update_task`       | matching private helper          | Active list/member locks; same-household assignee                                 |
 | `set_task_completed`               | matching private helper          | Explicit desired state; optimistic version                                        |
 | `claim_task`                       | matching private helper          | Incomplete and unassigned under row lock                                          |
@@ -92,7 +94,9 @@ the next agent:
 - `seed.sql` stays empty, so a new household starts with no templates until the
   English/Bulgarian wording is approved.
 - Verification fixtures (three `@example.invalid` accounts and their data) were
-  created and then deleted; the project currently holds zero rows.
+  created and then deleted. The project has since been in real use and holds
+  live household data, so treat it as production: never reset it, and run
+  verification only through the rollback-wrapped scripts in `smoke/`.
 
 This project is the backend for the Vercel production deployment and its
 previews of the web client. A build logs the host it targets (`[odin] building against
@@ -105,6 +109,12 @@ alongside `supabase db lint` and the pgTAP suite. Three races from
 `docs/02-CONTRACT.md` are nonetheless still uncovered — assignment racing
 membership revocation, two concurrent `create_household` calls for one account,
 and two accounts redeeming one invitation simultaneously.
+
+Migrations applied after the initial rollout, newest last:
+`delete_list_task_commands`, `lifecycle_function_permissions`,
+`task_notes_templates`, `task_template_creator_index`,
+`list_templates_and_notes`, `deletable_list_templates`. Each is recorded with
+its smoke run and advisor review in the matching `docs/` file.
 
 Still outstanding: SMTP confirmation/recovery delivery configuration and any
 additional real-inbox delivery tests. Auth redirect allowlists for the

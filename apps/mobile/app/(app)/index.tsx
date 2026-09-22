@@ -99,24 +99,20 @@ export default function HomeScreen(): ReactNode {
             key={item.id}
             list={item}
             onCopy={onCopy}
-            onDelete={
-              item.kind === 'active'
-                ? (selected) => {
-                    Alert.alert(t('list.delete'), t('list.delete.confirm'), [
-                      { text: t('list.back'), style: 'cancel' },
-                      {
-                        text: t('list.delete'),
-                        style: 'destructive',
-                        onPress: () =>
-                          void remove.run({
-                            listId: selected.id,
-                            expectedVersion: selected.version,
-                          }),
-                      },
-                    ]);
-                  }
-                : undefined
-            }
+            onDelete={(selected) => {
+              Alert.alert(t('list.delete'), t('list.delete.confirm'), [
+                { text: t('list.back'), style: 'cancel' },
+                {
+                  text: t('list.delete'),
+                  style: 'destructive',
+                  onPress: () =>
+                    void remove.run({
+                      listId: selected.id,
+                      expectedVersion: selected.version,
+                    }),
+                },
+              ]);
+            }}
             deletePending={remove.state.pending}
             onSaveTemplate={
               item.kind === 'active'

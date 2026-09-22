@@ -24,6 +24,10 @@ const listTemplateMigration = await readFile(
   'supabase/migrations/20260922120000_list_templates_and_notes.sql',
   'utf8',
 );
+const deletableTemplateMigration = await readFile(
+  'supabase/migrations/20260922140000_deletable_list_templates.sql',
+  'utf8',
+);
 
 test('database schema preserves product boundaries', () => {
   const listTable = schema.match(/create table public\.lists \(([\s\S]*?)\n\);/i)?.[1];
@@ -150,6 +154,36 @@ test('list templates and list notes keep their documented boundaries', () => {
     /constraint lists_template_seed_key/i,
     'member-saved templates carry no seed key',
   );
+});
+
+// The declaration only, so a `-- previously required kind = 'active'` comment
+// above it cannot satisfy or break an assertion about the code.
+function deleteListDeclaration(source, label) {
+  const match = source.match(
+    /CREATE OR REPLACE FUNCTION private\.delete_list \([\s\S]*?\n\$function\$;/i,
+  )?.[0];
+  assert.ok(match, `delete_list declaration missing from ${label}`);
+  return match;
+}
+
+test('a template is deletable, and deleting any list still archives it', () => {
+  for (const [label, source] of [
+    ['the declarative schema', schema],
+    ['its migration', deletableTemplateMigration],
+  ]) {
+    const deleteList = deleteListDeclaration(source, label);
+    assert.doesNotMatch(
+      deleteList,
+      /kind = 'active'/i,
+      `delete_list in ${label} must accept a template as well as an active list`,
+    );
+    // Archiving, not dropping: the tasks inside a removed list stay
+    // recoverable, and get_home/copy_template already filter on status.
+    assert.match(deleteList, /update public\.lists set status = 'archived'/i);
+    assert.doesNotMatch(deleteList, /delete from public\.lists/i);
+    assert.match(deleteList, /status = 'open'/i);
+    assert.match(deleteList, /v_list\.version <> p_expected_version/i);
+  }
 });
 
 test('every collected database test declares a pgTAP plan', async () => {

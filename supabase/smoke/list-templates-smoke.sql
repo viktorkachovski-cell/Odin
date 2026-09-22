@@ -103,6 +103,32 @@ begin
     raise exception 'get_home does not project the list note';
   end if;
 
+  -- A saved template must be removable, and removing it must archive rather
+  -- than drop (docs/18-LIST-TASK-LIFECYCLE.md).
+  response := public.delete_list(gen_random_uuid(), v_template_id, 1);
+  if response #>> '{data,list_id}' is distinct from v_template_id::text then
+    raise exception 'a list template could not be deleted: %', response;
+  end if;
+  if (select status from public.lists where id = v_template_id) is distinct from 'archived' then
+    raise exception 'deleting a template did not archive it';
+  end if;
+  if (select count(*) from public.tasks where list_id = v_template_id) <> 2 then
+    raise exception 'a deleted template lost its tasks';
+  end if;
+  if (public.get_home() #> '{data,items}') @> jsonb_build_array(
+    jsonb_build_object('id', v_template_id)
+  ) then
+    raise exception 'a deleted template is still on Home';
+  end if;
+  response := public.copy_template(gen_random_uuid(), v_template_id);
+  if response #>> '{error,code}' is distinct from 'NOT_FOUND' then
+    raise exception 'a deleted template can still be copied: %', response;
+  end if;
+  response := public.delete_list(gen_random_uuid(), v_template_id, 2);
+  if response #>> '{error,code}' is distinct from 'NOT_FOUND' then
+    raise exception 'an archived template was deleted twice: %', response;
+  end if;
+
   perform set_config('request.jwt.claim.sub', outsider::text, true);
   perform public.update_profile(gen_random_uuid(), 'Other List QA', 'en', null);
   perform public.create_household(gen_random_uuid(), 'Other List QA', 'en');
@@ -112,5 +138,5 @@ begin
   end if;
 end;
 $$;
-select 'passed: list notes, legacy preservation, list templates, replay, reset and isolation' as result;
+select 'passed: list notes, legacy preservation, list templates, replay, reset, deletion and isolation' as result;
 rollback;

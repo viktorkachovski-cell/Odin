@@ -32,6 +32,9 @@ import { Progress } from '../components/Progress.tsx';
  * source design; the copy control is a sibling of the card's link rather than a
  * button nested inside a button.
  *
+ * Both kinds carry the same overflow menu, because a template a member saved
+ * has to be removable the same way an active list is.
+ *
  * The copy control is an outlined accent button rather than a solid primary:
  * one per template card meant Home previously had as many primary buttons as it
  * had templates. The card's green border carries the emphasis instead, and the
@@ -42,16 +45,33 @@ function TemplateCard({
   summary,
   t,
   onCopy,
+  onDelete,
   busy,
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
   readonly onCopy: (id: string) => void;
+  readonly onDelete: () => void;
   readonly busy: boolean;
 }): ReactNode {
   return (
     <li className="card card--template">
-      <span className="card__title">{summary.title}</span>
+      <div className="card__header">
+        <span className="card__title">{summary.title}</span>
+        <OverflowMenu
+          disabled={busy}
+          items={[
+            {
+              key: 'delete',
+              label: t('list.delete'),
+              glyph: '⌫',
+              danger: true,
+              onSelect: onDelete,
+            },
+          ]}
+          label={t('list.actions')}
+        />
+      </div>
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
       {summary.notes !== null && <p className="card__notes">{summary.notes}</p>}
       <div className="card__actions">
@@ -212,9 +232,10 @@ export function Home(): ReactNode {
           <ul className="card-grid">
             {templates.map((summary) => (
               <TemplateCard
-                busy={copy.state.pending}
+                busy={copy.state.pending || remove.state.pending}
                 key={summary.id}
                 onCopy={(templateId) => void copy.run({ templateId })}
+                onDelete={() => setPendingDelete(summary)}
                 summary={summary}
                 t={t}
               />

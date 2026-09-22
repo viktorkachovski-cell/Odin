@@ -63,12 +63,29 @@ them, so that constraint is dropped. `unique (household_id, seed_key)` stays
 and still keeps one seeded template per key per household; several member-saved
 templates coexist because Postgres does not treat null as a duplicate.
 
-### Known gap
+### Deleting a template — owner decision 2026-09-22
 
-There is no command to delete a list template. `delete_list` still refuses
-templates, as documented in `docs/18-LIST-TASK-LIFECYCLE.md`, so member-saved
-templates accumulate until a follow-up change adds a scoped delete. This is a
-deliberate scope boundary for this pass, not an oversight.
+A template is deletable. `delete_list` no longer requires `kind = 'active'`; it
+archives any open list of either kind. Saving templates without being able to
+delete them left a household accumulating them with no way out, so this closes
+that gap rather than leaving it to a later pass.
+
+- Archiving, not dropping the row: the tasks inside the template survive for
+  operator recovery, and a mis-click is reversible. One rule covers both list
+  kinds, so there is nothing extra to explain in the UI.
+- A deleted template leaves Home and can no longer be copied without any
+  further change, because `get_home` and `copy_template` already require
+  `status = 'open'`.
+- Everything else about the command is unchanged: same `expected_version`
+  check, so a stale screen gets `CONFLICT`; same actor scoping, same
+  `request_id` idempotency; same non-disclosing `NOT_FOUND` for another
+  household's list or one already archived.
+- Seeded templates are deletable on the same terms. `seed.sql` is empty today,
+  so no household has one, and a member who wants a seeded template gone should
+  not be told no.
+
+Both clients offer it from the same overflow menu that carries **Delete list**
+on an active list, behind the same confirmation.
 
 ## 3. List notes
 
@@ -133,3 +150,27 @@ helpers, restore the previous `copy_template` and `get_home` bodies, and drop
 `lists_template_seed_key` first requires deleting or re-keying every
 member-saved template. Do not run a production reset or destructive rollback
 automatically.
+
+## Production record — template deletion, 2026-09-22
+
+Applied migration `deletable_list_templates` (hosted version `20260922065428`),
+mirroring `supabase/migrations/20260922140000_deletable_list_templates.sql`. It
+replaces the body of `private.delete_list` only: no signature, DTO, error code,
+grant or column changes, so `packages/contracts/src/database.generated.ts` is
+unaffected and was not regenerated.
+
+`supabase/smoke/list-templates-smoke.sql` grew the delete assertions and ran
+against the hosted project inside a transaction forced to roll back. Row counts
+before and after were identical. It passed: a template deletes and comes back
+`archived`, its tasks survive, it leaves `get_home`, `copy_template` on it
+returns `NOT_FOUND`, a second delete returns `NOT_FOUND`, an active list still
+deletes exactly as before, a stale `expected_version` still returns `CONFLICT`
+rather than deleting, and another household's list is still denied with
+`NOT_FOUND`.
+
+Security and performance advisors reported no new finding; the standing notices
+predate this change.
+
+Rollback is a reviewed forward migration restoring `kind = 'active'` to the
+`select` in `private.delete_list`. Templates archived in the meantime stay
+archived and would need an operator to set `status` back to `open`.

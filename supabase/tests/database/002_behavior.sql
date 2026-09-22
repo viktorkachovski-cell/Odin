@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(47);
 
 create temporary table fixture_state (
   key text primary key,
@@ -180,6 +180,30 @@ select is(
     where id = (select value::uuid from fixture_state where key = 'noted_copy')),
   'Own brand is fine', 'copying a list template carries the note onto the new list'
 );
+
+-- A member who can save a template must be able to remove one, and removing it
+-- archives rather than drops (docs/18-LIST-TASK-LIFECYCLE.md).
+select is(public.delete_list(
+  '10000000-0000-0000-0000-000000000028',
+  (select value::uuid from fixture_state where key = 'saved_template'), 1
+) #>> '{data,list_id}', (select value from fixture_state where key = 'saved_template'),
+  'a list template can be deleted');
+select is(
+  (select status from public.lists
+    where id = (select value::uuid from fixture_state where key = 'saved_template')),
+  'archived', 'deleting a template archives it'
+);
+select is((select count(*)::text from public.tasks where list_id = (
+  select value::uuid from fixture_state where key = 'saved_template'
+)), '2', 'a deleted template keeps its tasks for recovery');
+select is(public.copy_template(
+  '10000000-0000-0000-0000-000000000029',
+  (select value::uuid from fixture_state where key = 'saved_template')
+) #>> '{error,code}', 'NOT_FOUND', 'a deleted template can no longer be copied');
+select is(public.delete_list(
+  '10000000-0000-0000-0000-000000000030',
+  (select value::uuid from fixture_state where key = 'saved_template'), 2
+) #>> '{error,code}', 'NOT_FOUND', 'an archived template cannot be deleted again');
 
 insert into fixture_state values (
   'invite_token', public.create_invitation(
