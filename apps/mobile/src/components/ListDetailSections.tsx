@@ -99,14 +99,19 @@ export function ListHeader({
   readonly onDelete: () => void;
   readonly onSaveTemplate: () => void;
 }): ReactNode {
-  if (isTemplate) return null;
   return (
     <View style={{ alignItems: 'flex-end' }}>
       <ActionMenu
         accessibilityLabel={t('list.actions')}
         actions={[
-          { label: t('list.edit'), onPress: onEdit },
-          { label: t('list.template.save'), onPress: onSaveTemplate },
+          // A template is read-only apart from being removable, so it gets the
+          // delete entry and nothing else.
+          ...(isTemplate
+            ? []
+            : [
+                { label: t('list.edit'), onPress: onEdit },
+                { label: t('list.template.save'), onPress: onSaveTemplate },
+              ]),
           { label: t('list.delete'), onPress: onDelete, destructive: true },
         ]}
         disabled={pending}

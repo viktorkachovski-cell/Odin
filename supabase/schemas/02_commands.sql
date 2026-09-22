@@ -1179,8 +1179,12 @@ begin
   v_replay := private.replay_command(v_actor, p_request_id, 'delete_list', v_hash);
   if v_replay is not null then return v_replay; end if;
 
+  -- Either kind: a member who can save a list as a template can also remove
+  -- one. Archiving keeps the tasks recoverable, and both get_home and
+  -- copy_template already require status = 'open', so an archived template
+  -- leaves Home and stops being copyable with no further change.
   select * into v_list from public.lists
-  where id = p_list_id and household_id = v_household and kind = 'active' and status = 'open'
+  where id = p_list_id and household_id = v_household and status = 'open'
   for update;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
   if v_list.version <> p_expected_version then

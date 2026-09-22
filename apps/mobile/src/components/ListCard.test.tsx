@@ -60,16 +60,21 @@ describe('ListCard', () => {
     expect(screen.getByText('Delete list')).toBeTruthy();
   });
 
-  it('offers no list actions on a read-only template card', async () => {
+  it('lets a template be deleted but never saved as another template', async () => {
+    const onDelete = jest.fn();
     await render(
       <ListCard
         list={summary({ kind: 'template', notes: null })}
-        onDelete={jest.fn()}
+        onDelete={onDelete}
         onSaveTemplate={jest.fn()}
         t={t}
       />,
     );
 
-    expect(screen.queryByLabelText('List actions: Pantry')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('List actions: Pantry'));
+    expect(screen.queryByText('Save as list template')).toBeNull();
+
+    await fireEvent.press(screen.getByText('Delete list'));
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ kind: 'template' }));
   });
 });

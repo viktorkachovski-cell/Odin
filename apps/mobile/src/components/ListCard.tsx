@@ -13,7 +13,8 @@ import { Progress } from './Progress.tsx';
 /**
  * A list card. Template cards carry the border the source specifies; active
  * cards do not. The copy action is a sibling control with its own target, so
- * copying a template can never also open it.
+ * copying a template can never also open it. Both kinds expose Delete list;
+ * only an active list can be saved as a template.
  */
 export function ListCard({
   list,
@@ -57,11 +58,13 @@ export function ListCard({
         >
           <Text style={[styles.title, { color: theme.colors.text }]}>{list.title}</Text>
         </Link>
-        {onDelete !== undefined && !isTemplate && (
+        {onDelete !== undefined && (
           <ActionMenu
             accessibilityLabel={`${t('list.actions')}: ${list.title}`}
             actions={[
-              ...(onSaveTemplate === undefined
+              // Saving applies to an active list only; deleting applies to
+              // both, so a member can remove a template they saved.
+              ...(onSaveTemplate === undefined || isTemplate
                 ? []
                 : [{ label: t('list.template.save'), onPress: () => onSaveTemplate(list) }]),
               {

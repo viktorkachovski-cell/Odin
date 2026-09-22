@@ -90,28 +90,37 @@ export function ListHeader({
         {subtitle !== null && <p className="card__subtitle">{subtitle}</p>}
         {notes !== null && <p className="card__notes">{notes}</p>}
       </div>
-      {!isTemplate && (
-        <div className="action-group">
-          <OverflowMenu
-            disabled={pending}
-            items={[
-              { key: 'edit', label: t('list.edit'), glyph: '✎', onSelect: onEdit },
-              {
-                key: 'save-template',
-                label: t('list.template.save'),
-                glyph: '⧉',
-                onSelect: onSaveTemplate,
-              },
-              {
-                key: 'delete',
-                label: t('list.delete'),
-                glyph: '⌫',
-                danger: true,
-                onSelect: onDelete,
-              },
-            ]}
-            label={t('list.actions')}
-          />
+      <div className="action-group">
+        {/*
+         * A template is read-only apart from being removable, so it gets the
+         * delete entry and nothing else; an active list gets the full menu and
+         * the Add task primary.
+         */}
+        <OverflowMenu
+          disabled={pending}
+          items={[
+            ...(isTemplate
+              ? []
+              : [
+                  { key: 'edit', label: t('list.edit'), glyph: '✎', onSelect: onEdit },
+                  {
+                    key: 'save-template',
+                    label: t('list.template.save'),
+                    glyph: '⧉',
+                    onSelect: onSaveTemplate,
+                  },
+                ]),
+            {
+              key: 'delete',
+              label: t('list.delete'),
+              glyph: '⌫',
+              danger: true,
+              onSelect: onDelete,
+            },
+          ]}
+          label={t('list.actions')}
+        />
+        {!isTemplate && (
           <button
             className="button button--primary page-header__primary"
             onClick={onAddTask}
@@ -119,8 +128,8 @@ export function ListHeader({
           >
             {t('list.add_task')}
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
