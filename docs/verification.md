@@ -13,10 +13,10 @@ Supabase stack and runs `supabase db lint` with warnings failing the job, the
 pgTAP suites and the parallel-transaction concurrency suite.
 
 Locally the same set runs as `npm run check` plus `npm run build`. Current
-counts at the latest release commit: 12 tooling tests, 18 Vitest files with 165
-tests, 12 Android Jest suites with 93 tests, pgTAP planning 32 and 47
-assertions, Expo Doctor 21/21 in CI, and a successful Android export and web
-production build.
+counts at the latest release commit: 12 tooling tests, 19 Vitest files with 179
+tests, 14 Android Jest suites with 113 tests, 4 mobile build-environment tests,
+pgTAP planning 32 and 47 assertions, Expo Doctor 21/21 in CI, and a successful
+Android export and web production build.
 
 Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment
@@ -24,23 +24,24 @@ limitation, not a project finding; CI reports 21/21.
 
 ## Requirements traceability
 
-| Source IDs | Implementation owner    | Acceptance evidence required                                                                                          |
-| ---------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| FR 01      | Database + both clients | Household A cannot read/write/subscribe to B through any exposed table/view/RPC; identity and counts isolated         |
-| FR 02      | Shared + clients        | Display name and fallback avatar visible only to own household                                                        |
-| FR 03–04   | Both clients            | Separate labeled sections, bordered templates and distinct active cards                                               |
-| FR 05      | Database + clients      | Valid create succeeds once; blank rejected; cancel leaves nothing                                                     |
-| FR 06–08   | Database + clients      | Atomic copy, unchanged source, fields/order copied, assignee/due/completion reset, same request twice yields one list |
-| FR 09      | Both clients            | Card and direct link open correct authorized detail                                                                   |
-| FR 10–13   | Database + clients      | Create/edit/single assign/reassign; inactive/foreign assignee rejected; peers have equal permissions                  |
-| FR 14      | Database + clients      | One-action self-claim; simultaneous claims have exactly one winner                                                    |
-| FR 15      | All                     | Optional task date/time works; no list deadline in UI, API or schema                                                  |
-| FR 16–18   | All                     | Complete/reopen, 0% empty, correct rounding/count, incomplete group first and stable order                            |
-| FR 19–20   | All                     | Cross-list filters correct after claim, reassignment, completion and removal of assignee; dated order/null-last       |
-| FR 21–22   | Both clients            | Home navigation without mutation; down hides/up reveals bottom bar; desktop adaptation reviewed                       |
-| FR 23–24   | All                     | Two actual sessions update within normal 5 seconds; stale edit is surfaced, drafts retained, reconnect recovers       |
-| FR 25–26   | Both clients            | Every data screen has empty/loading/offline/retry/save-failure states, no silent draft loss                           |
-| FR 27      | Both clients, optional  | Read-only preview with separate copy action; never blocks Must completion                                             |
+| Source IDs                        | Implementation owner     | Acceptance evidence required                                                                                                                                                    |
+| --------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR 01                             | Database + both clients  | Household A cannot read/write/subscribe to B through any exposed table/view/RPC; identity and counts isolated                                                                   |
+| FR 02                             | Shared + clients         | Display name and fallback avatar visible only to own household                                                                                                                  |
+| FR 03–04                          | Both clients             | Separate labeled sections, bordered templates and distinct active cards                                                                                                         |
+| FR 05                             | Database + clients       | Valid create succeeds once; blank rejected; cancel leaves nothing                                                                                                               |
+| FR 06–08                          | Database + clients       | Atomic copy, unchanged source, fields/order copied, assignee/due/completion reset, same request twice yields one list                                                           |
+| FR 09                             | Both clients             | Card and direct link open correct authorized detail                                                                                                                             |
+| FR 10–13                          | Database + clients       | Create/edit/single assign/reassign; inactive/foreign assignee rejected; peers have equal permissions                                                                            |
+| FR 14                             | Database + clients       | One-action self-claim; simultaneous claims have exactly one winner                                                                                                              |
+| FR 15                             | All                      | Optional task date/time works; no list deadline in UI, API or schema                                                                                                            |
+| FR 16–18                          | All                      | Complete/reopen, 0% empty, correct rounding/count, incomplete group first and stable order                                                                                      |
+| FR 19–20                          | All                      | Cross-list filters correct after claim, reassignment, completion and removal of assignee; dated order/null-last                                                                 |
+| FR 21–22                          | Both clients             | Home navigation without mutation; down hides/up reveals bottom bar; desktop adaptation reviewed                                                                                 |
+| FR 23–24                          | All                      | Two actual sessions update within normal 5 seconds; stale edit is surfaced, drafts retained, reconnect recovers                                                                 |
+| FR 25–26                          | Both clients             | Every data screen has empty/loading/offline/retry/save-failure states, no silent draft loss                                                                                     |
+| FR 27                             | Both clients, optional   | Read-only preview with separate copy action; never blocks Must completion                                                                                                       |
+| Notification amendment 2026-09-22 | Android + `@odin/domain` | Assignment, update and 24h/4h/1h deadline notifications fire under both gates and only then; scheduled set matches current deadlines; **delivery itself is unproven — risk R9** |
 
 BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/10 to full-list aggregates and completion tests; BR 06/07/09 to cross-list filters; BR 08 to incomplete-only overdue display. User-facing removal is deferred; any later removal must recalculate progress.
 
@@ -61,6 +62,16 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 - [ ] Email confirmation/recovery delivery, password-manager/autofill behavior, paste and session refresh on a real device.
 - [ ] Sign out/account switch clears cached data/drafts/subscriptions; stale session cannot retrieve household records.
 - [ ] Keyboard-only web, screen reader/TalkBack, focus recovery, contrast, 44x44 targets, Android large fonts and both translations.
+- [x] Notification decisions: silent baseline on first read, foreground
+      silence, no replay of a change that was silent, burst collapsed to a
+      summary, stage already past skipped, reminder reconciled on deadline
+      change/removal/task leaving, re-worded on language change, nothing at all
+      when either gate is off. Covered by 14 Vitest and 13 Jest cases against an
+      in-memory `expo-notifications` double.
+- [ ] Notification **delivery** on a device: Android actually posting an
+      announcement, an alarm surviving app kill and reboot, Doze delay measured
+      against the 1-hour stage, the Android 13+ permission prompt, and
+      "don't ask again" reaching the blocked state in Settings.
 
 ## Performance evidence
 
@@ -113,6 +124,11 @@ owner decision of 2026-09-22 and tracked in the accepted section of
 7. One Android client against one web client as two members of one household,
    including disconnect and reconnect.
 8. Screen sizes, OS/API levels, build identifier and screenshots recorded.
+9. Notifications end to end: permission prompt and refusal, an announcement
+   arriving with the app backgrounded, a deadline reminder arriving with the
+   app closed and after a reboot, the mute switch silencing both, and sign-out
+   leaving no scheduled reminder behind. The suite mocks the native module
+   entirely, so none of this has any non-device evidence — risk R9.
 
 ## Completion report template
 

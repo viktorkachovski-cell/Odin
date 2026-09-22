@@ -45,3 +45,84 @@ jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn(() => jest.fn()),
   fetch: jest.fn(() => Promise.resolve({ isConnected: true, isInternetReachable: true })),
 }));
+
+/**
+ * Notifications are native too. The double keeps the scheduled set in memory
+ * and records what was presented, so tests assert on delivery and on
+ * reconciliation rather than on which functions were called. Tests that touch
+ * it reset it themselves through `__reset`, keeping ordering irrelevant.
+ *
+ * These types sit outside the factory on purpose: a declaration inside one
+ * reads to Babel's hoisting guard as an out-of-scope variable, and every suite
+ * then fails to transform.
+ */
+interface MockNotificationContent {
+  readonly title?: string | null;
+  readonly body?: string | null;
+}
+
+interface MockScheduled {
+  readonly identifier: string;
+  readonly fireAtMs: number;
+  readonly content: MockNotificationContent;
+}
+
+interface MockNotificationRequest {
+  readonly identifier?: string;
+  readonly content: MockNotificationContent;
+  readonly trigger: { readonly date: number } | null;
+}
+
+jest.mock('expo-notifications', () => {
+  const scheduled = new Map<string, MockScheduled>();
+  const presented: MockNotificationContent[] = [];
+  const permission = { granted: true, canAskAgain: true, status: 'granted' };
+  let generated = 0;
+
+  return {
+    __scheduled: scheduled,
+    __presented: presented,
+    __permission: permission,
+    __reset: (granted = true, canAskAgain = true) => {
+      scheduled.clear();
+      presented.length = 0;
+      permission.granted = granted;
+      permission.canAskAgain = canAskAgain;
+      generated = 0;
+    },
+    AndroidImportance: { DEFAULT: 5 },
+    SchedulableTriggerInputTypes: { DATE: 'date' },
+    setNotificationHandler: jest.fn(),
+    setNotificationChannelAsync: jest.fn(() => Promise.resolve(null)),
+    getPermissionsAsync: jest.fn(() => Promise.resolve({ ...permission })),
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ ...permission })),
+    scheduleNotificationAsync: jest.fn((request: MockNotificationRequest) => {
+      // A null trigger is expo's "deliver now", which is how announcements post.
+      if (request.trigger === null) {
+        presented.push(request.content);
+        return Promise.resolve('presented');
+      }
+      generated += 1;
+      const identifier = request.identifier ?? `generated-${String(generated)}`;
+      scheduled.set(identifier, {
+        identifier,
+        fireAtMs: request.trigger.date,
+        content: request.content,
+      });
+      return Promise.resolve(identifier);
+    }),
+    getAllScheduledNotificationsAsync: jest.fn(() =>
+      Promise.resolve(
+        [...scheduled.values()].map((entry) => ({
+          identifier: entry.identifier,
+          content: entry.content,
+          trigger: { date: entry.fireAtMs },
+        })),
+      ),
+    ),
+    cancelScheduledNotificationAsync: jest.fn((identifier: string) => {
+      scheduled.delete(identifier);
+      return Promise.resolve();
+    }),
+  };
+});

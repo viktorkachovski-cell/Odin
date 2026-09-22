@@ -180,6 +180,29 @@ export const bg: Record<TranslationKey, string> = {
   'settings.invite.dismiss': 'Готово',
   'settings.household.heading': 'Домакинство',
 
+  'settings.notifications.heading': 'Известия',
+  'settings.notifications.description':
+    'Odin ви известява, когато задача стане ваша, когато ваша задача се промени и с приближаването на крайния срок — 24 часа, 4 часа и 1 час преди него.',
+  'settings.notifications.device_only':
+    'Тази настройка важи само за това устройство. Друго устройство пази своя собствена.',
+  'settings.notifications.enable': 'Включи известията',
+  'settings.notifications.disable': 'Изключи известията',
+  'settings.notifications.on': 'Известията са включени.',
+  'settings.notifications.off': 'Известията са изключени.',
+  'settings.notifications.blocked':
+    'Android блокира известията за Odin. Включете ги от настройките на Android за това приложение.',
+
+  'notification.body': '{title} — в {list}',
+  'notification.assigned.title': 'Вече имате нова задача',
+  'notification.assigned.many.title': 'Нови задачи за вас',
+  'notification.assigned.many.body': '{count} задачи вече са ваши',
+  'notification.updated.title': 'Ваша задача беше променена',
+  'notification.updated.many.title': 'Ваши задачи са променени',
+  'notification.updated.many.body': '{count} ваши задачи бяха редактирани',
+  'notification.due.day.title': 'Краен срок след 24 часа',
+  'notification.due.hours.title': 'Краен срок след 4 часа',
+  'notification.due.imminent.title': 'Краен срок след 1 час',
+
   'state.loading': 'Зареждане…',
   'state.offline': 'Няма връзка. Показваме последно заредените данни.',
   'state.stale': 'Повторно свързване… показваме последно заредените данни.',

@@ -157,6 +157,59 @@ permissions and task behaviour stay aligned with the web client.
   legacy note-preserving `update_list`, a path that exists for installed builds
   rather than this one.
 
+## Notifications
+
+What they do is `features.md`; this is how Android does it. Added 2026-09-22
+by owner amendment (`decisions.md`).
+
+`expo-notifications` 57.0.20 — the version Expo SDK 57 bundles — and its config
+plugin are new native dependencies, so **an installed build does not gain
+notifications until the Android binary is rebuilt.**
+
+| Piece                               | Lives in                                |
+| ----------------------------------- | --------------------------------------- |
+| The decision rules, pure            | `@odin/domain` `notifications.ts`       |
+| The only `expo-notifications` calls | `src/notifications/adapter.ts`          |
+| The per-device mute                 | `src/notifications/preference.ts`       |
+| The watcher                         | `src/state/useTaskNotifications.ts`     |
+| Permission, mute and mounting       | `src/state/NotificationSettings.tsx`    |
+| The Settings control                | `src/components/NotificationToggle.tsx` |
+
+- **The rules are shared, the delivery is not.** `planDueReminders` and
+  `diffAssignedTasks` are pure functions in `@odin/domain` with no platform
+  import, so the Android client owns only the transport. That is deliberate:
+  if push is ever added, the adapter is replaced and the rules are not.
+- **Nothing new is fetched.** The watcher reads `getMyTasks` and
+  `getUnassigned`, which the app already has, and compares the per-task
+  `version` the contract increments once per change. This is why the feature
+  needed no contract change and why the web client is untouched.
+- **It is mounted on the `(app)` layout, not a screen.** The watcher has to
+  keep both queries live whichever section is open, and while no screen is
+  focused at all. Mounting it on My Tasks would have meant no notification
+  unless that tab happened to be the one left open.
+- **Announcements are suppressed in the foreground.** This is the whole of the
+  self-notification defence: a member cannot be tapping Claim in the foreground
+  and be somewhere else at the same time. The alternative — a list of task IDs
+  the device just mutated — has to be updated at every task mutation call site,
+  and a new one that forgets it produces a notification about your own edit.
+- **Scheduled reminders are reconciled, not tracked.** The set Android already
+  holds is read back through `getAllScheduledNotificationsAsync` rather than
+  remembered in the app, so a restart cannot desynchronise it. Identifiers are
+  `odin-due:<locale>:<taskId>:<stage>`, which makes rescheduling idempotent and
+  makes a language change retire the old wording rather than leave a Bulgarian
+  member with English reminders.
+- **Reminders do not outlive the account.** `OdinProvider.applyUser` cancels
+  every scheduled reminder when the identity changes away from a signed-in
+  account, because a reminder carries a task title. A cold start is
+  deliberately excluded: reminders are rebuilt from a fetch, and wiping them
+  before one succeeds would disarm a device that has no network.
+- **`useAppForeground` is shared** with `useHouseholdRealtime`, which needed the
+  same answer for its membership reconciliation. Two listeners disagreeing
+  about "foregrounded" would have been a bug waiting to happen.
+- **Failures are swallowed on purpose.** A notification that cannot be posted
+  must not break the screen behind it; the warning it logs is generic, because
+  household text never reaches a log.
+
 ## Build-time configuration
 
 Odin runs a single hosted environment, treated as production (see
