@@ -110,7 +110,17 @@ export default function SettingsScreen(): ReactNode {
         onScroll={nav.onScroll}
         scrollEventThrottle={16}
       >
-        {saveProfile.state.error !== null && <ErrorBanner error={saveProfile.state.error} t={t} />}
+        {saveProfile.state.error !== null && (
+          <ErrorBanner
+            error={saveProfile.state.error}
+            onRetry={
+              saveProfile.state.error.code === 'NETWORK'
+                ? () => void saveProfile.retry()
+                : undefined
+            }
+            t={t}
+          />
+        )}
 
         <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
           {t('settings.profile.heading')}
@@ -170,7 +180,13 @@ export default function SettingsScreen(): ReactNode {
         <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
           {t('settings.invite.heading')}
         </Text>
-        {invite.state.error !== null && <ErrorBanner error={invite.state.error} t={t} />}
+        {invite.state.error !== null && (
+          <ErrorBanner
+            error={invite.state.error}
+            onRetry={invite.state.error.code === 'NETWORK' ? () => void invite.retry() : undefined}
+            t={t}
+          />
+        )}
         {invitation === null ? (
           <PrimaryButton
             label={

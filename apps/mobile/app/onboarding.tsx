@@ -2,6 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { CommandError } from '@odin/contracts';
 import {
   createHousehold,
   keysAffectedByMembershipChange,
@@ -55,6 +56,10 @@ function LanguageChoice({
       </View>
     </View>
   );
+}
+
+function retryNetwork(error: CommandError, retry: () => void): (() => void) | undefined {
+  return error.code === 'NETWORK' ? retry : undefined;
 }
 
 export default function OnboardingScreen(): ReactNode {
@@ -122,7 +127,11 @@ export default function OnboardingScreen(): ReactNode {
       <Screen title={t('onboarding.name.title')}>
         <View style={styles.form}>
           {saveProfile.state.error !== null && (
-            <ErrorBanner error={saveProfile.state.error} t={t} />
+            <ErrorBanner
+              error={saveProfile.state.error}
+              onRetry={retryNetwork(saveProfile.state.error, () => void saveProfile.retry())}
+              t={t}
+            />
           )}
           <LanguageChoice
             label={t('settings.language.label')}
@@ -151,7 +160,11 @@ export default function OnboardingScreen(): ReactNode {
       <View style={styles.form}>
         <Text style={{ color: theme.colors.textMuted }}>{t('onboarding.choice.intro')}</Text>
         {startHousehold.state.error !== null && (
-          <ErrorBanner error={startHousehold.state.error} t={t} />
+          <ErrorBanner
+            error={startHousehold.state.error}
+            onRetry={retryNetwork(startHousehold.state.error, () => void startHousehold.retry())}
+            t={t}
+          />
         )}
         <Field
           error={householdIssue}

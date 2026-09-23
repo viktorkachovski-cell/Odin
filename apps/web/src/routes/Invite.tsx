@@ -88,6 +88,11 @@ export function Invite(): ReactNode {
             {redeem.state.error !== null && (
               <div className="banner banner--danger" role="alert">
                 {errorMessage(redeem.state.error, t)}
+                {redeem.state.error.code === 'NETWORK' && (
+                  <button className="button" onClick={() => void redeem.retry()} type="button">
+                    {t('state.retry')}
+                  </button>
+                )}
               </div>
             )}
             <button

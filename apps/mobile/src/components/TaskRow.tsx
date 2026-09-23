@@ -81,11 +81,18 @@ function TaskActions({
   );
 }
 
+const dueFormatters = new Map<Locale, Intl.DateTimeFormat>();
+
 function formatDue(dueAt: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(dueAt));
+  let formatter = dueFormatters.get(locale);
+  if (formatter === undefined) {
+    formatter = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    dueFormatters.set(locale, formatter);
+  }
+  return formatter.format(new Date(dueAt));
 }
 
 function DueText({

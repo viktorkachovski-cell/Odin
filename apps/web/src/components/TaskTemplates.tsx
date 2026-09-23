@@ -87,6 +87,11 @@ export function TaskTemplates({
       {save.state.error !== null && (
         <span className="field__error" role="alert">
           {errorMessage(save.state.error, t)}
+          {save.state.error.code === 'NETWORK' && (
+            <button className="button" onClick={() => void save.retry()} type="button">
+              {t('state.retry')}
+            </button>
+          )}
         </span>
       )}
     </div>

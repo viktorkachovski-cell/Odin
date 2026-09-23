@@ -47,6 +47,56 @@ describe('useCommand request ids', () => {
     expect(new Set(seen).size).toBe(1);
   });
 
+  it('does not send a changed payload under an ambiguous request id', async () => {
+    const seen: Array<{ requestId: string; title: string }> = [];
+    const execute = (
+      requestId: string,
+      input: { title: string },
+    ): Promise<CommandResult<string>> => {
+      seen.push({ requestId, title: input.title });
+      return Promise.resolve({
+        ok: false,
+        error: { code: 'NETWORK', message_key: 'error.network' },
+      });
+    };
+    const { result } = renderHook(() => useCommand(execute), { wrapper });
+
+    await act(async () => {
+      await result.current.run({ title: 'Original' });
+    });
+    await act(async () => {
+      await result.current.run({ title: 'Changed' });
+    });
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toEqual({ requestId: seen[1]?.requestId, title: 'Original' });
+    expect(seen[1]?.title).toBe('Original');
+  });
+
+  it('can retry a null payload without minting a new request id', async () => {
+    const seen: string[] = [];
+    const execute = (requestId: string, input: null): Promise<CommandResult<string>> => {
+      expect(input).toBeNull();
+      seen.push(requestId);
+      return Promise.resolve({
+        ok: false,
+        error: { code: 'NETWORK', message_key: 'error.network' },
+      });
+    };
+    const { result } = renderHook(() => useCommand(execute), { wrapper });
+    await act(async () => {
+      await result.current.run(null);
+    });
+    await act(async () => {
+      await result.current.retry();
+    });
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toBe(seen[1]);
+  });
+
   it('mints a fresh request id after a success, so a second create really creates', async () => {
     const seen: string[] = [];
     const execute = (requestId: string): Promise<CommandResult<string>> => {

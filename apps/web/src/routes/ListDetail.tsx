@@ -308,6 +308,7 @@ export function ListDetail(): ReactNode {
             setAddingTask(false);
             void list.refetch();
           }}
+          onRetry={() => void saveTask.retry()}
           onSubmit={(input) =>
             void saveTask.run({
               taskId: editingTask?.id ?? null,
@@ -327,6 +328,7 @@ export function ListDetail(): ReactNode {
       {editingList && (
         <ListEditor
           error={saveList.state.error}
+          onRetry={() => void saveList.retry()}
           list={page.list}
           onCancel={() => {
             saveList.reset();

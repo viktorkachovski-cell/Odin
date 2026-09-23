@@ -116,7 +116,7 @@ jest.mock('expo-notifications', () => {
         [...scheduled.values()].map((entry) => ({
           identifier: entry.identifier,
           content: entry.content,
-          trigger: { date: entry.fireAtMs },
+          trigger: { type: 'date', value: entry.fireAtMs },
         })),
       ),
     ),

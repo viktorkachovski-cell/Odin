@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
@@ -15,6 +15,13 @@ import { useTheme } from '../theme.ts';
 import { AssigneePicker } from './AssigneePicker.tsx';
 import { errorMessage } from './Banner.tsx';
 import { PrimaryButton, SecondaryButton } from './Button.tsx';
+import {
+  choicesComplete,
+  resolvedDraft,
+  TaskConflictReview,
+  type ConflictChoices,
+  type ConflictField,
+} from './TaskConflictReview.tsx';
 import { DueField } from './DueField.tsx';
 import { Field } from './Field.tsx';
 import { TaskTemplates } from './TaskTemplates.tsx';
@@ -47,6 +54,14 @@ function dueIssueKey(reason: 'invalid_format' | 'nonexistent_local_time'): Trans
     : 'validation.due.invalid_format';
 }
 
+function needsReviewChoice(
+  draft: TaskDraft,
+  latestTask: TaskDto | null,
+  choices: ConflictChoices,
+): boolean {
+  return latestTask !== null && !choicesComplete(draft, latestTask, choices);
+}
+
 export interface TaskEditorProps {
   readonly task: TaskDto | null;
   readonly members: readonly MemberDto[];
@@ -55,14 +70,22 @@ export interface TaskEditorProps {
   readonly pending: boolean;
   readonly error: CommandError | null;
   readonly conflict: boolean;
+  readonly latestTask: TaskDto | null;
+  readonly reviewingConflict: boolean;
+  readonly reviewError: boolean;
   readonly onCancel: () => void;
   readonly onReviewConflict: () => void;
-  readonly onSubmit: (input: {
-    readonly title: string;
-    readonly notes: string;
-    readonly assigneeId: string | null;
-    readonly dueAt: string | null;
-  }) => void;
+  readonly onRetry?: () => void;
+  readonly onDraftChange?: (draft: TaskDraft) => void;
+  readonly onSubmit: (
+    input: {
+      readonly title: string;
+      readonly notes: string;
+      readonly assigneeId: string | null;
+      readonly dueAt: string | null;
+    },
+    draft: TaskDraft,
+  ) => void;
 }
 
 export function TaskEditor({
@@ -73,8 +96,13 @@ export function TaskEditor({
   pending,
   error,
   conflict,
+  latestTask,
+  reviewingConflict,
+  reviewError,
   onCancel,
   onReviewConflict,
+  onRetry,
+  onDraftChange,
   onSubmit,
 }: TaskEditorProps): ReactNode {
   const theme = useTheme();
@@ -82,21 +110,39 @@ export function TaskEditor({
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
+  const [choices, setChoices] = useState<ConflictChoices>({});
+  useEffect(() => setChoices({}), [latestTask]);
+  const changeDraft = (next: TaskDraft): void => {
+    setDraft(next);
+    onDraftChange?.(next);
+  };
+  const clearChoice = (field: ConflictField): void => {
+    setChoices((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
 
   const submit = (): void => {
-    const issue = validateTaskTitle(draft.title);
-    const notesError = validateNotes(draft.notes);
-    const due = resolveDueInput(draft);
+    if (conflict || needsReviewChoice(draft, latestTask, choices)) return;
+    const selected = latestTask === null ? draft : resolvedDraft(draft, latestTask, choices);
+    const issue = validateTaskTitle(selected.title);
+    const notesError = validateNotes(selected.notes);
+    const due = resolveDueInput(selected);
     setTitleIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
     setNotesIssue(notesError === null ? undefined : t(notesError.message_key as TranslationKey));
     setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
     if (issue !== null || notesError !== null || !due.ok) return;
-    onSubmit({
-      title: draft.title.trim(),
-      notes: draft.notes.trim(),
-      assigneeId: draft.assigneeId,
-      dueAt: due.dueAt,
-    });
+    onSubmit(
+      {
+        title: selected.title.trim(),
+        notes: selected.notes.trim(),
+        assigneeId: selected.assigneeId,
+        dueAt: due.dueAt,
+      },
+      draft,
+    );
   };
 
   return (
@@ -108,6 +154,9 @@ export function TaskEditor({
             label={pending ? t('state.saving') : t('task.save')}
             onPress={submit}
             pending={pending}
+            disabled={
+              conflict || error?.code === 'NETWORK' || needsReviewChoice(draft, latestTask, choices)
+            }
           />
         </>
       }
@@ -123,14 +172,40 @@ export function TaskEditor({
             {t('conflict.title')}
           </Text>
           <Text style={{ color: theme.colors.textMuted }}>{t('conflict.body')}</Text>
-          <SecondaryButton label={t('conflict.review')} onPress={onReviewConflict} />
+          <SecondaryButton
+            label={reviewingConflict ? t('state.loading') : t('conflict.review')}
+            onPress={onReviewConflict}
+            pending={reviewingConflict}
+          />
         </View>
       )}
 
-      {error !== null && !conflict && (
+      {reviewError && (
         <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
-          {errorMessage(error, t)}
+          {t('conflict.reload_failed')}
         </Text>
+      )}
+
+      {latestTask !== null && !conflict && (
+        <TaskConflictReview
+          choices={choices}
+          draft={draft}
+          latest={latestTask}
+          members={members}
+          onChoose={(field: ConflictField, choice) =>
+            setChoices((current) => ({ ...current, [field]: choice }))
+          }
+          t={t}
+        />
+      )}
+
+      {error !== null && !conflict && (
+        <View accessibilityRole="alert">
+          <Text style={{ color: theme.colors.danger }}>{errorMessage(error, t)}</Text>
+          {error.code === 'NETWORK' && onRetry !== undefined && (
+            <SecondaryButton label={t('state.retry')} onPress={onRetry} />
+          )}
+        </View>
       )}
 
       <TaskTemplates
@@ -138,7 +213,7 @@ export function TaskEditor({
         allowChoose={task === null}
         disabled={pending}
         onChoose={(template) =>
-          setDraft({
+          changeDraft({
             title: template.title,
             notes: template.notes ?? '',
             assigneeId: null,
@@ -151,7 +226,10 @@ export function TaskEditor({
       <Field
         error={titleIssue}
         label={t('task.title.label')}
-        onChangeText={(title) => setDraft((current) => ({ ...current, title }))}
+        onChangeText={(title) => {
+          changeDraft({ ...draft, title });
+          clearChoice('title');
+        }}
         value={draft.title}
       />
 
@@ -161,11 +239,17 @@ export function TaskEditor({
         error={notesIssue}
         label={t('task.notes.label')}
         value={draft.notes}
-        onChangeText={(notes) => setDraft((current) => ({ ...current, notes }))}
+        onChangeText={(notes) => {
+          changeDraft({ ...draft, notes });
+          clearChoice('notes');
+        }}
       />
       <AssigneePicker
         members={members}
-        onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}
+        onSelect={(assigneeId) => {
+          changeDraft({ ...draft, assigneeId });
+          clearChoice('assigneeId');
+        }}
         selected={draft.assigneeId}
         t={t}
       />
@@ -174,7 +258,10 @@ export function TaskEditor({
         draft={draft}
         error={dueIssue}
         locale={locale}
-        onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
+        onChange={(next) => {
+          changeDraft({ ...draft, ...next });
+          clearChoice('due');
+        }}
         t={t}
       />
     </Sheet>

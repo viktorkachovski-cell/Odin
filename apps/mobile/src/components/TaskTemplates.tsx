@@ -74,9 +74,12 @@ export function TaskTemplates({
         </Text>
       )}
       {save.state.error !== null && (
-        <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
-          {errorMessage(save.state.error, t)}
-        </Text>
+        <View accessibilityRole="alert" style={styles.wrapper}>
+          <Text style={{ color: theme.colors.danger }}>{errorMessage(save.state.error, t)}</Text>
+          {save.state.error.code === 'NETWORK' && (
+            <SecondaryButton label={t('state.retry')} onPress={() => void save.retry()} />
+          )}
+        </View>
       )}
 
       <Modal

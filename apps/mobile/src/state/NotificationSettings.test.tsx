@@ -10,7 +10,14 @@ import { createTranslator } from '@odin/i18n';
  */
 
 interface NotificationDouble {
-  readonly __scheduled: Map<string, { readonly identifier: string }>;
+  readonly __scheduled: Map<
+    string,
+    {
+      readonly identifier: string;
+      readonly fireAtMs: number;
+      readonly content: { readonly title: string; readonly body: string };
+    }
+  >;
   readonly __reset: (granted?: boolean, canAskAgain?: boolean) => void;
   readonly requestPermissionsAsync: jest.Mock;
 }
@@ -23,8 +30,18 @@ const mockContext = { locale: 'en' as const, t: createTranslator('en') };
 jest.mock('./OdinContext.ts', () => ({ useOdin: () => mockContext }));
 jest.mock('./useAppForeground.ts', () => ({ useAppForeground: () => true }));
 jest.mock('./queries.ts', () => ({
-  useMyTasksQuery: () => ({ data: { items: [], next_cursor: null } }),
-  useUnassignedQuery: () => ({ data: { items: [], next_cursor: null } }),
+  useMyTasksQuery: () => ({
+    data: { pages: [{ items: [], next_cursor: null }] },
+    hasNextPage: false,
+    isFetching: false,
+    isError: false,
+  }),
+  useUnassignedQuery: () => ({
+    data: { pages: [{ items: [], next_cursor: null }] },
+    hasNextPage: false,
+    isFetching: false,
+    isError: false,
+  }),
 }));
 
 import { NotificationsProvider, useNotificationSettings } from './NotificationSettings.tsx';
@@ -67,7 +84,11 @@ describe('the notification gate', () => {
     await waitFor(() => expect(result.current.permission).toBe('granted'));
 
     const identifier = 'odin-due:en:t1:day';
-    native.__scheduled.set(identifier, { identifier });
+    native.__scheduled.set(identifier, {
+      identifier,
+      fireAtMs: Date.now() + 60_000,
+      content: { title: 'Reminder', body: 'Task' },
+    });
     await act(() => result.current.disable());
 
     await waitFor(() => expect(result.current.muted).toBe(true));

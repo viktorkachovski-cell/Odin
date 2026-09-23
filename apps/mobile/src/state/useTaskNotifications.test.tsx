@@ -9,7 +9,14 @@ import type { CrossListTaskDto } from '@odin/contracts';
  */
 
 interface NotificationDouble {
-  readonly __scheduled: Map<string, { readonly identifier: string; readonly fireAtMs: number }>;
+  readonly __scheduled: Map<
+    string,
+    {
+      readonly identifier: string;
+      readonly fireAtMs: number;
+      readonly content: { readonly title?: string | null; readonly body?: string | null };
+    }
+  >;
   readonly __presented: { readonly title?: string | null; readonly body?: string | null }[];
   readonly __reset: (granted?: boolean, canAskAgain?: boolean) => void;
   readonly scheduleNotificationAsync: jest.Mock;
@@ -22,13 +29,29 @@ const mockState = {
   locale: 'en' as 'en' | 'bg',
   myTasks: [] as readonly CrossListTaskDto[],
   unassigned: [] as readonly CrossListTaskDto[],
+  myHasNextPage: false,
+  unassignedHasNextPage: false,
+  fetchMyNext: jest.fn(() => Promise.resolve()),
+  fetchUnassignedNext: jest.fn(() => Promise.resolve()),
 };
 
 jest.mock('./OdinContext.ts', () => ({ useOdin: () => ({ locale: mockState.locale }) }));
 jest.mock('./useAppForeground.ts', () => ({ useAppForeground: () => mockState.foreground }));
 jest.mock('./queries.ts', () => ({
-  useMyTasksQuery: () => ({ data: { items: mockState.myTasks, next_cursor: null } }),
-  useUnassignedQuery: () => ({ data: { items: mockState.unassigned, next_cursor: null } }),
+  useMyTasksQuery: () => ({
+    data: { pages: [{ items: mockState.myTasks, next_cursor: null }] },
+    hasNextPage: mockState.myHasNextPage,
+    isFetching: false,
+    isError: false,
+    fetchNextPage: mockState.fetchMyNext,
+  }),
+  useUnassignedQuery: () => ({
+    data: { pages: [{ items: mockState.unassigned, next_cursor: null }] },
+    hasNextPage: mockState.unassignedHasNextPage,
+    isFetching: false,
+    isError: false,
+    fetchNextPage: mockState.fetchUnassignedNext,
+  }),
 }));
 
 import { useTaskNotifications } from './useTaskNotifications.ts';
@@ -60,6 +83,10 @@ beforeEach(() => {
   mockState.locale = 'en';
   mockState.myTasks = [];
   mockState.unassigned = [];
+  mockState.myHasNextPage = false;
+  mockState.unassignedHasNextPage = false;
+  mockState.fetchMyNext.mockClear();
+  mockState.fetchUnassignedNext.mockClear();
 });
 
 describe('announcing changes', () => {
@@ -170,6 +197,50 @@ describe('deadline reminders', () => {
 
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
     expect(native.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('waits for later task pages before reconciling reminders', async () => {
+    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+
+    mockState.myHasNextPage = true;
+    mockState.myTasks = [];
+    await rerender(undefined);
+    await waitFor(() => expect(mockState.fetchMyNext).toHaveBeenCalled());
+    expect(native.__scheduled.size).toBe(3);
+
+    mockState.myHasNextPage = false;
+    mockState.myTasks = [
+      task({ due_at: dueAt, has_no_due: false }),
+      task({ task_id: 't2', due_at: dueAt, has_no_due: false }),
+    ];
+    await rerender(undefined);
+    await waitFor(() => expect(native.__scheduled.size).toBe(6));
+  });
+
+  it('replaces reminders when a deadline and task wording change', async () => {
+    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+    const originalDay = native.__scheduled.get('odin-due:en:t1:day')?.fireAtMs;
+
+    const movedDue = new Date(NOW + 4 * 24 * 60 * 60 * 1000).toISOString();
+    mockState.myTasks = [
+      task({ title: 'Water the garden', due_at: movedDue, has_no_due: false, version: 2 }),
+    ];
+    await rerender(undefined);
+
+    await waitFor(() =>
+      expect(native.__scheduled.get('odin-due:en:t1:day')?.fireAtMs).toBe(
+        Date.parse(movedDue) - 24 * 60 * 60 * 1000,
+      ),
+    );
+    expect(native.__scheduled.get('odin-due:en:t1:day')?.fireAtMs).not.toBe(originalDay);
+    expect(native.__scheduled.get('odin-due:en:t1:day')?.content.body).toContain(
+      'Water the garden',
+    );
+    expect(native.__scheduled.size).toBe(3);
   });
 
   it('cancels reminders when the deadline is removed', async () => {

@@ -46,7 +46,15 @@ export function Unassigned(): ReactNode {
       </div>
 
       {claim.state.error !== null && (
-        <ErrorBanner error={claim.state.error} onRetry={() => void query.refetch()} t={t} />
+        <ErrorBanner
+          error={claim.state.error}
+          onRetry={
+            claim.state.error.code === 'NETWORK'
+              ? () => void claim.retry()
+              : () => void query.refetch()
+          }
+          t={t}
+        />
       )}
 
       {tasks.length === 0 ? (

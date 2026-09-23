@@ -7,7 +7,7 @@ import type { AuthUser, OdinSupabaseClient } from '@odin/data';
 import { getCurrentUser, onAuthStateChange, signOut as signOutUser } from '@odin/data';
 import { createTranslator, resolveLocale, type Locale } from '@odin/i18n';
 
-import { cancelAllReminders } from '../notifications/adapter.ts';
+import { cancelAllReminders, enqueueReminderUpdate } from '../notifications/adapter.ts';
 import { OdinContext, type OdinContextValue } from './OdinContext.ts';
 import { clearPendingInvitation } from './pending-invitation.ts';
 import { useSessionRefresh } from './useSessionRefresh.ts';
@@ -93,7 +93,7 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
           // the account it belongs to. A cold start is deliberately excluded:
           // reminders are rebuilt from a fetch, and wiping them before one
           // succeeds would silently disarm an offline device.
-          void cancelAllReminders().catch(() => undefined);
+          void enqueueReminderUpdate(cancelAllReminders).catch(() => undefined);
         }
         identityRef.current = nextId;
       }

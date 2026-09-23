@@ -158,6 +158,14 @@ export const en = {
     'Someone else edited this while you were working. Review the latest version before saving.',
   'conflict.review': 'Review latest',
   'conflict.keep_editing': 'Keep editing',
+  'conflict.choose_fields': 'Choose what to save for each field',
+  'conflict.choose_hint':
+    'Your draft is still in the editor. For each difference, choose your draft or the latest value.',
+  'conflict.mine': 'My draft',
+  'conflict.latest': 'Latest',
+  'conflict.empty': '(empty)',
+  'conflict.reload_failed':
+    'Could not load the latest task. Try Review latest again; your draft is kept.',
 
   'unassigned.title': 'Unassigned',
   'unassigned.empty': 'Nothing is waiting to be picked up.',
@@ -204,6 +212,7 @@ export const en = {
   'notification.due.imminent.title': 'Due in 1 hour',
 
   'state.loading': 'Loading…',
+  'state.load_more': 'Load more',
   'state.offline': 'You are offline. Showing the last loaded data.',
   'state.stale': 'Reconnecting… showing the last loaded data.',
   'state.retry': 'Try again',

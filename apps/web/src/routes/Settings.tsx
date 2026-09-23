@@ -105,7 +105,17 @@ export function Settings(): ReactNode {
       <section className="section">
         <h2 className="section__heading">{t('settings.profile.heading')}</h2>
 
-        {saveProfile.state.error !== null && <ErrorBanner error={saveProfile.state.error} t={t} />}
+        {saveProfile.state.error !== null && (
+          <ErrorBanner
+            error={saveProfile.state.error}
+            onRetry={
+              saveProfile.state.error.code === 'NETWORK'
+                ? () => void saveProfile.retry()
+                : undefined
+            }
+            t={t}
+          />
+        )}
 
         <form
           onSubmit={(event) => {
@@ -163,7 +173,13 @@ export function Settings(): ReactNode {
       <section className="section">
         <h2 className="section__heading">{t('settings.invite.heading')}</h2>
 
-        {invite.state.error !== null && <ErrorBanner error={invite.state.error} t={t} />}
+        {invite.state.error !== null && (
+          <ErrorBanner
+            error={invite.state.error}
+            onRetry={invite.state.error.code === 'NETWORK' ? () => void invite.retry() : undefined}
+            t={t}
+          />
+        )}
 
         {invitation === null ? (
           <button

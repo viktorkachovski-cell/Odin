@@ -44,6 +44,16 @@ at most one assignee, an optional deadline and an explicit completion state.
 - My Tasks and Unassigned exclude completed and template tasks. Both sort by
   due timestamp ascending, nulls last, with a stable list/task ID tie-breaker.
 - A completed task never shows as overdue.
+- Android loads later Home, list, My Tasks and Unassigned pages on request;
+  rows beyond the first 50 are reachable. The notification watcher reads every
+  My Tasks and Unassigned page before reconciling reminders.
+- After an Android task edit conflicts, the typed draft stays open. The editor
+  shows the latest task beside it and requires a choice for every differing
+  field before saving against the latest version.
+- After an uncertain network result, retry uses the original request ID and
+  original details. A changed submission cannot reuse that ID. Android keeps
+  later task edits open after the retry succeeds and compares them with the
+  confirmed task before another save.
 
 ## Templates
 
@@ -125,6 +135,8 @@ Odin notifies a member about three things:
   while Odin was closed still fires — risk R9.
 - **Signing out or switching account cancels every scheduled reminder**, so a
   task title cannot arrive on a phone after the account that owns it is gone.
+- **A changed deadline or task title replaces the old scheduled reminders** at
+  the next reconciliation. Unchanged alarms are left in place.
 
 Nothing in the shared contract changed to support this. Both change triggers
 are a comparison of two readings of `getMyTasks`, using the `version` the

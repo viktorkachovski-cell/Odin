@@ -41,6 +41,7 @@ export interface TaskEditorProps {
   readonly conflict: boolean;
   readonly onCancel: () => void;
   readonly onReviewConflict: () => void;
+  readonly onRetry?: () => void;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
@@ -64,6 +65,7 @@ export function TaskEditor({
   conflict,
   onCancel,
   onReviewConflict,
+  onRetry,
   onSubmit,
 }: TaskEditorProps): ReactNode {
   const [draft, setDraft] = useState<TaskDraft>(() => draftFromTask(task));
@@ -122,6 +124,11 @@ export function TaskEditor({
       {error !== null && !conflict && (
         <div className="banner banner--danger" role="alert">
           {errorMessage(error, t)}
+          {error.code === 'NETWORK' && onRetry !== undefined && (
+            <button className="button" onClick={onRetry} type="button">
+              {t('state.retry')}
+            </button>
+          )}
         </div>
       )}
 

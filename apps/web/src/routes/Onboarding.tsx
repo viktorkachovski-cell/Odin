@@ -57,6 +57,15 @@ export function Onboarding({ needsProfile }: { readonly needsProfile: boolean })
           {profileCommand.state.error !== null && (
             <div className="banner banner--danger" role="alert">
               {errorMessage(profileCommand.state.error, t)}
+              {profileCommand.state.error.code === 'NETWORK' && (
+                <button
+                  className="button"
+                  onClick={() => void profileCommand.retry()}
+                  type="button"
+                >
+                  {t('state.retry')}
+                </button>
+              )}
             </div>
           )}
           <form
@@ -105,6 +114,15 @@ export function Onboarding({ needsProfile }: { readonly needsProfile: boolean })
         {householdCommand.state.error !== null && (
           <div className="banner banner--danger" role="alert">
             {errorMessage(householdCommand.state.error, t)}
+            {householdCommand.state.error.code === 'NETWORK' && (
+              <button
+                className="button"
+                onClick={() => void householdCommand.retry()}
+                type="button"
+              >
+                {t('state.retry')}
+              </button>
+            )}
           </div>
         )}
 

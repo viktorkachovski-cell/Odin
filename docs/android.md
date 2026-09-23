@@ -29,7 +29,8 @@ duplicating them would let the two clients drift apart on rules the server
 enforces:
 
 - `useCommand` → `@odin/data`. It holds one request ID across an ambiguous
-  `NETWORK` retry and mints a fresh one after any settled outcome. That is the
+  `NETWORK` retry with the original payload, blocks changed details under that
+  ID, and mints a fresh one after any settled outcome. That is the
   client half of the idempotency contract, not presentation.
 - `resolveDueInput` and `dueDraftFromIso` → `@odin/domain`. Both-or-neither
   deadline entry and the DST-gap rejection.
@@ -52,6 +53,17 @@ repositories and query keys.
 - **Foreground reconciliation.** `AppState` drives an authoritative membership
   refetch when Android returns the app to the foreground, so a revoked member
   cannot keep acting on cached household data.
+- **Realtime hints.** The household subscription stays mounted across online
+  and foreground changes. Bursts are grouped for 100 ms before cache
+  invalidation; a foreground/health overlap shares one reconciliation.
+- **Paged rows.** Home, list detail, My Tasks and Unassigned use virtualized
+  lists and explicit Load more controls. The notification watcher drains all
+  relevant pages before replacing alarms or taking an assignment baseline.
+- **Conflict review.** A task edit stays open after a version conflict. The
+  latest title, note, assignee and deadline appear beside the draft, and each
+  difference needs an explicit choice before saving against the new version.
+  Edits made while an uncertain save is retried also stay open for this review
+  against the confirmed saved task.
 - **Offline.** `@react-native-community/netinfo` drives the offline banner. A
   still-running reachability probe is not treated as offline.
 - **Bottom navigation** hides on downward scroll and reveals on upward scroll,
@@ -179,8 +191,8 @@ notifications until the Android binary is rebuilt.**
   `diffAssignedTasks` are pure functions in `@odin/domain` with no platform
   import, so the Android client owns only the transport. That is deliberate:
   if push is ever added, the adapter is replaced and the rules are not.
-- **Nothing new is fetched.** The watcher reads `getMyTasks` and
-  `getUnassigned`, which the app already has, and compares the per-task
+- **No new endpoint is needed.** The watcher reads every page of `getMyTasks`
+  and `getUnassigned`, which the app already uses, and compares the per-task
   `version` the contract increments once per change. This is why the feature
   needed no contract change and why the web client is untouched.
 - **It is mounted on the `(app)` layout, not a screen.** The watcher has to
@@ -198,6 +210,12 @@ notifications until the Android binary is rebuilt.**
   `odin-due:<locale>:<taskId>:<stage>`, which makes rescheduling idempotent and
   makes a language change retire the old wording rather than leave a Bulgarian
   member with English reminders.
+- **Time and wording are checked on each reconciliation.** A moved deadline or
+  edited task title cancels its old alarm and schedules the current one; an
+  unchanged alarm keeps its native identifier.
+- **Reminder writes are serialized.** Reconciliation, device mute and account
+  sign-out finish in request order, so a slow schedule cannot recreate an alarm
+  after cancellation.
 - **Reminders do not outlive the account.** `OdinProvider.applyUser` cancels
   every scheduled reminder when the identity changes away from a signed-in
   account, because a reminder carries a task title. A cold start is

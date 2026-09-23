@@ -1,4 +1,10 @@
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import type {
   HomePageDto,
@@ -50,33 +56,55 @@ export function useMembersQuery(enabled: boolean): UseQueryResult<MemberDto[]> {
   return useQuery({ queryKey: queryKeys.members, queryFn: () => getMembers(client), enabled });
 }
 
-export function useHomeQuery(enabled: boolean): UseQueryResult<HomePageDto> {
+export function useHomeQuery(
+  enabled: boolean,
+): UseInfiniteQueryResult<InfiniteData<HomePageDto, string | null>> {
   const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.home, queryFn: () => getHome(client), enabled });
+  return useInfiniteQuery({
+    queryKey: queryKeys.home,
+    queryFn: ({ pageParam }) => getHome(client, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    enabled,
+  });
 }
 
 export function useListQuery(
   listId: string | undefined,
   enabled: boolean,
-): UseQueryResult<ListPageDto> {
+): UseInfiniteQueryResult<InfiniteData<ListPageDto, string | null>> {
   const { client } = useOdin();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.list(listId ?? ''),
-    queryFn: () => getList(client, listId ?? ''),
+    queryFn: ({ pageParam }) => getList(client, listId ?? '', pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled: enabled && listId !== undefined && listId.length > 0,
   });
 }
 
-export function useMyTasksQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
+export function useMyTasksQuery(
+  enabled: boolean,
+): UseInfiniteQueryResult<InfiniteData<TaskPageDto, string | null>> {
   const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasks(client), enabled });
+  return useInfiniteQuery({
+    queryKey: queryKeys.myTasks,
+    queryFn: ({ pageParam }) => getMyTasks(client, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    enabled,
+  });
 }
 
-export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
+export function useUnassignedQuery(
+  enabled: boolean,
+): UseInfiniteQueryResult<InfiniteData<TaskPageDto, string | null>> {
   const { client } = useOdin();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.unassigned,
-    queryFn: () => getUnassigned(client),
+    queryFn: ({ pageParam }) => getUnassigned(client, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
     enabled,
   });
 }

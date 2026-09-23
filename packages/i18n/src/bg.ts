@@ -157,6 +157,14 @@ export const bg: Record<TranslationKey, string> = {
     'Някой друг я редактира, докато работехте. Прегледайте последната версия, преди да запазите.',
   'conflict.review': 'Виж последната версия',
   'conflict.keep_editing': 'Продължи редакцията',
+  'conflict.choose_fields': 'Изберете какво да запазите за всяко поле',
+  'conflict.choose_hint':
+    'Вашата чернова остава в редактора. За всяка разлика изберете черновата или последната стойност.',
+  'conflict.mine': 'Моята чернова',
+  'conflict.latest': 'Последна версия',
+  'conflict.empty': '(празно)',
+  'conflict.reload_failed':
+    'Не успяхме да заредим последната задача. Опитайте отново; черновата ви е запазена.',
 
   'unassigned.title': 'Незаети',
   'unassigned.empty': 'Няма задачи, които чакат да бъдат поети.',
@@ -204,6 +212,7 @@ export const bg: Record<TranslationKey, string> = {
   'notification.due.imminent.title': 'Краен срок след 1 час',
 
   'state.loading': 'Зареждане…',
+  'state.load_more': 'Зареди още',
   'state.offline': 'Няма връзка. Показваме последно заредените данни.',
   'state.stale': 'Повторно свързване… показваме последно заредените данни.',
   'state.retry': 'Опитай отново',

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   keysAffectedByListChange,
@@ -37,37 +37,62 @@ export function useHouseholdRealtime(householdId: string | null): void {
   const { client, setRealtimeHealthy, realtimeHealthy, online, markSynced } = useOdin();
   const queryClient = useQueryClient();
   const foreground = useAppForeground();
+  const activeRef = useRef({ online, foreground });
+  activeRef.current = { online, foreground };
+  const reconcileRef = useRef<{ householdId: string | null; promise: Promise<void> } | null>(null);
   const reconcile = useCallback(async () => {
-    await queryClient.invalidateQueries(
-      { queryKey: queryKeys.household },
-      { cancelRefetch: false },
-    );
-    await Promise.all(
-      [...keysAffectedByMembershipChange().filter((key) => key[0] !== 'household'), ['list']].map(
-        (queryKey) => queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false }),
-      ),
-    );
-  }, [queryClient]);
+    if (reconcileRef.current?.householdId === householdId) return reconcileRef.current.promise;
+    const pending = (async () => {
+      await queryClient.invalidateQueries(
+        { queryKey: queryKeys.household },
+        { cancelRefetch: false },
+      );
+      await Promise.all(
+        [...keysAffectedByMembershipChange().filter((key) => key[0] !== 'household'), ['list']].map(
+          (queryKey) => queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false }),
+        ),
+      );
+    })();
+    reconcileRef.current = { householdId, promise: pending };
+    try {
+      await pending;
+    } finally {
+      if (reconcileRef.current?.promise === pending) reconcileRef.current = null;
+    }
+  }, [householdId, queryClient]);
 
   useEffect(() => {
     if (householdId === null) return;
 
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const pendingKinds = new Set<ChangeKind>();
+    const flush = (): void => {
+      timer = null;
+      const keys = new Map<string, readonly string[]>();
+      for (const kind of pendingKinds) {
+        for (const key of keysFor(kind)) keys.set(key.join(':'), key);
+      }
+      if (pendingKinds.has('task') || pendingKinds.has('list')) keys.set('list', ['list']);
+      pendingKinds.clear();
+      for (const key of keys.values()) void queryClient.invalidateQueries({ queryKey: key });
+    };
+
     const subscription = subscribeToHousehold(client, householdId, {
       onChange: (kind) => {
-        for (const key of keysFor(kind)) {
-          void queryClient.invalidateQueries({ queryKey: key });
-        }
-        // An open list detail is refetched by its own key prefix.
-        void queryClient.invalidateQueries({ queryKey: ['list'] });
+        pendingKinds.add(kind);
+        if (timer === null) timer = setTimeout(flush, 100);
       },
       onHealthChange: (healthy) => {
         setRealtimeHealthy(healthy);
-        if (healthy && online && foreground) void reconcile();
+        if (healthy && activeRef.current.online && activeRef.current.foreground) void reconcile();
       },
     });
 
-    return () => subscription.unsubscribe();
-  }, [client, householdId, queryClient, setRealtimeHealthy, online, foreground, reconcile]);
+    return () => {
+      if (timer !== null) clearTimeout(timer);
+      subscription.unsubscribe();
+    };
+  }, [client, householdId, queryClient, setRealtimeHealthy, reconcile]);
 
   /** Records the moment of the last authoritative read, for the stale banner. */
   useEffect(() => {

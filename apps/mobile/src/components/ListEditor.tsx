@@ -23,6 +23,7 @@ export interface ListEditorProps {
   readonly pending: boolean;
   readonly error: CommandError | null;
   readonly onCancel: () => void;
+  readonly onRetry?: () => void;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly subtitle: string | null;
@@ -36,6 +37,7 @@ export function ListEditor({
   pending,
   error,
   onCancel,
+  onRetry,
   onSubmit,
 }: ListEditorProps): ReactNode {
   const theme = useTheme();
@@ -88,6 +90,9 @@ export function ListEditor({
       {error !== null && (
         <View accessibilityRole="alert" style={styles.error}>
           <Text style={{ color: theme.colors.danger }}>{errorMessage(error, t)}</Text>
+          {error.code === 'NETWORK' && onRetry !== undefined && (
+            <SecondaryButton label={t('state.retry')} onPress={onRetry} />
+          )}
         </View>
       )}
 

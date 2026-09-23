@@ -31,7 +31,7 @@ export function useCommand<TInput, TData>(
   execute: (requestId: string, input: TInput) => Promise<CommandResult<TData>>,
   options: {
     readonly invalidate?: readonly (readonly string[])[];
-    readonly onSuccess?: (data: TData) => void;
+    readonly onSuccess?: (data: TData, input: TInput) => void;
   } = {},
 ): UseCommandResult<TInput, TData> {
   const queryClient = useQueryClient();
@@ -39,6 +39,9 @@ export function useCommand<TInput, TData>(
 
   const requestIdRef = useRef<string | null>(null);
   const lastInputRef = useRef<TInput | null>(null);
+  const hasLastInputRef = useRef(false);
+  const networkErrorRef = useRef<CommandError | null>(null);
+  const inFlightRef = useRef<Promise<CommandResult<TData>> | null>(null);
   const { invalidate, onSuccess } = options;
 
   const invalidateAffected = useCallback(async () => {
@@ -55,15 +58,22 @@ export function useCommand<TInput, TData>(
         // Settled: the next submission is a genuinely new operation.
         requestIdRef.current = null;
         lastInputRef.current = null;
-        setState({ pending: false, error: null });
+        hasLastInputRef.current = false;
+        networkErrorRef.current = null;
         await invalidateAffected();
-        onSuccess?.(result.data);
+        onSuccess?.(result.data, input);
+        setState({ pending: false, error: null });
         return result;
       }
 
       // NETWORK leaves the outcome unknown, so the ID is deliberately kept.
       if (result.error.code !== 'NETWORK') {
         requestIdRef.current = null;
+        lastInputRef.current = null;
+        hasLastInputRef.current = false;
+        networkErrorRef.current = null;
+      } else {
+        networkErrorRef.current = result.error;
       }
       setState({ pending: false, error: result.error });
       return result;
@@ -71,26 +81,56 @@ export function useCommand<TInput, TData>(
     [execute, invalidateAffected, onSuccess],
   );
 
+  const send = useCallback(
+    (input: TInput, requestId: string) => {
+      if (inFlightRef.current !== null) return inFlightRef.current;
+      const promise = dispatch(input, requestId);
+      inFlightRef.current = promise;
+      void promise.then(
+        () => {
+          inFlightRef.current = null;
+        },
+        () => {
+          inFlightRef.current = null;
+        },
+      );
+      return promise;
+    },
+    [dispatch],
+  );
+
   const run = useCallback(
     (input: TInput) => {
+      if (inFlightRef.current !== null) return inFlightRef.current;
+      // An ambiguous result can only be retried with the original payload.
+      // A new edit must not reuse the receipt ID with different details.
+      if (networkErrorRef.current !== null) {
+        if (JSON.stringify(input) === JSON.stringify(lastInputRef.current)) {
+          return send(lastInputRef.current as TInput, requestIdRef.current as string);
+        }
+        return Promise.resolve({ ok: false as const, error: networkErrorRef.current });
+      }
       const requestId = requestIdRef.current ?? newRequestId();
       requestIdRef.current = requestId;
       lastInputRef.current = input;
-      return dispatch(input, requestId);
+      hasLastInputRef.current = true;
+      return send(input, requestId);
     },
-    [dispatch],
+    [send],
   );
 
   const retry = useCallback(() => {
     const requestId = requestIdRef.current;
     const input = lastInputRef.current;
-    if (requestId === null || input === null) return Promise.resolve(null);
-    return dispatch(input, requestId);
-  }, [dispatch]);
+    if (requestId === null || !hasLastInputRef.current) return Promise.resolve(null);
+    return send(input as TInput, requestId);
+  }, [send]);
 
   const reset = useCallback(() => {
     requestIdRef.current = null;
     lastInputRef.current = null;
+    hasLastInputRef.current = false;
+    networkErrorRef.current = null;
     setState({ pending: false, error: null });
   }, []);
 

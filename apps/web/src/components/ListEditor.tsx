@@ -20,6 +20,7 @@ export interface ListEditorProps {
   readonly pending: boolean;
   readonly error: CommandError | null;
   readonly onCancel: () => void;
+  readonly onRetry?: () => void;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly subtitle: string | null;
@@ -33,6 +34,7 @@ export function ListEditor({
   pending,
   error,
   onCancel,
+  onRetry,
   onSubmit,
 }: ListEditorProps): ReactNode {
   const [title, setTitle] = useState(list?.title ?? '');
@@ -89,6 +91,11 @@ export function ListEditor({
       {error !== null && (
         <div className="banner banner--danger" role="alert">
           {errorMessage(error, t)}
+          {error.code === 'NETWORK' && onRetry !== undefined && (
+            <button className="button" onClick={onRetry} type="button">
+              {t('state.retry')}
+            </button>
+          )}
         </div>
       )}
 

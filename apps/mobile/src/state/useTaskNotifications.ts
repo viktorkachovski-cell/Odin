@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import type { CrossListTaskDto } from '@odin/contracts';
 import {
@@ -14,10 +14,11 @@ import { translate, type Locale, type TranslationKey } from '@odin/i18n';
 import {
   cancelAllReminders,
   cancelReminders,
+  enqueueReminderUpdate,
   presentNow,
   reminderIdentifier,
   scheduleReminder,
-  scheduledReminderIds,
+  scheduledReminders,
   type NotificationText,
 } from '../notifications/adapter.ts';
 import { useOdin } from './OdinContext.ts';
@@ -29,7 +30,7 @@ import { useMyTasksQuery, useUnassignedQuery } from './queries.ts';
  * asked for: a task became yours, a task of yours changed, and a deadline is
  * approaching.
  *
- * Nothing new is fetched from the server for this. `getMyTasks` already
+ * No new endpoint is needed. `getMyTasks` already
  * carries a per-task `version`, which the contract increments exactly once per
  * change, so "assigned" and "updated" are a comparison of two readings rather
  * than a new event stream. That is why this needed no schema, RPC or contract
@@ -74,7 +75,7 @@ function reminderText(locale: Locale, plan: PlannedDueReminder): NotificationTex
 
 /**
  * Brings the system's scheduled reminders in line with the deadlines currently
- * on screen. The set already scheduled is read back from Android rather than
+ * in the fetched pages. The set already scheduled is read back from Android rather than
  * remembered here, so this stays correct across a restart, and identifiers are
  * stable per task, stage and language -- rescheduling replaces, never
  * duplicates, and a language change retires the old wording.
@@ -85,16 +86,31 @@ async function reconcileReminders(
   nowMs: number,
 ): Promise<void> {
   const wanted = new Map(
-    planDueReminders(candidates, nowMs).map((plan) => [reminderIdentifier(locale, plan.key), plan]),
+    planDueReminders(candidates, nowMs).map((plan) => [
+      reminderIdentifier(locale, plan.key),
+      { fireAtMs: plan.fireAtMs, text: reminderText(locale, plan) },
+    ]),
   );
-  const existing = await scheduledReminderIds();
-
-  await cancelReminders(existing.filter((identifier) => !wanted.has(identifier)));
-
-  const alreadyScheduled = new Set(existing);
-  for (const [identifier, plan] of wanted) {
-    if (alreadyScheduled.has(identifier)) continue;
-    await scheduleReminder(identifier, plan.fireAtMs, reminderText(locale, plan));
+  const existing = await scheduledReminders();
+  const unchanged = new Set<string>();
+  const obsolete: string[] = [];
+  for (const reminder of existing) {
+    const planned = wanted.get(reminder.identifier);
+    if (
+      planned !== undefined &&
+      reminder.fireAtMs === planned.fireAtMs &&
+      reminder.title === planned.text.title &&
+      reminder.body === planned.text.body
+    ) {
+      unchanged.add(reminder.identifier);
+    } else {
+      obsolete.push(reminder.identifier);
+    }
+  }
+  await cancelReminders(obsolete);
+  for (const [identifier, planned] of wanted) {
+    if (unchanged.has(identifier)) continue;
+    await scheduleReminder(identifier, planned.fireAtMs, planned.text);
   }
 }
 
@@ -154,9 +170,62 @@ export function useTaskNotifications(allowed: boolean): void {
   // cost nothing: the My Tasks and Unassigned screens still enable their own.
   const myTasks = useMyTasksQuery(allowed);
   const unassigned = useUnassignedQuery(allowed);
+  const {
+    hasNextPage: hasMoreMyTasks,
+    isFetching: fetchingMyTasks,
+    isError: myTasksError,
+    isFetchNextPageError: myTasksPageError,
+    fetchNextPage: fetchNextMyTasks,
+  } = myTasks;
+  const {
+    hasNextPage: hasMoreUnassigned,
+    isFetching: fetchingUnassigned,
+    isError: unassignedError,
+    isFetchNextPageError: unassignedPageError,
+    fetchNextPage: fetchNextUnassigned,
+  } = unassigned;
 
-  const myItems = myTasks.data?.items;
-  const unassignedItems = unassigned.data?.items;
+  // Every assigned or unassigned task can have a reminder. A partial page must
+  // never become the baseline or cancel alarms for tasks on later pages.
+  useEffect(() => {
+    if (allowed && hasMoreMyTasks && !fetchingMyTasks && !myTasksError && !myTasksPageError) {
+      void fetchNextMyTasks();
+    }
+  }, [allowed, hasMoreMyTasks, fetchingMyTasks, myTasksError, myTasksPageError, fetchNextMyTasks]);
+
+  useEffect(() => {
+    if (
+      allowed &&
+      hasMoreUnassigned &&
+      !fetchingUnassigned &&
+      !unassignedError &&
+      !unassignedPageError
+    ) {
+      void fetchNextUnassigned();
+    }
+  }, [
+    allowed,
+    hasMoreUnassigned,
+    fetchingUnassigned,
+    unassignedError,
+    unassignedPageError,
+    fetchNextUnassigned,
+  ]);
+
+  const myItems = useMemo(
+    () =>
+      myTasks.hasNextPage || myTasks.isFetching || myTasks.isError
+        ? undefined
+        : myTasks.data?.pages.flatMap((page) => page.items),
+    [myTasks.data, myTasks.hasNextPage, myTasks.isFetching, myTasks.isError],
+  );
+  const unassignedItems = useMemo(
+    () =>
+      unassigned.hasNextPage || unassigned.isFetching || unassigned.isError
+        ? undefined
+        : unassigned.data?.pages.flatMap((page) => page.items),
+    [unassigned.data, unassigned.hasNextPage, unassigned.isFetching, unassigned.isError],
+  );
 
   /**
    * What "assigned to me" looked like at the last reading. `null` is the
@@ -198,12 +267,12 @@ export function useTaskNotifications(allowed: boolean): void {
    */
   useEffect(() => {
     if (!allowed) {
-      bestEffort(cancelAllReminders());
+      bestEffort(enqueueReminderUpdate(cancelAllReminders));
       return;
     }
     if (myItems === undefined || unassignedItems === undefined) return;
 
     const candidates = [...myItems, ...unassignedItems].map(toCandidate);
-    bestEffort(reconcileReminders(candidates, locale, Date.now()));
+    bestEffort(enqueueReminderUpdate(() => reconcileReminders(candidates, locale, Date.now())));
   }, [myItems, unassignedItems, allowed, locale]);
 }

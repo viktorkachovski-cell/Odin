@@ -21,6 +21,16 @@ export const TASK_CHANNEL_ID = 'odin-tasks';
  */
 const REMINDER_PREFIX = 'odin-due:';
 
+// Reconciliation, mute and sign-out must finish in the order they were asked
+// for. Otherwise an older async schedule can recreate an alarm after cancel.
+let reminderQueue: Promise<void> = Promise.resolve();
+
+export function enqueueReminderUpdate(work: () => Promise<void>): Promise<void> {
+  const next = reminderQueue.then(work, work);
+  reminderQueue = next.catch(() => undefined);
+  return next;
+}
+
 export interface NotificationText {
   readonly title: string;
   readonly body: string;
@@ -83,17 +93,43 @@ export function reminderIdentifier(locale: string, key: string): string {
   return `${REMINDER_PREFIX}${locale}:${key}`;
 }
 
-/**
- * Identifiers of the reminders this app currently has scheduled. Reading them
- * back from the system -- rather than trusting a local record -- is what makes
- * reconciliation safe across a restart, a reinstall of the JS bundle or a
- * notification the user dismissed.
- */
-export async function scheduledReminderIds(): Promise<readonly string[]> {
+export interface ScheduledReminder {
+  readonly identifier: string;
+  readonly fireAtMs: number | null;
+  readonly title: string | null;
+  readonly body: string | null;
+}
+
+function dateTriggerTime(trigger: Notifications.NotificationTrigger): number | null {
+  if (
+    trigger === null ||
+    typeof trigger !== 'object' ||
+    !('type' in trigger) ||
+    trigger.type !== Notifications.SchedulableTriggerInputTypes.DATE
+  ) {
+    return null;
+  }
+  // Android serializes a date trigger as {type:'date', value: milliseconds}.
+  // The input type uses `date`, so accept either representation.
+  if ('value' in trigger && typeof trigger.value === 'number') return trigger.value;
+  if ('date' in trigger) {
+    if (typeof trigger.date === 'number') return trigger.date;
+    if (trigger.date instanceof Date) return trigger.date.getTime();
+  }
+  return null;
+}
+
+/** Read the system's actual schedule, including time and wording. */
+export async function scheduledReminders(): Promise<readonly ScheduledReminder[]> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   return scheduled
-    .map((request) => request.identifier)
-    .filter((identifier) => identifier.startsWith(REMINDER_PREFIX));
+    .filter((request) => request.identifier.startsWith(REMINDER_PREFIX))
+    .map((request) => ({
+      identifier: request.identifier,
+      fireAtMs: dateTriggerTime(request.trigger),
+      title: request.content.title,
+      body: request.content.body,
+    }));
 }
 
 export async function scheduleReminder(
@@ -120,5 +156,5 @@ export async function cancelReminders(identifiers: readonly string[]): Promise<v
 
 /** Used when the member mutes Odin's notifications or signs out. */
 export async function cancelAllReminders(): Promise<void> {
-  await cancelReminders(await scheduledReminderIds());
+  await cancelReminders((await scheduledReminders()).map((reminder) => reminder.identifier));
 }

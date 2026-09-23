@@ -66,14 +66,35 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
       silence, no replay of a change that was silent, burst collapsed to a
       summary, stage already past skipped, reminder reconciled on deadline
       change/removal/task leaving, re-worded on language change, nothing at all
-      when either gate is off. Covered by 14 Vitest and 13 Jest cases against an
-      in-memory `expo-notifications` double.
+      when either gate is off. Jest now also covers changed alarm time/text and
+      waits for later task pages before reconciling. Delivery remains unverified
+      on a device.
 - [ ] Notification **delivery** on a device: Android actually posting an
       announcement, an alarm surviving app kill and reboot, Doze delay measured
       against the 1-hour stage, the Android 13+ permission prompt, and
       "don't ask again" reaching the blocked state in Settings.
 
 ## Performance evidence
+
+The 2026-09-22 mobile reliability branch removes first-page truncation,
+virtualizes the four main data screens, reuses row date formatters and batches
+Realtime cache invalidation. These are source-level improvements, **not**
+measured latency or frame-rate results. The Android export uses compile-only
+dummy public configuration and proves bundling, not a production install.
+The owner-deferred device pass still needs a large dataset (at least 20 lists
+and 500 tasks) and scroll/frame measurements in both locales.
+
+Local branch verification on Windows, Node 24 (the project declares Node 22):
+
+- `npm run check` passed: lint, formatting, all workspace typechecks, 12 tooling
+  tests, 181 Vitest tests, 124 Android Jest tests and 4 build-environment tests.
+- `npm run doctor --workspace @odin/mobile` passed 21/21 checks.
+- `npm run build:check --workspace @odin/mobile` exported an Android Hermes
+  bundle with dummy public configuration, without creating an installable APK.
+- `npm run build` passed with dummy public configuration. Its existing single
+  JavaScript chunk remains above Vite's 500 kB warning threshold (risk R8).
+- No device run, hosted database change, deployment or production build was
+  performed. Branch code has not been pushed to main.
 
 Measure Home and List Detail usable-data time at the 75th percentile against the source target of 2 seconds on a documented typical mobile connection. Use at least 30 observations per scenario and report device, network profile, warm/cold cache and dataset (e.g. 20 lists/500 tasks). Track empty/loading UI separately from usable data. Measure accepted-write-to-other-client-visible time with two clients; target 5 seconds in normal connected conditions. Report sample size, worst case and failures; do not fabricate measurements.
 

@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, SectionList, StyleSheet, Text } from 'react-native';
 
-import type { ListSummaryDto } from '@odin/contracts';
 import {
   copyTemplate,
   createList,
@@ -21,6 +20,7 @@ import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
 import { ListCard } from '../../src/components/ListCard.tsx';
 import { ListEditor } from '../../src/components/ListEditor.tsx';
+import { LoadMore } from '../../src/components/LoadMore.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
 import { useTheme } from '../../src/theme.ts';
 
@@ -77,28 +77,41 @@ export default function HomeScreen(): ReactNode {
 
   if (home.isPending) return <LoadingState label={t('state.loading')} />;
 
-  const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
-  const active = home.data?.items.filter((item) => item.kind === 'active') ?? [];
+  const items = home.data?.pages.flatMap((page) => page.items) ?? [];
+  const templates = items.filter((item) => item.kind === 'template');
+  const active = items.filter((item) => item.kind === 'active');
 
-  const section = (
-    heading: string,
-    items: readonly ListSummaryDto[],
-    emptyLabel: string,
-    onCopy?: (list: ListSummaryDto) => void,
-  ): ReactNode => (
-    <View style={styles.section}>
-      <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
-        {heading}
-      </Text>
-      {items.length === 0 ? (
-        <EmptyState label={emptyLabel} />
-      ) : (
-        items.map((item) => (
+  const sections = [
+    { title: t('home.templates.heading'), empty: t('home.templates.empty'), data: templates },
+    { title: t('home.active.heading'), empty: t('home.active.empty'), data: active },
+  ];
+
+  return (
+    <Screen title={t('home.title')}>
+      <SectionList
+        contentContainerStyle={styles.content}
+        keyExtractor={(item) => item.id}
+        sections={sections}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
+            {section.title}
+          </Text>
+        )}
+        renderSectionFooter={({ section }) =>
+          section.data.length === 0 && !home.hasNextPage ? (
+            <EmptyState label={section.empty} />
+          ) : null
+        }
+        renderItem={({ item }) => (
           <ListCard
             copyPending={copy.state.pending}
-            key={item.id}
             list={item}
-            onCopy={onCopy}
+            onCopy={
+              item.kind === 'template'
+                ? (selected) => void copy.run({ templateId: selected.id })
+                : undefined
+            }
             onDelete={(selected) => {
               Alert.alert(t('list.delete'), t('list.delete.confirm'), [
                 { text: t('list.back'), style: 'cancel' },
@@ -106,10 +119,7 @@ export default function HomeScreen(): ReactNode {
                   text: t('list.delete'),
                   style: 'destructive',
                   onPress: () =>
-                    void remove.run({
-                      listId: selected.id,
-                      expectedVersion: selected.version,
-                    }),
+                    void remove.run({ listId: selected.id, expectedVersion: selected.version }),
                 },
               ]);
             }}
@@ -125,46 +135,65 @@ export default function HomeScreen(): ReactNode {
             saveTemplatePending={saveTemplate.state.pending}
             t={t}
           />
-        ))
-      )}
-    </View>
-  );
-
-  return (
-    <Screen title={t('home.title')}>
-      <ScrollView
-        contentContainerStyle={styles.content}
+        )}
+        ListHeaderComponent={
+          <>
+            {home.isError && (
+              <ErrorBanner
+                error={{ code: 'UNKNOWN', message_key: 'error.unknown' }}
+                onRetry={() => void home.refetch()}
+                t={t}
+              />
+            )}
+            {copy.state.error !== null && (
+              <ErrorBanner
+                error={copy.state.error}
+                onRetry={copy.state.error.code === 'NETWORK' ? () => void copy.retry() : undefined}
+                t={t}
+              />
+            )}
+            {remove.state.error !== null && (
+              <ErrorBanner
+                error={remove.state.error}
+                onRetry={
+                  remove.state.error.code === 'NETWORK' ? () => void remove.retry() : undefined
+                }
+                t={t}
+              />
+            )}
+            {saveTemplate.state.error !== null && (
+              <ErrorBanner
+                error={saveTemplate.state.error}
+                onRetry={
+                  saveTemplate.state.error.code === 'NETWORK'
+                    ? () => void saveTemplate.retry()
+                    : undefined
+                }
+                t={t}
+              />
+            )}
+            {templateSaved && saveTemplate.state.error === null && (
+              <Text accessibilityLiveRegion="polite" style={{ color: theme.colors.textMuted }}>
+                {t('list.template.saved')}
+              </Text>
+            )}
+          </>
+        }
+        ListFooterComponent={
+          <>
+            <LoadMore
+              hasNextPage={home.hasNextPage}
+              isFetchingNextPage={home.isFetchingNextPage}
+              isFetchNextPageError={home.isFetchNextPageError}
+              onPress={() => void home.fetchNextPage()}
+              t={t}
+            />
+            <NavSpacer />
+          </>
+        }
         onScroll={nav.onScroll}
         scrollEventThrottle={16}
-      >
-        {home.isError && (
-          <ErrorBanner
-            error={{ code: 'UNKNOWN', message_key: 'error.unknown' }}
-            onRetry={() => void home.refetch()}
-            t={t}
-          />
-        )}
-        {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
-        {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
-        {saveTemplate.state.error !== null && (
-          <ErrorBanner error={saveTemplate.state.error} t={t} />
-        )}
-        {templateSaved && saveTemplate.state.error === null && (
-          <Text accessibilityLiveRegion="polite" style={{ color: theme.colors.textMuted }}>
-            {t('list.template.saved')}
-          </Text>
-        )}
-
-        {section(
-          t('home.templates.heading'),
-          templates,
-          t('home.templates.empty'),
-          (list) => void copy.run({ templateId: list.id }),
-        )}
-        {section(t('home.active.heading'), active, t('home.active.empty'))}
-
-        <NavSpacer />
-      </ScrollView>
+      />
 
       <FloatingActionButton label={t('home.create_list')} onPress={() => setCreating(true)} />
 
@@ -178,6 +207,7 @@ export default function HomeScreen(): ReactNode {
           }}
           onSubmit={(input) => void create.run(input)}
           pending={create.state.pending}
+          onRetry={() => void create.retry()}
           t={t}
         />
       )}
@@ -188,5 +218,4 @@ export default function HomeScreen(): ReactNode {
 const styles = StyleSheet.create({
   content: { gap: 16, paddingBottom: 16 },
   heading: { fontSize: 18, fontWeight: '700' },
-  section: { gap: 12 },
 });

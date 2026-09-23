@@ -213,9 +213,31 @@ export function Home(): ReactNode {
         </button>
       </div>
 
-      {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
-      {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
-      {saveTemplate.state.error !== null && <ErrorBanner error={saveTemplate.state.error} t={t} />}
+      {copy.state.error !== null && (
+        <ErrorBanner
+          error={copy.state.error}
+          onRetry={copy.state.error.code === 'NETWORK' ? () => void copy.retry() : undefined}
+          t={t}
+        />
+      )}
+      {remove.state.error !== null && (
+        <ErrorBanner
+          error={remove.state.error}
+          onRetry={remove.state.error.code === 'NETWORK' ? () => void remove.retry() : undefined}
+          t={t}
+        />
+      )}
+      {saveTemplate.state.error !== null && (
+        <ErrorBanner
+          error={saveTemplate.state.error}
+          onRetry={
+            saveTemplate.state.error.code === 'NETWORK'
+              ? () => void saveTemplate.retry()
+              : undefined
+          }
+          t={t}
+        />
+      )}
       {templateSaved && saveTemplate.state.error === null && (
         <p className="empty" role="status">
           {t('list.template.saved')}
@@ -298,6 +320,7 @@ export function Home(): ReactNode {
             setCreating(false);
           }}
           onSubmit={(input) => void create.run(input)}
+          onRetry={() => void create.retry()}
           pending={create.state.pending}
           t={t}
         />

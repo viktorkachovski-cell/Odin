@@ -11,6 +11,7 @@ import {
 import {
   askPermission,
   cancelAllReminders,
+  enqueueReminderUpdate,
   ensureTaskChannel,
   installForegroundPresentation,
   readPermission,
@@ -115,7 +116,7 @@ function useNotificationGate(): NotificationSettingsValue {
         await writeMuted(true);
         setMuted(true);
         // Reminders already handed to Android would otherwise keep firing.
-        await cancelAllReminders();
+        await enqueueReminderUpdate(cancelAllReminders);
       } catch {
         // The stored preference is the source of truth; a failed cancel is
         // retried by the next reconciliation.
