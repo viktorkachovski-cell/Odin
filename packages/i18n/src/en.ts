@@ -116,6 +116,8 @@ export const en = {
   'list.notes.label': 'Notes (optional)',
   'list.empty': 'This list has no tasks yet.',
   'list.save': 'Save list',
+  'list.retry_saved_newer_draft':
+    'Your earlier save succeeded. Your newer edits are still here; review them and save again.',
   'list.not_found': 'That list is no longer available.',
   'list.template.save': 'Save as list template',
   'list.template.saved': 'List template saved. It is available to your household.',

@@ -4,7 +4,6 @@ import { Alert, SectionList, StyleSheet, Text } from 'react-native';
 
 import {
   copyTemplate,
-  createList,
   deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
@@ -15,6 +14,7 @@ import {
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHomeQuery } from '../../src/state/queries.ts';
+import { useListEditorCommand } from '../../src/state/useListEditorCommand.ts';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
@@ -37,7 +37,7 @@ export default function HomeScreen(): ReactNode {
   const nav = useNavVisibility();
   const home = useHomeQuery(true);
   const { client } = useOdin();
-  const [creating, setCreating] = useState(false);
+  const listEditor = useListEditorCommand(client);
   const [templateSaved, setTemplateSaved] = useState(false);
 
   const copy = useCommand(
@@ -47,18 +47,6 @@ export default function HomeScreen(): ReactNode {
       invalidate: [...keysAffectedByListChange(), ...keysAffectedByTaskChange()],
       onSuccess: (listId) => router.push({ pathname: '/list/[id]', params: { id: listId } }),
     },
-  );
-
-  const create = useCommand(
-    (
-      requestId,
-      input: {
-        readonly title: string;
-        readonly subtitle: string | null;
-        readonly notes: string | null;
-      },
-    ) => createList(client, requestId, input),
-    { invalidate: keysAffectedByListChange(), onSuccess: () => setCreating(false) },
   );
 
   // Saving a list template writes a new list, so Home is the cache to refresh;
@@ -195,19 +183,22 @@ export default function HomeScreen(): ReactNode {
         scrollEventThrottle={16}
       />
 
-      <FloatingActionButton label={t('home.create_list')} onPress={() => setCreating(true)} />
+      <FloatingActionButton
+        disabled={listEditor.command.state.pending}
+        label={t('home.create_list')}
+        onPress={listEditor.open}
+      />
 
-      {creating && (
+      {listEditor.editing && (
         <ListEditor
-          error={create.state.error}
-          list={null}
-          onCancel={() => {
-            create.reset();
-            setCreating(false);
-          }}
-          onSubmit={(input) => void create.run(input)}
-          pending={create.state.pending}
-          onRetry={() => void create.retry()}
+          error={listEditor.command.state.error}
+          list={listEditor.confirmedList}
+          onCancel={listEditor.cancel}
+          onDraftChange={listEditor.onDraftChange}
+          onSubmit={(input, draft) => listEditor.submit(input, draft, null)}
+          pending={listEditor.command.state.pending}
+          retainedDraft={listEditor.retainedDraft}
+          onRetry={() => void listEditor.command.retry()}
           t={t}
         />
       )}

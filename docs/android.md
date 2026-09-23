@@ -64,6 +64,9 @@ repositories and query keys.
   difference needs an explicit choice before saving against the new version.
   Edits made while an uncertain save is retried also stay open for this review
   against the confirmed saved task.
+- **List draft retention.** List editors remain editable after an uncertain
+  save. Retry sends the original details, then keeps later edits visible and
+  uses the confirmed list ID and version for the next save.
 - **Offline.** `@react-native-community/netinfo` drives the offline banner. A
   still-running reachability probe is not treated as offline.
 - **Bottom navigation** hides on downward scroll and reveals on upward scroll,

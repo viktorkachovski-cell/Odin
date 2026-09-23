@@ -87,7 +87,7 @@ and 500 tasks) and scroll/frame measurements in both locales.
 Local branch verification on Windows, Node 24 (the project declares Node 22):
 
 - `npm run check` passed: lint, formatting, all workspace typechecks, 12 tooling
-  tests, 181 Vitest tests, 124 Android Jest tests and 4 build-environment tests.
+  tests, 181 Vitest tests, 126 Android Jest tests and 4 build-environment tests.
 - `npm run doctor --workspace @odin/mobile` passed 21/21 checks.
 - `npm run build:check --workspace @odin/mobile` exported an Android Hermes
   bundle with dummy public configuration, without creating an installable APK.

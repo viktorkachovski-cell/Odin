@@ -115,6 +115,8 @@ export const bg: Record<TranslationKey, string> = {
   'list.notes.label': 'Бележки (по избор)',
   'list.empty': 'Този списък още няма задачи.',
   'list.save': 'Запази списъка',
+  'list.retry_saved_newer_draft':
+    'Предишното запазване е успешно. По-новите ти промени са запазени тук; прегледай ги и запази отново.',
   'list.not_found': 'Този списък вече не е достъпен.',
   'list.template.save': 'Запази като шаблон за списък',
   'list.template.saved': 'Шаблонът за списък е запазен и е достъпен за домакинството.',

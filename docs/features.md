@@ -53,7 +53,8 @@ at most one assignee, an optional deadline and an explicit completion state.
 - After an uncertain network result, retry uses the original request ID and
   original details. A changed submission cannot reuse that ID. Android keeps
   later task edits open after the retry succeeds and compares them with the
-  confirmed task before another save.
+  confirmed task before another save. Newer list edits also stay open; if the
+  first command created a list, the next save updates that confirmed list.
 
 ## Templates
 

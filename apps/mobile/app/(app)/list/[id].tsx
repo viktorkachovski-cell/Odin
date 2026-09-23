@@ -10,7 +10,6 @@ import {
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   saveListTemplate,
-  updateList,
   updateTask,
   useCommand,
 } from '@odin/data';
@@ -19,6 +18,7 @@ import { sortTasksInList } from '@odin/domain';
 import { useNavVisibility } from '../../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../../src/state/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
+import { useListEditorCommand } from '../../../src/state/useListEditorCommand.ts';
 import { useTaskRowCommands } from '../../../src/state/useTaskRowCommands.ts';
 import { NavSpacer } from '../../../src/components/BottomNav.tsx';
 import { ErrorBanner } from '../../../src/components/Banner.tsx';
@@ -57,7 +57,7 @@ export default function ListDetailScreen(): ReactNode {
   const list = useListQuery(id, true);
   const members = useMembersQuery(true);
 
-  const [editingList, setEditingList] = useState(false);
+  const listEditor = useListEditorCommand(client, id);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
@@ -121,26 +121,6 @@ export default function ListDetailScreen(): ReactNode {
         setReviewedTask(null);
       },
     },
-  );
-
-  const saveList = useCommand(
-    (
-      requestId,
-      input: {
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly subtitle: string | null;
-        readonly notes: string | null;
-      },
-    ) =>
-      updateList(client, requestId, {
-        listId: id ?? '',
-        expectedVersion: input.expectedVersion,
-        title: input.title,
-        subtitle: input.subtitle,
-        notes: input.notes,
-      }),
-    { invalidate: keysAffectedByListChange(id), onSuccess: () => setEditingList(false) },
   );
 
   // A saved list template is a new list, so only Home's cache changes; this
@@ -221,7 +201,7 @@ export default function ListDetailScreen(): ReactNode {
                   },
                 ])
               }
-              onEdit={() => setEditingList(true)}
+              onEdit={listEditor.open}
               onSaveTemplate={() => {
                 setTemplateSaved(false);
                 void saveTemplate.run({ listId: page.list.id });
@@ -392,24 +372,16 @@ export default function ListDetailScreen(): ReactNode {
         />
       )}
 
-      {editingList && (
+      {listEditor.editing && (
         <ListEditor
-          error={saveList.state.error}
-          list={page.list}
-          onCancel={() => {
-            saveList.reset();
-            setEditingList(false);
-          }}
-          onSubmit={(input) =>
-            void saveList.run({
-              expectedVersion: page.list.version,
-              title: input.title,
-              subtitle: input.subtitle,
-              notes: input.notes,
-            })
-          }
-          pending={saveList.state.pending}
-          onRetry={() => void saveList.retry()}
+          error={listEditor.command.state.error}
+          list={listEditor.confirmedList ?? page.list}
+          onCancel={listEditor.cancel}
+          onDraftChange={listEditor.onDraftChange}
+          onSubmit={(input, draft) => listEditor.submit(input, draft, page.list)}
+          pending={listEditor.command.state.pending}
+          retainedDraft={listEditor.retainedDraft}
+          onRetry={() => void listEditor.command.retry()}
           t={t}
         />
       )}

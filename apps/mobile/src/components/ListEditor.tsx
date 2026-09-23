@@ -24,11 +24,22 @@ export interface ListEditorProps {
   readonly error: CommandError | null;
   readonly onCancel: () => void;
   readonly onRetry?: () => void;
-  readonly onSubmit: (input: {
-    readonly title: string;
-    readonly subtitle: string | null;
-    readonly notes: string | null;
-  }) => void;
+  readonly onDraftChange?: (draft: ListDraft) => void;
+  readonly retainedDraft?: boolean;
+  readonly onSubmit: (
+    input: {
+      readonly title: string;
+      readonly subtitle: string | null;
+      readonly notes: string | null;
+    },
+    draft: ListDraft,
+  ) => void;
+}
+
+export interface ListDraft {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly notes: string;
 }
 
 export function ListEditor({
@@ -38,6 +49,8 @@ export function ListEditor({
   error,
   onCancel,
   onRetry,
+  onDraftChange,
+  retainedDraft = false,
   onSubmit,
 }: ListEditorProps): ReactNode {
   const theme = useTheme();
@@ -47,6 +60,13 @@ export function ListEditor({
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [subtitleIssue, setSubtitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
+  const draft = { title, subtitle, notes };
+  const changeDraft = (next: ListDraft): void => {
+    setTitle(next.title);
+    setSubtitle(next.subtitle);
+    setNotes(next.notes);
+    onDraftChange?.(next);
+  };
 
   const submit = (): void => {
     const titleProblem = validateTitle(title);
@@ -65,11 +85,14 @@ export function ListEditor({
 
     const trimmedSubtitle = subtitle.trim();
     const trimmedNotes = notes.trim();
-    onSubmit({
-      title: title.trim(),
-      subtitle: trimmedSubtitle.length === 0 ? null : trimmedSubtitle,
-      notes: trimmedNotes.length === 0 ? null : trimmedNotes,
-    });
+    onSubmit(
+      {
+        title: title.trim(),
+        subtitle: trimmedSubtitle.length === 0 ? null : trimmedSubtitle,
+        notes: trimmedNotes.length === 0 ? null : trimmedNotes,
+      },
+      draft,
+    );
   };
 
   return (
@@ -81,6 +104,7 @@ export function ListEditor({
             label={pending ? t('state.saving') : t('list.save')}
             onPress={submit}
             pending={pending}
+            disabled={error?.code === 'NETWORK'}
           />
         </>
       }
@@ -96,16 +120,22 @@ export function ListEditor({
         </View>
       )}
 
+      {retainedDraft && (
+        <Text accessibilityRole="alert" style={{ color: theme.colors.text }}>
+          {t('list.retry_saved_newer_draft')}
+        </Text>
+      )}
+
       <Field
         error={titleIssue}
         label={t('list.title.label')}
-        onChangeText={setTitle}
+        onChangeText={(value) => changeDraft({ ...draft, title: value })}
         value={title}
       />
       <Field
         error={subtitleIssue}
         label={t('list.subtitle.label')}
-        onChangeText={setSubtitle}
+        onChangeText={(value) => changeDraft({ ...draft, subtitle: value })}
         value={subtitle}
       />
       <Field
@@ -113,7 +143,7 @@ export function ListEditor({
         label={t('list.notes.label')}
         multiline
         numberOfLines={4}
-        onChangeText={setNotes}
+        onChangeText={(value) => changeDraft({ ...draft, notes: value })}
         value={notes}
       />
     </Sheet>
