@@ -45,7 +45,7 @@ contents rather than pushing the full local history.
 The task-workflow branch requires `20260927121823_task_workflow_polish.sql`
 followed by `20260927154349_task_workflow_review_fixes.sql`. Neither is hosted.
 The first backfills every existing list's order and advances its version and
-`updated_at` (risk R11); schedule that change knowing open list editors may
+`updated_at` (accepted risk R11); schedule that change knowing open list editors may
 see a one-time conflict. Because there is no hosted staging project, use a
 disposable local database for branch testing or make a separately reviewed
 production migration decision. Do not point branch clients or previews at the

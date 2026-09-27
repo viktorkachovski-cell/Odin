@@ -175,25 +175,14 @@ member sees a "too many items" message on that view and no data, while the
 other views keep working. Archiving old lists is the only relief, and archiving
 is itself one-way (R2).
 
-### R11 — The first task-workflow migration touches every list's version
-
-**Severity: low, one-time. Opened on the task-workflow branch.**
-
-`20260927121823_task_workflow_polish.sql` backfills `lists.sort_order` with an
-`UPDATE`, which fires `lists_touch_version`: every existing list gets one
-version increment and an `updated_at` equal to the migration time. Any list
-editor open during the migration will report a conflict once, and
-`updated_at` stops meaning "last edited" for every list that predates it.
-Disabling the trigger around the backfill would avoid both; it has not been
-applied anywhere yet, so this is still cheap to change before the hosted run.
-
 ## Accepted, not tracked
 
 These are real, known, and deliberately not being worked. They are here so
 silence is not mistaken for "handled".
 
-| Item                                         | Status                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Android device verification**              | **Deferred by owner decision, 2026-09-22.** No Odin build has run on an emulator or a physical device. Everything Android is proven by Jest, typecheck, Expo Doctor and a production export only. The factual records in `docs/android.md` and `docs/verification.md` stand; this is no longer tracked as a risk to act on. Revisit before any release claim or store listing. |
-| **A new household starts with no templates** | **Intended, settled 2026-09-22.** Not a gap. A household builds its own templates by saving a list it actually uses. See `docs/decisions.md` item 4 and the seed-content note in `supabase/README.md`.                                                                                                                                                                         |
-| **One hosted environment**                   | Deliberate for a private single-owner project. The operational hazard it creates is R4, which stays open.                                                                                                                                                                                                                                                                      |
+| Item                                                                     | Status                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Android device verification**                                          | **Deferred by owner decision, 2026-09-22.** No Odin build has run on an emulator or a physical device. Everything Android is proven by Jest, typecheck, Expo Doctor and a production export only. The factual records in `docs/android.md` and `docs/verification.md` stand; this is no longer tracked as a risk to act on. Revisit before any release claim or store listing.                                                                  |
+| **A new household starts with no templates**                             | **Intended, settled 2026-09-22.** Not a gap. A household builds its own templates by saving a list it actually uses. See `docs/decisions.md` item 4 and the seed-content note in `supabase/README.md`.                                                                                                                                                                                                                                          |
+| **One hosted environment**                                               | Deliberate for a private single-owner project. The operational hazard it creates is R4, which stays open.                                                                                                                                                                                                                                                                                                                                       |
+| **R11 — The first task-workflow migration touches every list's version** | **Accepted by owner decision, 2026-09-27.** `20260927121823_task_workflow_polish.sql` backfills `lists.sort_order` with an `UPDATE` that fires `lists_touch_version`, so every existing list gains one version and an `updated_at` equal to the migration time. A list editor open during the migration reports one conflict, and `updated_at` stops meaning "last edited" for lists that predate it. The migration is not changed to avoid it. |
