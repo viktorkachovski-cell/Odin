@@ -412,8 +412,9 @@ begin
     select p.* from page p order by has_no_due, sort_due, list_id, task_id limit v_limit
   )
   select coalesce(jsonb_agg(to_jsonb(t) || jsonb_build_object('list_title', l.title)
-    order by v.has_no_due, v.sort_due, v.list_id, v.task_id), '[]'::jsonb)
-  into v_items
+    order by v.has_no_due, v.sort_due, v.list_id, v.task_id), '[]'::jsonb),
+    (select count(*) > v_limit from page)
+  into v_items, v_more
   from visible v
   join public.tasks t on t.id = v.task_id
   join public.lists l on l.id = v.list_id and l.household_id = t.household_id;
@@ -437,28 +438,6 @@ begin
     (not v_has_due, v_due, v_list_id, v_task_id)
   order by has_no_due, sort_due, list_id, task_id
   offset greatest(v_limit - 1, 0) limit 1;
-
-  with candidates as (
-    select t.id as task_id, t.due_at, t.list_id,
-      (t.due_at is null) as has_no_due,
-      coalesce(t.due_at, 'infinity'::timestamptz) as sort_due
-    from public.tasks t
-    join public.lists l on l.id = t.list_id and l.household_id = t.household_id
-    where t.household_id = v_household and l.kind = 'active' and l.status = 'open'
-      and (not p_incomplete_only or not t.completed)
-      and ((p_undated and t.due_at is null) or (not p_undated and (
-        (p_due_from is null and p_due_before is null)
-        or (t.due_at is not null and (p_due_from is null or t.due_at >= p_due_from)
-          and (p_due_before is null or t.due_at < p_due_before))))
-  )
-  select count(*) > v_limit into v_more
-  from (
-    select 1 from candidates c
-    where v_cursor is null or
-      (c.has_no_due, c.sort_due, c.list_id, c.task_id) >
-      (not v_has_due, v_due, v_list_id, v_task_id)
-    limit v_limit + 1
-  ) candidate_page;
 
   return private.ok_response(jsonb_build_object(
     'items', v_items,
