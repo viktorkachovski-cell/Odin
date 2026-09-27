@@ -569,13 +569,14 @@ begin
         or (t.due_at is not null and (p_due_from is null or t.due_at >= p_due_from)
           and (p_due_before is null or t.due_at < p_due_before))))
   )
-  select exists (
+  select count(*) > v_limit into v_more
+  from (
     select 1 from candidates c
     where v_cursor is null or
       (c.has_no_due, c.sort_due, c.list_id, c.task_id) >
       (not v_has_due, v_due, v_list_id, v_task_id)
-    offset v_limit limit 1
-  ) into v_more;
+    limit v_limit + 1
+  ) candidate_page;
 
   return private.ok_response(jsonb_build_object(
     'items', v_items,
