@@ -44,6 +44,28 @@ describe('TaskRow', () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
+  it('opens task details from the task body while keeping row actions independent', async () => {
+    const onPress = jest.fn();
+    const onToggleCompleted = jest.fn();
+    await render(
+      <TaskRow
+        locale="en"
+        members={members}
+        onPress={onPress}
+        onToggleCompleted={onToggleCompleted}
+        t={t}
+        task={row()}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Bathroom'));
+    expect(onPress).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+
+    await fireEvent.press(screen.getByLabelText('Mark Bathroom complete'));
+    expect(onToggleCompleted).toHaveBeenCalledTimes(1);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
   it('sends an explicit desired state rather than a toggle', async () => {
     const onToggleCompleted = jest.fn();
     await render(
@@ -73,6 +95,46 @@ describe('TaskRow', () => {
     );
 
     expect(screen.getByRole('checkbox')).toBeChecked();
+  });
+
+  it('changes a task status from the overflow without triggering row details', async () => {
+    const onSetStatus = jest.fn();
+    const onPress = jest.fn();
+    await render(
+      <TaskRow
+        locale="en"
+        members={members}
+        onPress={onPress}
+        onSetStatus={onSetStatus}
+        t={t}
+        task={row({ assignee_id: 'u1' })}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
+    await fireEvent.press(screen.getByText('Status: Blocked'));
+
+    expect(onSetStatus).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'blocked');
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('disables move controls at the visible ordering boundaries', async () => {
+    const onMove = jest.fn();
+    await render(
+      <TaskRow
+        locale="en"
+        members={members}
+        moveDownDisabled
+        moveUpDisabled
+        onMove={onMove}
+        t={t}
+        task={row()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Move Bathroom up')).toBeDisabled();
+    expect(screen.getByLabelText('Move Bathroom down')).toBeDisabled();
+    expect(onMove).not.toHaveBeenCalled();
   });
 
   it('spells out an overdue deadline instead of signalling it by colour', async () => {

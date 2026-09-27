@@ -7,6 +7,7 @@ import {
   type MemberDto,
   type TaskDto,
   type TaskRowModel,
+  type TaskStatus,
 } from '@odin/contracts';
 import type { Locale, Translator } from '@odin/i18n';
 
@@ -27,6 +28,9 @@ export function ListTasks({
   onToggleCompleted,
   onUnassign,
   onDelete,
+  onOpen,
+  onSetStatus,
+  onMove,
 }: {
   readonly tasks: readonly TaskDto[];
   readonly members: readonly MemberDto[];
@@ -38,23 +42,35 @@ export function ListTasks({
   readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
   readonly onUnassign: (task: TaskRowModel) => void;
   readonly onDelete: (task: TaskRowModel) => void;
+  readonly onOpen: (task: TaskRowModel) => void;
+  readonly onSetStatus: (task: TaskRowModel, status: TaskStatus) => void;
+  readonly onMove: (task: TaskRowModel, direction: 'up' | 'down') => void;
 }): ReactNode {
   return (
     <View style={{ gap: 12 }}>
-      {tasks.map((task) => (
-        <TaskRow
-          busy={busy}
-          key={task.id}
-          locale={locale}
-          members={members}
-          onDelete={isTemplate ? undefined : onDelete}
-          onEdit={isTemplate ? undefined : onEdit}
-          onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
-          onUnassign={isTemplate ? undefined : onUnassign}
-          t={t}
-          task={taskRowFromTask(task)}
-        />
-      ))}
+      {tasks.map((task) => {
+        const group = tasks.filter((candidate) => candidate.completed === task.completed);
+        const position = group.findIndex((candidate) => candidate.id === task.id);
+        return (
+          <TaskRow
+            busy={busy}
+            key={task.id}
+            locale={locale}
+            members={members}
+            moveDownDisabled={position === group.length - 1}
+            moveUpDisabled={position === 0}
+            onMove={isTemplate ? undefined : onMove}
+            onPress={onOpen}
+            onDelete={isTemplate ? undefined : onDelete}
+            onEdit={isTemplate ? undefined : onEdit}
+            onSetStatus={isTemplate ? undefined : onSetStatus}
+            onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
+            onUnassign={isTemplate ? undefined : onUnassign}
+            t={t}
+            task={taskRowFromTask(task)}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -90,14 +106,12 @@ export function ListHeader({
   pending,
   onEdit,
   onDelete,
-  onSaveTemplate,
 }: {
   readonly isTemplate: boolean;
   readonly t: Translator;
   readonly pending: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
-  readonly onSaveTemplate: () => void;
 }): ReactNode {
   return (
     <View style={{ alignItems: 'flex-end' }}>
@@ -106,12 +120,7 @@ export function ListHeader({
         actions={[
           // A template is read-only apart from being removable, so it gets the
           // delete entry and nothing else.
-          ...(isTemplate
-            ? []
-            : [
-                { label: t('list.edit'), onPress: onEdit },
-                { label: t('list.template.save'), onPress: onSaveTemplate },
-              ]),
+          ...(isTemplate ? [] : [{ label: t('list.edit'), onPress: onEdit }]),
           { label: t('list.delete'), onPress: onDelete, destructive: true },
         ]}
         disabled={pending}

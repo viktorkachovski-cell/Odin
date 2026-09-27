@@ -45,6 +45,40 @@ at most one assignee, an optional deadline and an explicit completion state.
   due timestamp ascending, nulls last, with a stable list/task ID tie-breaker.
 - A completed task never shows as overdue.
 
+### Task workflow feature branch — 2026-09-27
+
+These additions are on `codex/task-workflow-polish`; their database migration
+must be installed on the test database before either updated client is used.
+They are not a production deployment record.
+
+- Tapping or clicking a task opens its complete details, including notes,
+  assignee and deadline. Completion, status, move and overflow controls remain
+  independent of opening details. Active tasks can be edited from details.
+- The four visible statuses are Unassigned, To-do, Blocked and Done. Normal
+  status follows assignment automatically: no assignee means Unassigned;
+  an assigned task means To-do. Blocked and Done are explicit choices and do
+  not change the assignee. Returning to normal restores the appropriate label.
+  Assignment changes preserve a blocked state. Completion/reopening clears it.
+- Up/down actions persist one shared household order. Active lists and list
+  templates each have their own order. Tasks move inside the existing
+  incomplete/completed groups; a template's task order can also be changed.
+  End-of-group moves are disabled. Reordering uses version checks, so an old
+  screen cannot silently overwrite a newer change.
+- Saving a list template is an icon beside the list title, with a descriptive
+  accessible label that includes the title.
+- All Tasks includes every task in open active lists, including done tasks.
+  It offers All deadlines, Overdue, Today, Upcoming, No deadline and Date range.
+  Overdue excludes done tasks and means deadline before now; Today uses the
+  entire local day; Upcoming starts tomorrow. The custom range includes both
+  selected local dates. Tasks without deadlines appear only in All deadlines
+  and No deadline. Invalid or reversed ranges cannot be applied.
+- Both clients consume all cursor pages for the affected collections. Counts
+  continue to come from the full-list server aggregates.
+
+Mobile presentation uses Odin's existing palette with clearer spacing,
+task hierarchy, restrained surfaces and separate accessible touch targets.
+English and Bulgarian labels cover the new controls.
+
 ## Templates
 
 Templates are **two separate types that never mix**.

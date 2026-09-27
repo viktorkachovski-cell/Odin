@@ -21,6 +21,14 @@ isolation, equal member task permissions and explicit completion state. Writes
 carry actor-scoped request IDs and expected versions. Assignment and claim use
 deterministic locks, and clients cannot bypass them with direct table writes.
 
+On the `codex/task-workflow-polish` branch, migration
+`20260927121823_task_workflow_polish.sql` adds task `blocked`, household list
+positions, and versioned adjacent move/status commands. It backfills existing
+list positions in creation order before enforcing uniqueness. `get_home_v2`
+keeps legacy `get_home` cursors intact, while `get_all_tasks` reads open active
+tasks by deadline through a bounded cursor. The migration has passed disposable
+database CI; it is not installed on the hosted production database.
+
 ## Authorization design
 
 These are the rules a change must preserve.

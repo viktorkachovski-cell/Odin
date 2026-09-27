@@ -7,15 +7,20 @@ import type {
   MemberDto,
   ProfileDto,
   TaskPageDto,
+  AllTaskPageDto,
+  TaskDto,
 } from '@odin/contracts';
+import type { TaskDeadlineFilter } from '@odin/domain';
 import {
-  getHome,
-  getList,
+  getHomeAll,
+  getListAll,
   getMembers,
   getMyHousehold,
   getMyProfile,
-  getMyTasks,
-  getUnassigned,
+  getMyTasksAll,
+  getUnassignedAll,
+  getAllTasksAll,
+  getTask,
   queryKeys,
 } from '@odin/data';
 
@@ -52,7 +57,7 @@ export function useMembersQuery(enabled: boolean): UseQueryResult<MemberDto[]> {
 
 export function useHomeQuery(enabled: boolean): UseQueryResult<HomePageDto> {
   const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.home, queryFn: () => getHome(client), enabled });
+  return useQuery({ queryKey: queryKeys.home, queryFn: () => getHomeAll(client), enabled });
 }
 
 export function useListQuery(
@@ -62,21 +67,42 @@ export function useListQuery(
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.list(listId ?? ''),
-    queryFn: () => getList(client, listId ?? ''),
+    queryFn: () => getListAll(client, listId ?? ''),
     enabled: enabled && listId !== undefined && listId.length > 0,
   });
 }
 
 export function useMyTasksQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
   const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasks(client), enabled });
+  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasksAll(client), enabled });
 }
 
 export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.unassigned,
-    queryFn: () => getUnassigned(client),
+    queryFn: () => getUnassignedAll(client),
     enabled,
+  });
+}
+
+export function useAllTasksQuery(
+  filter: TaskDeadlineFilter,
+  enabled: boolean,
+): UseQueryResult<AllTaskPageDto> {
+  const { client } = useOdin();
+  return useQuery({
+    queryKey: [...queryKeys.allTasks, filter],
+    queryFn: () => getAllTasksAll(client, filter),
+    enabled,
+  });
+}
+
+export function useTaskQuery(taskId: string | null, enabled: boolean): UseQueryResult<TaskDto> {
+  const { client } = useOdin();
+  return useQuery({
+    queryKey: queryKeys.task(taskId ?? ''),
+    queryFn: () => getTask(client, taskId ?? ''),
+    enabled: enabled && taskId !== null,
   });
 }

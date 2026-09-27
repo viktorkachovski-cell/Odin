@@ -96,6 +96,59 @@ If a future approved operation deactivates membership, its transaction clears th
 
 ## Synchronization contract
 
+## Task workflow amendment — 2026-09-27 (feature branch)
+
+Owner-confirmed choices: unassigned follows assignment automatically, ordering
+is shared by the household, and the All Tasks filters use task deadlines.
+
+- `tasks.blocked` is a non-null boolean defaulting to false. The shared
+  `taskStatus` projection returns done when completed, otherwise blocked when
+  blocked, otherwise unassigned for a null assignee, otherwise todo. Assignment
+  and text edits preserve blocked. Completing or reopening with the legacy
+  completion command clears blocked. Templates cannot be blocked, and copying
+  resets blocked along with every other runtime field.
+- `set_task_status(request_id, task_id, expected_version, status)` accepts
+  blocked/done plus the assignment-consistent normal state (todo for assigned,
+  unassigned for unassigned). It does not change assignment. Conflicting normal
+  states return VALIDATION. Every mutation retains authorization, receipts,
+  conflict checks and a single version increment.
+- `lists.sort_order` provides order within each household and list kind.
+  `move_list(request_id, list_id, expected_version, direction)` and
+  `move_task(request_id, task_id, expected_version, direction)` accept up/down,
+  swap adjacent rows atomically, and return `{list_id}` / `{task_id}`. Lists move
+  within their open kind; tasks move within their incomplete/completed group
+  in one open parent. Template task order can change; runtime state cannot.
+  A move at a boundary is an idempotent no-op. Both swapped rows advance their
+  versions once. New lists append, including lists created by older clients.
+- `get_home_v2(p_cursor, p_limit)` returns the home summary with `sort_order`
+  using `(kind, sort_order, id)` keyset ordering. Legacy `get_home` keeps its
+  UUID order and cursor so installed clients remain compatible.
+- `get_all_tasks(p_due_from, p_due_before, p_undated, p_incomplete_only,
+p_cursor, p_limit)` returns `{items: [TaskDto plus list_title], next_cursor}`
+  from open active lists in the caller's household. Both dates default null;
+  booleans default false. Lower bound is inclusive, upper exclusive. The page
+  cap is 50; ordering is deadline ascending/null-last, then list/task ID.
+  Invalid ranges, incompatible undated bounds and malformed cursors fail safely.
+- `getTask(client, taskId)` reads one full task through RLS and an inner join
+  requiring an open parent, independent of list pagination. Missing, archived
+  and inaccessible tasks all produce NOT_FOUND. No additional privilege is
+  granted. Full notes remain shared household content.
+- `getHomeAll`, `getListAll`, `getMyTasksAll`, `getUnassignedAll` and
+  `getAllTasksAll` exhaust cursor pages for both clients. A failed page fails
+  the read instead of presenting a partial collection as complete. Filter
+  boundaries remain fixed across pages. Task/detail/all-tasks queries join the
+  existing mutation and Realtime invalidation sets.
+
+Compatibility: all existing RPC signatures and `completed` remain intact.
+Legacy payloads without blocked/sort_order parse as false/zero. Both updated
+clients consume the additions together. **Apply the migration before testing
+these branch clients against a database**: get_home_v2, status, movement and
+filtered reads require the new RPCs. Older installed clients retain their
+previous ordering UI and can continue editing and completing tasks. This
+amendment documents branch behaviour, not a production deployment.
+
+### Existing synchronization guarantees
+
 Subscribe to RLS-protected list/task/membership changes for the active household, and identity updates where authorized. Treat payloads as invalidation hints. Refetch Home, current detail, My Tasks and Unassigned as affected; apply response immediately in initiating client. A stale fetch cannot overwrite a newer mutation result; cancel/reconcile query requests and compare versions. On subscription establishment/reconnect, window focus, Android foreground or expired-session recovery, refetch authoritative membership then data.
 
 Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. Provide a 3-second foreground fallback refetch while realtime is unhealthy, with backoff during actual network failure. Verify the normal connected update budget of 5 seconds; do not promise background delivery.

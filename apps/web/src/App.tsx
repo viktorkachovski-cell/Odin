@@ -15,6 +15,7 @@ import { MyTasks } from './routes/MyTasks.tsx';
 import { Settings } from './routes/Settings.tsx';
 import { SignIn } from './routes/SignIn.tsx';
 import { Unassigned } from './routes/Unassigned.tsx';
+import { AllTasks } from './routes/AllTasks.tsx';
 
 /**
  * Every nested path is a real route so a browser refresh on `/lists/:id`
@@ -47,6 +48,7 @@ export function App(): ReactNode {
         <Route element={<ListDetail />} path="lists/:listId" />
         <Route element={<Unassigned />} path="unassigned" />
         <Route element={<MyTasks />} path="my-tasks" />
+        <Route element={<AllTasks />} path="all-tasks" />
         <Route element={<Settings />} path="settings" />
       </Route>
       <Route element={<NotFound />} path="*" />

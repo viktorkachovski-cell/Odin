@@ -164,6 +164,28 @@ describe('TaskRow', () => {
     const edit = screen.getByRole('button', { name: 'Edit Empty the bins' });
     expect(edit.closest('button')).toBe(edit);
   });
+
+  it('opens full task details from the title without toggling completion', async () => {
+    const onOpenDetails = vi.fn();
+    const onToggleCompleted = vi.fn();
+    render(
+      <ul>
+        <TaskRow
+          locale="en"
+          members={members}
+          onOpenDetails={onOpenDetails}
+          onToggleCompleted={onToggleCompleted}
+          t={t}
+          task={makeTask()}
+        />
+      </ul>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Empty the bins' }));
+
+    expect(onOpenDetails).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+    expect(onToggleCompleted).not.toHaveBeenCalled();
+  });
 });
 
 describe('Progress', () => {

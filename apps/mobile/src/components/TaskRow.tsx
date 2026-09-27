@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { MemberDto, TaskRowModel } from '@odin/contracts';
-import { isOverdue } from '@odin/domain';
+import type { MemberDto, TaskRowModel, TaskStatus } from '@odin/contracts';
+import { isOverdue, taskStatus } from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -25,11 +25,16 @@ export interface TaskRowProps {
   readonly locale: Locale;
   readonly t: Translator;
   readonly busy?: boolean;
+  readonly onPress?: ((task: TaskRowModel) => void) | undefined;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
   readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
   readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
   readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
+  readonly onSetStatus?: ((task: TaskRowModel, status: TaskStatus) => void) | undefined;
+  readonly onMove?: ((task: TaskRowModel, direction: 'up' | 'down') => void) | undefined;
+  readonly moveUpDisabled?: boolean;
+  readonly moveDownDisabled?: boolean;
 }
 
 function TaskActions({
@@ -40,10 +45,17 @@ function TaskActions({
   onEdit,
   onUnassign,
   onDelete,
+  onSetStatus,
 }: Pick<
   TaskRowProps,
-  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
+  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete' | 'onSetStatus'
 >): ReactNode {
+  const currentStatus = taskStatus(task);
+  const availableStatuses: readonly TaskStatus[] = [
+    task.assignee_id === null ? 'unassigned' : 'todo',
+    'blocked',
+    'done',
+  ];
   const actions: ActionMenuItem[] = [
     ...(onEdit === undefined
       ? []
@@ -51,6 +63,14 @@ function TaskActions({
     ...(onUnassign === undefined || task.assignee_id === null
       ? []
       : [{ label: t('task.unassign.short'), onPress: () => onUnassign(task) }]),
+    ...(onSetStatus === undefined
+      ? []
+      : availableStatuses
+          .filter((status) => status !== currentStatus)
+          .map((status) => ({
+            label: `${t('task.status.label')}: ${t(`task.status.${status}`)}`,
+            onPress: () => onSetStatus(task, status),
+          }))),
     ...(onDelete === undefined
       ? []
       : [
@@ -125,11 +145,16 @@ export function TaskRow({
   locale,
   t,
   busy = false,
+  onPress,
   onToggleCompleted,
   onEdit,
   onClaim,
   onUnassign,
   onDelete,
+  onSetStatus,
+  onMove,
+  moveUpDisabled = false,
+  moveDownDisabled = false,
 }: TaskRowProps): ReactNode {
   const theme = useTheme();
   const assignee = members.find((member) => member.user_id === task.assignee_id);
@@ -161,7 +186,13 @@ export function TaskRow({
         </Pressable>
       )}
 
-      <View style={styles.body}>
+      <Pressable
+        accessibilityLabel={task.title}
+        accessibilityRole={onPress === undefined ? undefined : 'button'}
+        disabled={onPress === undefined}
+        onPress={() => onPress?.(task)}
+        style={styles.body}
+      >
         <Text
           style={[styles.title, { color: theme.colors.text }, task.completed && styles.titleDone]}
         >
@@ -180,6 +211,12 @@ export function TaskRow({
             </Text>
           )}
 
+          {onSetStatus !== undefined && (
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
+              {t(`task.status.${taskStatus(task)}`)}
+            </Text>
+          )}
+
           {assignee === undefined ? (
             <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
               {t('task.assignee.unassigned')}
@@ -195,17 +232,67 @@ export function TaskRow({
 
           <DueText locale={locale} t={t} task={task} />
         </View>
-      </View>
+      </Pressable>
 
       <TaskActions
         busy={busy}
         onClaim={onClaim}
         onDelete={onDelete}
         onEdit={onEdit}
+        onSetStatus={onSetStatus}
         onUnassign={onUnassign}
         t={t}
         task={task}
       />
+      <TaskMoveControls
+        busy={busy}
+        moveDownDisabled={moveDownDisabled}
+        moveUpDisabled={moveUpDisabled}
+        onMove={onMove}
+        t={t}
+        task={task}
+      />
+    </View>
+  );
+}
+
+function TaskMoveControls({
+  task,
+  t,
+  busy,
+  onMove,
+  moveUpDisabled,
+  moveDownDisabled,
+}: Pick<
+  TaskRowProps,
+  'task' | 't' | 'busy' | 'onMove' | 'moveUpDisabled' | 'moveDownDisabled'
+>): ReactNode {
+  const theme = useTheme();
+  if (onMove === undefined) return null;
+  return (
+    <View style={styles.moveActions}>
+      <Pressable
+        accessibilityLabel={t('task.move.up', { title: task.title })}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: moveUpDisabled || busy }}
+        disabled={moveUpDisabled || busy}
+        hitSlop={4}
+        onPress={() => onMove(task, 'up')}
+        style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+      >
+        <Text style={[styles.moveGlyph, { color: theme.colors.textMuted }]}>↑</Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel={t('task.move.down', { title: task.title })}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: moveDownDisabled || busy }}
+        disabled={moveDownDisabled || busy}
+        hitSlop={4}
+        onPress={() => onMove(task, 'down')}
+        style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+      >
+        <Text style={[styles.moveGlyph, { color: theme.colors.textMuted }]}>↓</Text>
+      </Pressable>
     </View>
   );
 }
@@ -224,6 +311,9 @@ const styles = StyleSheet.create({
     rowGap: 4,
   },
   metaStrong: { fontWeight: '700' },
+  moveActions: { flexDirection: 'column' },
+  moveButton: { alignItems: 'center', justifyContent: 'center' },
+  moveGlyph: { fontSize: 18, fontWeight: '700' },
   row: {
     alignItems: 'flex-start',
     borderRadius: 10,

@@ -8,6 +8,7 @@ import {
   deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  moveList,
   saveListTemplate,
   useCommand,
 } from '@odin/data';
@@ -46,18 +47,34 @@ function TemplateCard({
   t,
   onCopy,
   onDelete,
+  onMove,
+  moveUpDisabled,
+  moveDownDisabled,
   busy,
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
   readonly onCopy: (id: string) => void;
   readonly onDelete: () => void;
+  readonly onMove: (direction: 'up' | 'down') => void;
+  readonly moveUpDisabled: boolean;
+  readonly moveDownDisabled: boolean;
   readonly busy: boolean;
 }): ReactNode {
   return (
     <li className="card card--template">
       <div className="card__header">
-        <span className="card__title">{summary.title}</span>
+        <div className="card__title-actions">
+          <span className="card__title">{summary.title}</span>
+          <ListOrderButtons
+            disabled={busy}
+            moveDownDisabled={moveDownDisabled}
+            moveUpDisabled={moveUpDisabled}
+            onMove={onMove}
+            summary={summary}
+            t={t}
+          />
+        </div>
         <OverflowMenu
           disabled={busy}
           items={[
@@ -93,29 +110,49 @@ function ActiveCard({
   t,
   onDelete,
   onSaveTemplate,
+  onMove,
+  moveUpDisabled,
+  moveDownDisabled,
   busy,
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
   readonly onDelete: () => void;
   readonly onSaveTemplate: () => void;
+  readonly onMove: (direction: 'up' | 'down') => void;
+  readonly moveUpDisabled: boolean;
+  readonly moveDownDisabled: boolean;
   readonly busy: boolean;
 }): ReactNode {
   return (
     <li className="card card--active">
       <div className="card__header">
-        <Link className="card__title" to={`/lists/${summary.id}`}>
-          {summary.title}
-        </Link>
+        <div className="card__title-actions">
+          <Link className="card__title" to={`/lists/${summary.id}`}>
+            {summary.title}
+          </Link>
+          <ListOrderButtons
+            disabled={busy}
+            moveDownDisabled={moveDownDisabled}
+            moveUpDisabled={moveUpDisabled}
+            onMove={onMove}
+            summary={summary}
+            t={t}
+          />
+          <button
+            aria-label={t('list.template.save_named', { title: summary.title })}
+            className="button button--quiet template-save-icon"
+            disabled={busy}
+            onClick={onSaveTemplate}
+            title={t('list.template.save_named', { title: summary.title })}
+            type="button"
+          >
+            <span aria-hidden="true">⧉</span>
+          </button>
+        </div>
         <OverflowMenu
           disabled={busy}
           items={[
-            {
-              key: 'save-template',
-              label: t('list.template.save'),
-              glyph: '⧉',
-              onSelect: onSaveTemplate,
-            },
             {
               key: 'delete',
               label: t('list.delete'),
@@ -131,6 +168,45 @@ function ActiveCard({
       {summary.notes !== null && <p className="card__notes">{summary.notes}</p>}
       <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
     </li>
+  );
+}
+
+function ListOrderButtons({
+  summary,
+  t,
+  disabled,
+  moveUpDisabled,
+  moveDownDisabled,
+  onMove,
+}: {
+  readonly summary: ListSummaryDto;
+  readonly t: Translator;
+  readonly disabled: boolean;
+  readonly moveUpDisabled: boolean;
+  readonly moveDownDisabled: boolean;
+  readonly onMove: (direction: 'up' | 'down') => void;
+}): ReactNode {
+  return (
+    <span className="order-buttons">
+      <button
+        aria-label={t('list.move.up', { title: summary.title })}
+        className="button button--quiet order-buttons__button"
+        disabled={disabled || moveUpDisabled}
+        onClick={() => onMove('up')}
+        type="button"
+      >
+        <span aria-hidden="true">↑</span>
+      </button>
+      <button
+        aria-label={t('list.move.down', { title: summary.title })}
+        className="button button--quiet order-buttons__button"
+        disabled={disabled || moveDownDisabled}
+        onClick={() => onMove('down')}
+        type="button"
+      >
+        <span aria-hidden="true">↓</span>
+      </button>
+    </span>
   );
 }
 
@@ -179,6 +255,18 @@ export function Home(): ReactNode {
     },
   );
 
+  const reorderList = useCommand(
+    (
+      requestId,
+      input: {
+        readonly listId: string;
+        readonly expectedVersion: number;
+        readonly direction: 'up' | 'down';
+      },
+    ) => moveList(client, requestId, input),
+    { invalidate: keysAffectedByListChange() },
+  );
+
   const remove = useCommand(
     (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
       deleteList(client, requestId, input),
@@ -216,6 +304,7 @@ export function Home(): ReactNode {
       {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
       {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
       {saveTemplate.state.error !== null && <ErrorBanner error={saveTemplate.state.error} t={t} />}
+      {reorderList.state.error !== null && <ErrorBanner error={reorderList.state.error} t={t} />}
       {templateSaved && saveTemplate.state.error === null && (
         <p className="empty" role="status">
           {t('list.template.saved')}
@@ -230,10 +319,19 @@ export function Home(): ReactNode {
           <p className="empty">{t('home.templates.empty')}</p>
         ) : (
           <ul className="card-grid">
-            {templates.map((summary) => (
+            {templates.map((summary, index) => (
               <TemplateCard
-                busy={copy.state.pending || remove.state.pending}
+                busy={copy.state.pending || remove.state.pending || reorderList.state.pending}
+                moveDownDisabled={index === templates.length - 1}
+                moveUpDisabled={index === 0}
                 key={summary.id}
+                onMove={(direction) =>
+                  void reorderList.run({
+                    listId: summary.id,
+                    expectedVersion: summary.version,
+                    direction,
+                  })
+                }
                 onCopy={(templateId) => void copy.run({ templateId })}
                 onDelete={() => setPendingDelete(summary)}
                 summary={summary}
@@ -252,11 +350,22 @@ export function Home(): ReactNode {
           <p className="empty">{t('home.active.empty')}</p>
         ) : (
           <ul className="card-grid">
-            {active.map((summary) => (
+            {active.map((summary, index) => (
               <ActiveCard
-                busy={remove.state.pending || saveTemplate.state.pending}
+                busy={
+                  remove.state.pending || saveTemplate.state.pending || reorderList.state.pending
+                }
+                moveDownDisabled={index === active.length - 1}
+                moveUpDisabled={index === 0}
                 key={summary.id}
                 onDelete={() => setPendingDelete(summary)}
+                onMove={(direction) =>
+                  void reorderList.run({
+                    listId: summary.id,
+                    expectedVersion: summary.version,
+                    direction,
+                  })
+                }
                 onSaveTemplate={() => {
                   setTemplateSaved(false);
                   void saveTemplate.run({ listId: summary.id });

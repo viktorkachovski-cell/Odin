@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { taskRowFromCrossList, type CrossListTaskDto } from '@odin/contracts';
-import { claimTask, keysAffectedByTaskChange, useCommand } from '@odin/data';
+import { claimTask, keysAffectedByTaskChange, setTaskStatus, useCommand } from '@odin/data';
+import type { TaskStatus } from '@odin/contracts';
 import { sortTasksByDue } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
@@ -12,6 +13,7 @@ import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
 import { TaskRow } from '../../src/components/TaskRow.tsx';
+import { TaskDetailsFlow } from '../../src/components/TaskDetailsFlow.tsx';
 
 /**
  * Unassigned work across every open active list. Claiming is never optimistic:
@@ -24,10 +26,22 @@ export default function UnassignedScreen(): ReactNode {
   const nav = useNavVisibility();
   const tasks = useUnassignedQuery(true);
   const members = useMembersQuery(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const claim = useCommand(
     (requestId, input: { readonly taskId: string; readonly expectedVersion: number }) =>
       claimTask(client, requestId, input),
+    { invalidate: keysAffectedByTaskChange() },
+  );
+  const changeStatus = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly status: TaskStatus;
+      },
+    ) => setTaskStatus(client, requestId, input),
     { invalidate: keysAffectedByTaskChange() },
   );
 
@@ -51,6 +65,13 @@ export default function UnassignedScreen(): ReactNode {
             t={t}
           />
         )}
+        {changeStatus.state.error !== null && (
+          <ErrorBanner
+            error={changeStatus.state.error}
+            onRetry={() => void changeStatus.retry()}
+            t={t}
+          />
+        )}
 
         {rows.length === 0 ? (
           <EmptyState label={t('unassigned.empty')} />
@@ -61,6 +82,14 @@ export default function UnassignedScreen(): ReactNode {
               key={task.id}
               locale={locale}
               members={members.data ?? []}
+              onPress={(selected) => setSelectedTaskId(selected.id)}
+              onSetStatus={(selected, status) =>
+                void changeStatus.run({
+                  taskId: selected.id,
+                  expectedVersion: selected.version,
+                  status,
+                })
+              }
               onClaim={(selected) =>
                 void claim.run({ taskId: selected.id, expectedVersion: selected.version })
               }
@@ -72,6 +101,12 @@ export default function UnassignedScreen(): ReactNode {
 
         <NavSpacer />
       </ScrollView>
+      <TaskDetailsFlow
+        key={selectedTaskId ?? 'closed'}
+        members={members.data ?? []}
+        onClose={() => setSelectedTaskId(null)}
+        taskId={selectedTaskId}
+      />
     </Screen>
   );
 }

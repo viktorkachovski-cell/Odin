@@ -28,6 +28,9 @@ export const LIMITS = {
 
 export const PAGE_SIZE = 50;
 
+export const TASK_STATUSES = ['unassigned', 'todo', 'blocked', 'done'] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
 export interface ProfileDto {
   readonly user_id: string;
   readonly display_name: string;
@@ -51,6 +54,7 @@ export interface HouseholdDto {
 }
 
 export interface ListDto {
+  readonly sort_order?: number;
   readonly id: string;
   readonly household_id: string;
   readonly kind: ListKind;
@@ -72,6 +76,7 @@ export interface ListDto {
  * type and never appear here; they come from `getTaskTemplates`.
  */
 export interface ListSummaryDto {
+  readonly sort_order?: number;
   readonly id: string;
   readonly kind: ListKind;
   readonly title: string;
@@ -96,6 +101,7 @@ export interface TaskTemplatePageDto {
 }
 
 export interface TaskDto {
+  readonly blocked?: boolean;
   readonly notes: string | null;
   readonly id: string;
   readonly household_id: string;
@@ -115,6 +121,7 @@ export interface TaskDto {
  * incomplete by construction, and the id field is `task_id`.
  */
 export interface CrossListTaskDto {
+  readonly blocked?: boolean;
   readonly task_id: string;
   readonly list_id: string;
   readonly list_title: string;
@@ -156,6 +163,7 @@ export interface InvitationDto {
  * the narrower cross-list projection can share one component.
  */
 export interface TaskRowModel {
+  readonly blocked?: boolean;
   readonly id: string;
   readonly title: string;
   readonly notes?: string | null | undefined;
@@ -169,6 +177,7 @@ export interface TaskRowModel {
 
 export function taskRowFromTask(task: TaskDto): TaskRowModel {
   return {
+    blocked: task.blocked ?? false,
     id: task.id,
     title: task.title,
     notes: task.notes,
@@ -190,6 +199,7 @@ export function taskRowFromCrossList(
   assigneeId: string | null,
 ): TaskRowModel {
   return {
+    blocked: task.blocked ?? false,
     id: task.task_id,
     title: task.title,
     completed: false,
@@ -199,4 +209,13 @@ export function taskRowFromCrossList(
     list_id: task.list_id,
     list_title: task.list_title,
   };
+}
+
+export interface AllTaskDto extends TaskDto {
+  readonly list_title: string;
+}
+
+export interface AllTaskPageDto {
+  readonly items: readonly AllTaskDto[];
+  readonly next_cursor: string | null;
 }

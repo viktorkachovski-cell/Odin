@@ -1,15 +1,17 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { TaskDto } from '@odin/contracts';
+import type { TaskDto, TaskStatus } from '@odin/contracts';
 import {
   createTask,
   deleteList,
   deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  moveTask,
   saveListTemplate,
   setTaskCompleted,
+  setTaskStatus,
   updateList,
   updateTask,
   useCommand,
@@ -32,6 +34,19 @@ import { ListEditor } from '../components/ListEditor.tsx';
 import { Progress } from '../components/Progress.tsx';
 import { TaskEditor } from '../components/TaskEditor.tsx';
 
+function ListAddTaskButton({
+  isTemplate,
+  label,
+  onClick,
+}: {
+  readonly isTemplate: boolean;
+  readonly label: string;
+  readonly onClick: () => void;
+}): ReactNode {
+  return isTemplate ? null : <Fab label={label} onClick={onClick} />;
+}
+import { TaskDetailsDialog } from '../components/TaskDetailsDialog.tsx';
+
 /**
  * List detail. Tasks render incomplete-first with their declared order
  * preserved inside each group; totals always come from the server's whole-list
@@ -47,6 +62,7 @@ export function ListDetail(): ReactNode {
 
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
   const [templateSaved, setTemplateSaved] = useState(false);
@@ -62,6 +78,30 @@ export function ListDetail(): ReactNode {
         readonly completed: boolean;
       },
     ) => setTaskCompleted(client, requestId, input),
+    { invalidate: invalidateTask },
+  );
+
+  const statusCommand = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly status: TaskStatus;
+      },
+    ) => setTaskStatus(client, requestId, input),
+    { invalidate: invalidateTask },
+  );
+
+  const moveTaskCommand = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly direction: 'up' | 'down';
+      },
+    ) => moveTask(client, requestId, input),
     { invalidate: invalidateTask },
   );
 
@@ -172,7 +212,7 @@ export function ListDetail(): ReactNode {
   );
 
   if (list.isPending) return <p role="status">{t('state.loading')}</p>;
-  if (list.isError) {
+  if (!list.data) {
     return (
       <>
         <p className="empty">{t('list.not_found')}</p>
@@ -224,6 +264,8 @@ export function ListDetail(): ReactNode {
       <CommandErrors
         errors={[
           { error: completeCommand.state.error, retry: () => void completeCommand.retry() },
+          { error: statusCommand.state.error, retry: () => void statusCommand.retry() },
+          { error: moveTaskCommand.state.error, retry: () => void moveTaskCommand.retry() },
           { error: removeList.state.error, retry: () => void removeList.retry() },
           { error: removeTask.state.error, retry: () => void removeTask.retry() },
           { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
@@ -237,7 +279,13 @@ export function ListDetail(): ReactNode {
         <p className="empty">{t('list.empty')}</p>
       ) : (
         <ListTasks
-          busy={anyPending([completeCommand.state, removeTask.state, unassignTask.state])}
+          busy={anyPending([
+            completeCommand.state,
+            statusCommand.state,
+            moveTaskCommand.state,
+            removeTask.state,
+            unassignTask.state,
+          ])}
           isTemplate={isTemplate}
           locale={locale}
           members={members.data ?? []}
@@ -255,6 +303,21 @@ export function ListDetail(): ReactNode {
           }
           onEdit={(selected) =>
             setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
+          }
+          onOpenDetails={(selected) => setDetailsTaskId(selected.id)}
+          onSetStatus={(selected, status) =>
+            void statusCommand.run({
+              taskId: selected.id,
+              expectedVersion: selected.version,
+              status,
+            })
+          }
+          onMoveTask={(selected, direction) =>
+            void moveTaskCommand.run({
+              taskId: selected.id,
+              expectedVersion: selected.version,
+              direction,
+            })
           }
           onToggleCompleted={(selected, completed) =>
             void completeCommand.run({
@@ -282,7 +345,11 @@ export function ListDetail(): ReactNode {
         />
       )}
 
-      {!isTemplate && <Fab label={t('list.add_task')} onClick={() => setAddingTask(true)} />}
+      <ListAddTaskButton
+        isTemplate={isTemplate}
+        label={t('list.add_task')}
+        onClick={() => setAddingTask(true)}
+      />
 
       <DestructiveConfirm
         confirm={confirming}
@@ -290,6 +357,21 @@ export function ListDetail(): ReactNode {
         pending={anyPending([removeList.state, removeTask.state, unassignTask.state])}
         t={t}
       />
+
+      {detailsTaskId !== null && (
+        <TaskDetailsDialog
+          canEdit={!isTemplate}
+          locale={locale}
+          members={members.data ?? []}
+          onClose={() => setDetailsTaskId(null)}
+          onEdit={(task) => {
+            setDetailsTaskId(null);
+            setEditingTask(task);
+          }}
+          t={t}
+          taskId={detailsTaskId}
+        />
+      )}
 
       {(addingTask || editingTask !== null) && (
         <TaskEditor

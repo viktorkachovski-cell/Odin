@@ -99,7 +99,7 @@ export async function getHome(
 ): Promise<HomePageDto> {
   return readRpc(
     client,
-    'get_home',
+    'get_home_v2',
     parseHomePage,
     cursor === null || cursor === undefined ? undefined : { p_cursor: cursor },
   );

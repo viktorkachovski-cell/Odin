@@ -6,6 +6,7 @@
  */
 
 import type {
+  AllTaskPageDto,
   CrossListTaskDto,
   HomePageDto,
   HouseholdDto,
@@ -120,6 +121,7 @@ export function parseHousehold(value: unknown): HouseholdDto {
 export function parseList(value: unknown, field = 'list'): ListDto {
   const raw = obj(value, field);
   return {
+    sort_order: raw['sort_order'] === undefined ? 0 : num(raw['sort_order'], `${field}.sort_order`),
     id: str(raw['id'], `${field}.id`),
     household_id: str(raw['household_id'], `${field}.household_id`),
     kind: parseListKind(raw['kind'], `${field}.kind`),
@@ -140,6 +142,7 @@ export function parseList(value: unknown, field = 'list'): ListDto {
 function parseListSummary(value: unknown, field: string): ListSummaryDto {
   const raw = obj(value, field);
   return {
+    sort_order: raw['sort_order'] === undefined ? 0 : num(raw['sort_order'], `${field}.sort_order`),
     id: str(raw['id'], `${field}.id`),
     kind: parseListKind(raw['kind'], `${field}.kind`),
     title: str(raw['title'], `${field}.title`),
@@ -165,6 +168,7 @@ export function parseHomePage(value: unknown): HomePageDto {
 export function parseTask(value: unknown, field = 'task'): TaskDto {
   const raw = obj(value, field);
   return {
+    blocked: raw['blocked'] === undefined ? false : bool(raw['blocked'], `${field}.blocked`),
     notes: raw['notes'] === undefined ? null : nullableStr(raw['notes'], `${field}.notes`),
     id: str(raw['id'], `${field}.id`),
     household_id: str(raw['household_id'], `${field}.household_id`),
@@ -183,6 +187,7 @@ export function parseTask(value: unknown, field = 'task'): TaskDto {
 function parseCrossListTask(value: unknown, field: string): CrossListTaskDto {
   const raw = obj(value, field);
   return {
+    blocked: raw['blocked'] === undefined ? false : bool(raw['blocked'], `${field}.blocked`),
     task_id: str(raw['task_id'], `${field}.task_id`),
     list_id: str(raw['list_id'], `${field}.list_id`),
     list_title: str(raw['list_title'], `${field}.list_title`),
@@ -214,6 +219,21 @@ export function parseTaskPage(value: unknown): TaskPageDto {
       parseCrossListTask(entry, `taskPage.items[${index}]`),
     ),
     next_cursor: nullableStr(raw['next_cursor'], 'taskPage.next_cursor'),
+  };
+}
+
+export function parseAllTaskPage(value: unknown): AllTaskPageDto {
+  const raw = obj(value, 'allTasks');
+  return {
+    items: arr(raw['items'], 'allTasks.items').map((value, index) => {
+      const field = `allTasks.items[${index}]`;
+      const row = obj(value, field);
+      return {
+        ...parseTask(row, field),
+        list_title: str(row['list_title'], `${field}.list_title`),
+      };
+    }),
+    next_cursor: nullableStr(raw['next_cursor'], 'allTasks.next_cursor'),
   };
 }
 

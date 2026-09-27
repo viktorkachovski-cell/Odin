@@ -44,6 +44,18 @@ export function FloatingActionButton({
   );
 }
 
+export function ActiveListAddTaskFab({
+  isTemplate,
+  label,
+  onPress,
+}: {
+  readonly isTemplate: boolean;
+  readonly label: string;
+  readonly onPress: () => void;
+}): ReactNode {
+  return isTemplate ? null : <FloatingActionButton label={label} onPress={onPress} />;
+}
+
 const styles = StyleSheet.create({
   fab: {
     alignItems: 'center',

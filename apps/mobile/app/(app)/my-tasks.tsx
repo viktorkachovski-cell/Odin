@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { taskRowFromCrossList, type CrossListTaskDto } from '@odin/contracts';
-import { keysAffectedByTaskChange, setTaskCompleted, useCommand } from '@odin/data';
+import { keysAffectedByTaskChange, setTaskCompleted, setTaskStatus, useCommand } from '@odin/data';
+import type { TaskStatus } from '@odin/contracts';
 import { sortTasksByDue } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
@@ -12,6 +13,7 @@ import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
 import { TaskRow } from '../../src/components/TaskRow.tsx';
+import { TaskDetailsFlow } from '../../src/components/TaskDetailsFlow.tsx';
 
 /**
  * Tasks assigned to the signed-in member, due first with undated last. A row
@@ -24,6 +26,7 @@ export default function MyTasksScreen(): ReactNode {
   const nav = useNavVisibility();
   const tasks = useMyTasksQuery(true);
   const members = useMembersQuery(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const complete = useCommand(
     (
@@ -34,6 +37,17 @@ export default function MyTasksScreen(): ReactNode {
         readonly completed: boolean;
       },
     ) => setTaskCompleted(client, requestId, input),
+    { invalidate: keysAffectedByTaskChange() },
+  );
+  const changeStatus = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly status: TaskStatus;
+      },
+    ) => setTaskStatus(client, requestId, input),
     { invalidate: keysAffectedByTaskChange() },
   );
 
@@ -59,6 +73,13 @@ export default function MyTasksScreen(): ReactNode {
             t={t}
           />
         )}
+        {changeStatus.state.error !== null && (
+          <ErrorBanner
+            error={changeStatus.state.error}
+            onRetry={() => void changeStatus.retry()}
+            t={t}
+          />
+        )}
 
         {rows.length === 0 ? (
           <EmptyState label={t('my_tasks.empty')} />
@@ -69,6 +90,14 @@ export default function MyTasksScreen(): ReactNode {
               key={task.id}
               locale={locale}
               members={members.data ?? []}
+              onPress={(selected) => setSelectedTaskId(selected.id)}
+              onSetStatus={(selected, status) =>
+                void changeStatus.run({
+                  taskId: selected.id,
+                  expectedVersion: selected.version,
+                  status,
+                })
+              }
               onToggleCompleted={(selected, completed) =>
                 void complete.run({
                   taskId: selected.id,
@@ -84,6 +113,12 @@ export default function MyTasksScreen(): ReactNode {
 
         <NavSpacer />
       </ScrollView>
+      <TaskDetailsFlow
+        key={selectedTaskId ?? 'closed'}
+        members={members.data ?? []}
+        onClose={() => setSelectedTaskId(null)}
+        taskId={selectedTaskId}
+      />
     </Screen>
   );
 }

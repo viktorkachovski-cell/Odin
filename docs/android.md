@@ -8,10 +8,10 @@ app _does_ is `features.md`; this file is how Android does it.
 
 | Choice           | Version         | Why                                                          |
 | ---------------- | --------------- | ------------------------------------------------------------ |
-| Expo SDK         | 57.0.24         | Current stable release                                       |
+| Expo SDK         | 57.0.25         | SDK 57 patch required by Expo Doctor                         |
 | React Native     | 0.86.3          | Prescribed by SDK 57                                         |
 | React            | 19.2.3          | Prescribed by SDK 57                                         |
-| Expo Router      | 57.0.22         | File-based routing, as the brief requires                    |
+| Expo Router      | 57.0.23         | File-based routing, as the brief requires                    |
 | Jest + jest-expo | 29.7.0 / 57.0.5 | React Native ships untranspiled source; Vitest cannot run it |
 
 **The web client was moved from React 19.3.0 to 19.2.3 to match.** React Native's
@@ -40,6 +40,13 @@ enforces:
 The read hooks in `src/state/queries.ts` are deliberately **not** shared: they
 are per-app glue binding an app-specific context to the already-shared
 repositories and query keys.
+
+The task-workflow branch uses a full-details sheet from every task row, with
+completion and status actions as separate touch targets. All Tasks provides
+deadline presets and a local-date range. Lists and tasks have up/down actions;
+the save-template icon sits beside the list title. The layout retains Odin's
+palette while using clearer spacing, task hierarchy and touch targets. The
+updated client requires the branch migration on its test database.
 
 ## Android specifics
 

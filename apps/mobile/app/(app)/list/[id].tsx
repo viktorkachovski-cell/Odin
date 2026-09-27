@@ -1,16 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, ScrollView } from 'react-native';
 
-import type { TaskDto } from '@odin/contracts';
+import type { TaskDto, TaskStatus } from '@odin/contracts';
 import {
   createTask,
   deleteList,
   deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  moveTask,
   saveListTemplate,
   setTaskCompleted,
+  setTaskStatus,
   updateList,
   updateTask,
   useCommand,
@@ -22,7 +24,7 @@ import { useOdin } from '../../../src/state/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
 import { NavSpacer } from '../../../src/components/BottomNav.tsx';
 import { SecondaryButton } from '../../../src/components/Button.tsx';
-import { FloatingActionButton } from '../../../src/components/FloatingActionButton.tsx';
+import { ActiveListAddTaskFab } from '../../../src/components/FloatingActionButton.tsx';
 import { ListEditor } from '../../../src/components/ListEditor.tsx';
 import {
   anyPending,
@@ -35,18 +37,7 @@ import {
 } from '../../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
 import { TaskEditor } from '../../../src/components/TaskEditor.tsx';
-
-function AddTaskFab({
-  isTemplate,
-  label,
-  onPress,
-}: {
-  readonly isTemplate: boolean;
-  readonly label: string;
-  readonly onPress: () => void;
-}): ReactNode {
-  return isTemplate ? null : <FloatingActionButton label={label} onPress={onPress} />;
-}
+import { TaskDetailsSheet } from '../../../src/components/TaskDetailsSheet.tsx';
 
 export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,6 +48,7 @@ export default function ListDetailScreen(): ReactNode {
 
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
+  const [viewingTask, setViewingTask] = useState<TaskDto | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
 
@@ -174,8 +166,32 @@ export default function ListDetailScreen(): ReactNode {
     { invalidate: invalidateTask },
   );
 
+  const changeStatus = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly status: TaskStatus;
+      },
+    ) => setTaskStatus(client, requestId, input),
+    { invalidate: invalidateTask },
+  );
+
+  const reorderTask = useCommand(
+    (
+      requestId,
+      input: {
+        readonly taskId: string;
+        readonly expectedVersion: number;
+        readonly direction: 'up' | 'down';
+      },
+    ) => moveTask(client, requestId, input),
+    { invalidate: invalidateTask },
+  );
+
   if (list.isPending) return <LoadingState label={t('state.loading')} />;
-  if (list.isError || list.data === undefined) {
+  if (list.data === undefined) {
     return (
       <Screen title={t('list.not_found')}>
         <SecondaryButton label={t('list.back')} onPress={() => router.back()} />
@@ -189,9 +205,20 @@ export default function ListDetailScreen(): ReactNode {
   const taskConflict = saveTask.state.error?.code === 'CONFLICT';
 
   return (
-    <Screen backLabel={t('list.back')} onBack={() => router.back()} title={page.list.title}>
+    <Screen
+      backLabel={t('list.back')}
+      headerActionLabel={
+        isTemplate ? undefined : t('list.template.save_named', { title: page.list.title })
+      }
+      onBack={() => router.back()}
+      onHeaderAction={() => {
+        setTemplateSaved(false);
+        void saveTemplate.run({ listId: page.list.id });
+      }}
+      title={page.list.title}
+    >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={{ gap: 12, paddingBottom: 16 }}
         onScroll={nav.onScroll}
         scrollEventThrottle={16}
       >
@@ -219,10 +246,6 @@ export default function ListDetailScreen(): ReactNode {
             ])
           }
           onEdit={() => setEditingList(true)}
-          onSaveTemplate={() => {
-            setTemplateSaved(false);
-            void saveTemplate.run({ listId: page.list.id });
-          }}
           pending={anyPending([removeList.state, saveTemplate.state])}
           t={t}
         />
@@ -235,6 +258,8 @@ export default function ListDetailScreen(): ReactNode {
             { error: removeList.state.error, retry: () => void removeList.retry() },
             { error: removeTask.state.error, retry: () => void removeTask.retry() },
             { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
+            { error: changeStatus.state.error, retry: () => void changeStatus.retry() },
+            { error: reorderTask.state.error, retry: () => void reorderTask.retry() },
             { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
           ]}
           t={t}
@@ -244,7 +269,13 @@ export default function ListDetailScreen(): ReactNode {
           <EmptyState label={t('list.empty')} />
         ) : (
           <ListTasks
-            busy={anyPending([completeCommand.state, removeTask.state, unassignTask.state])}
+            busy={anyPending([
+              completeCommand.state,
+              removeTask.state,
+              unassignTask.state,
+              changeStatus.state,
+              reorderTask.state,
+            ])}
             isTemplate={isTemplate}
             locale={locale}
             members={members.data ?? []}
@@ -264,6 +295,23 @@ export default function ListDetailScreen(): ReactNode {
             }
             onEdit={(selected) =>
               setEditingTask(ordered.find((task) => task.id === selected.id) ?? null)
+            }
+            onOpen={(selected) =>
+              setViewingTask(ordered.find((task) => task.id === selected.id) ?? null)
+            }
+            onSetStatus={(selected, status) =>
+              void changeStatus.run({
+                taskId: selected.id,
+                expectedVersion: selected.version,
+                status,
+              })
+            }
+            onMove={(selected, direction) =>
+              void reorderTask.run({
+                taskId: selected.id,
+                expectedVersion: selected.version,
+                direction,
+              })
             }
             onToggleCompleted={(selected, completed) =>
               void completeCommand.run({
@@ -299,7 +347,7 @@ export default function ListDetailScreen(): ReactNode {
         <NavSpacer />
       </ScrollView>
 
-      <AddTaskFab
+      <ActiveListAddTaskFab
         isTemplate={isTemplate}
         label={t('list.add_task')}
         onPress={() => setAddingTask(true)}
@@ -339,6 +387,21 @@ export default function ListDetailScreen(): ReactNode {
         />
       )}
 
+      {viewingTask !== null && (
+        <TaskDetailsSheet
+          editable={!isTemplate}
+          locale={locale}
+          members={members.data ?? []}
+          onClose={() => setViewingTask(null)}
+          onEdit={() => {
+            setEditingTask(viewingTask);
+            setViewingTask(null);
+          }}
+          t={t}
+          task={viewingTask}
+        />
+      )}
+
       {editingList && (
         <ListEditor
           error={saveList.state.error}
@@ -362,8 +425,3 @@ export default function ListDetailScreen(): ReactNode {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', gap: 12 },
-  content: { gap: 12, paddingBottom: 16 },
-});

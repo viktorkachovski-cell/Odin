@@ -7,15 +7,20 @@ import type {
   MemberDto,
   ProfileDto,
   TaskPageDto,
+  TaskDto,
+  AllTaskPageDto,
 } from '@odin/contracts';
+import type { TaskDeadlineFilter } from '@odin/domain';
 import {
-  getHome,
-  getList,
+  getAllTasksAll,
+  getHomeAll,
+  getListAll,
   getMembers,
   getMyHousehold,
   getMyProfile,
-  getMyTasks,
-  getUnassigned,
+  getMyTasksAll,
+  getUnassignedAll,
+  getTask,
   queryKeys,
 } from '@odin/data';
 
@@ -58,7 +63,7 @@ export function useHomeQuery(enabled: boolean): UseQueryResult<HomePageDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.home,
-    queryFn: () => getHome(client),
+    queryFn: () => getHomeAll(client),
     enabled,
   });
 }
@@ -70,7 +75,7 @@ export function useListQuery(
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.list(listId ?? ''),
-    queryFn: () => getList(client, listId ?? ''),
+    queryFn: () => getListAll(client, listId ?? ''),
     enabled: enabled && listId !== undefined && listId.length > 0,
   });
 }
@@ -79,7 +84,7 @@ export function useMyTasksQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.myTasks,
-    queryFn: () => getMyTasks(client),
+    queryFn: () => getMyTasksAll(client),
     enabled,
   });
 }
@@ -88,7 +93,28 @@ export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskPageDto
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.unassigned,
-    queryFn: () => getUnassigned(client),
+    queryFn: () => getUnassignedAll(client),
+    enabled,
+  });
+}
+
+export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {
+  const { client } = useOdin();
+  return useQuery({
+    queryKey: queryKeys.task(taskId ?? ''),
+    queryFn: () => getTask(client, taskId ?? ''),
+    enabled: taskId !== null,
+  });
+}
+
+export function useAllTasksQuery(
+  filter: TaskDeadlineFilter,
+  enabled: boolean,
+): UseQueryResult<AllTaskPageDto> {
+  const { client } = useOdin();
+  return useQuery({
+    queryKey: [...queryKeys.allTasks, filter],
+    queryFn: () => getAllTasksAll(client, filter),
     enabled,
   });
 }

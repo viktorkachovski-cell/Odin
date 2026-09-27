@@ -21,6 +21,25 @@ Home keeps bordered template cards and unbordered active cards in separately lab
 
 ## Proposed implementation defaults
 
+### Task workflow decisions — confirmed 2026-09-27
+
+The owner requested task details, up/down movement for tasks and lists, an
+inline save-template icon, deadline filtering across all tasks, four task
+statuses, and mobile visual polish that retains Odin's palette. Work is on a
+feature branch for testing before merge.
+
+The owner confirmed that Unassigned follows assignment automatically, order is
+shared across household members, and date filters refer to task deadlines.
+Blocked and Done are explicit choices. Task movement preserves the existing
+incomplete-first groups; list movement is within the existing active/template
+sections. This supersedes the earlier append-only ordering default below.
+
+All Tasks filters are overdue, today, upcoming, no deadline and a custom
+inclusive local-date range, plus an unfiltered view. No list deadline,
+multi-assignee, permission hierarchy or template runtime state is introduced.
+
+### Other defaults
+
 These fill technical gaps without redefining confirmed task rules. Record deviations before implementation; do not silently treat proposed lifecycle policy as approved product scope.
 
 | Topic                 | Proposed default and consequence                                                                                                   |

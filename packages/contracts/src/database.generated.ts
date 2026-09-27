@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       households: {
@@ -47,6 +42,7 @@ export type Database = {
           kind: string
           notes: string | null
           seed_key: string | null
+          sort_order: number
           status: string
           subtitle: string | null
           title: string
@@ -61,6 +57,7 @@ export type Database = {
           kind: string
           notes?: string | null
           seed_key?: string | null
+          sort_order?: number
           status?: string
           subtitle?: string | null
           title: string
@@ -75,6 +72,7 @@ export type Database = {
           kind?: string
           notes?: string | null
           seed_key?: string | null
+          sort_order?: number
           status?: string
           subtitle?: string | null
           title?: string
@@ -188,6 +186,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          blocked: boolean
           completed: boolean
           created_at: string
           due_at: string | null
@@ -202,6 +201,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          blocked?: boolean
           completed?: boolean
           created_at?: string
           due_at?: string | null
@@ -216,6 +216,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          blocked?: boolean
           completed?: boolean
           created_at?: string
           due_at?: string | null
@@ -305,7 +306,22 @@ export type Database = {
         Args: { expected_version: number; request_id: string; task_id: string }
         Returns: Json
       }
+      get_all_tasks: {
+        Args: {
+          p_cursor?: string
+          p_due_before?: string
+          p_due_from?: string
+          p_incomplete_only?: boolean
+          p_limit?: number
+          p_undated?: boolean
+        }
+        Returns: Json
+      }
       get_home: { Args: { p_cursor?: string; p_limit?: number }; Returns: Json }
+      get_home_v2: {
+        Args: { p_cursor?: string; p_limit?: number }
+        Returns: Json
+      }
       get_list: {
         Args: { p_cursor?: string; p_limit?: number; p_list_id: string }
         Returns: Json
@@ -319,6 +335,24 @@ export type Database = {
       get_task_templates: { Args: never; Returns: Json }
       get_unassigned: {
         Args: { p_cursor?: string; p_limit?: number }
+        Returns: Json
+      }
+      move_list: {
+        Args: {
+          direction: string
+          expected_version: number
+          list_id: string
+          request_id: string
+        }
+        Returns: Json
+      }
+      move_task: {
+        Args: {
+          direction: string
+          expected_version: number
+          request_id: string
+          task_id: string
+        }
         Returns: Json
       }
       redeem_invitation: {
@@ -342,6 +376,15 @@ export type Database = {
           completed: boolean
           expected_version: number
           request_id: string
+          task_id: string
+        }
+        Returns: Json
+      }
+      set_task_status: {
+        Args: {
+          expected_version: number
+          request_id: string
+          status: string
           task_id: string
         }
         Returns: Json

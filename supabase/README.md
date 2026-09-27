@@ -12,7 +12,7 @@ The ordered declarative schema in `schemas/` is authoritative:
 4. `03_reads.sql` — safe projections and keyset-paginated reads.
 5. `04_grants_and_realtime.sql` — least-privilege grants and publication membership.
 
-Do not edit generated migrations to make schema changes. Edit declarative files, run `npm run db:diff -- -f <descriptive_name>`, review the generated migration, replay locally and commit both. The pinned CLI routes this through `supabase db schema declarative sync`; ordinary `supabase db diff` no longer reads declarative `schema_paths`. Supabase's diff engine does not reliably track publication membership or all grants/policies, so review those statements explicitly after every generation.
+Edit declarative files first, run `npm run db:diff -- -f <descriptive_name>`, review the generated migration, replay locally and commit both. A generated migration may need a reviewed data backfill before a new constraint: `20260927121823_task_workflow_polish.sql` assigns positions to existing lists before adding their unique order constraint. The pinned CLI routes this through `supabase db schema declarative sync`; ordinary `supabase db diff` no longer reads declarative `schema_paths`. Supabase's diff engine does not reliably track publication membership or all grants/policies, so review those statements explicitly after every generation.
 
 ## Local workflow
 
@@ -46,11 +46,14 @@ The `authenticated` role can select RLS-filtered rows and execute public RPCs. I
 | `delete_task`                      | `private.delete_task`            | Permanent; active/open parent only; optimistic version                            |
 | `create_task`, `update_task`       | matching private helper          | Active list/member locks; same-household assignee                                 |
 | `set_task_completed`               | matching private helper          | Explicit desired state; optimistic version                                        |
+| `set_task_status`                  | matching private helper          | Assignment-consistent status; blocked/done exclusive; optimistic version          |
+| `move_list`, `move_task`           | matching private helpers         | Adjacent swap within household and allowed group; optimistic versions             |
 | `claim_task`                       | matching private helper          | Incomplete and unassigned under row lock                                          |
 | `create_invitation`                | matching private helper          | Creator active; 10/hour; database-generated token; 72-hour default                |
 | `redeem_invitation`                | matching private helper          | Authenticated, single use, expiry/revocation and 10-failures/15-minute limit      |
 | `revoke_invitation`                | matching private helper          | Creator-only proposed default                                                     |
 | read RPCs                          | safe invoker/definer projections | Active household only; no email, locale or token disclosure                       |
+| `get_home_v2`, `get_all_tasks`     | matching private readers         | Shared list order and deadline pagination; active household/open lists only       |
 
 All privileged helpers pin an empty `search_path`, derive the actor from `auth.uid()`, and are inaccessible through the exposed API schema. Public wrappers remain `SECURITY INVOKER`. Mutation receipts are scoped to actor/request ID; payload mismatches fail. Successful household-scoped receipts are not replayed after membership loss.
 
@@ -91,6 +94,8 @@ the next agent:
   `invitation_secret`, `save_command`, `replay_command`, `normalized_text`,
   `command_hash`) not executable by `authenticated`.
 - Types were regenerated into `packages/contracts/src/database.generated.ts`.
+- The task workflow migration is committed on `codex/task-workflow-polish` for
+  branch testing. It has **not** been applied to this hosted production project.
 - `seed.sql` stays empty, so a new household starts with no templates. That is
   intended, not pending: see the seed-content note above.
 - Verification fixtures (three `@example.invalid` accounts and their data) were

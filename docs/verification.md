@@ -22,6 +22,31 @@ Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment
 limitation, not a project finding; CI reports 21/21.
 
+## Task-workflow branch evidence — 2026-09-27
+
+On `codex/task-workflow-polish`, the disposable `Database` workflow passed
+schema lint, all 104 pgTAP assertions across three files (including 25 new
+workflow assertions), and the concurrency suite at run `36320865335`.
+The new tests cover household isolation, status transitions, adjacent shared
+moves, deadline paging and invalid input. The reviewed migration backfills
+existing list positions before adding their unique constraint. Generated
+public schema types came from disposable CI run `36320865373`.
+
+Local Node 22 checks passed ESLint, Prettier, all workspace typechecks, 12
+tooling tests and 200 Vitest tests across 24 files. The first parallel Jest
+run timed out in three new UI cases under worker contention; a serial rerun
+passed all 119 mobile Jest tests and four build-environment tests, so the test
+script now runs Jest serially. The web production build and Android JavaScript
+export passed with non-secret placeholder public configuration; Expo Doctor
+passed 21/21 after the four required SDK patch updates. These checks validate
+code and bundles, not an installed device or a live hosted test session.
+
+Before merging, apply the migration to the chosen test database, then check
+two-client movement/status synchronization, all deadline filters around local
+midnight and DST, and phone/tablet visual fit against the supplied reference.
+The single hosted Odin project is production; this branch does not apply its
+migration or deploy either client there.
+
 ## Requirements traceability
 
 | Source IDs                        | Implementation owner     | Acceptance evidence required                                                                                                                                                    |
