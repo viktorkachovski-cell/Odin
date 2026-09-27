@@ -54,28 +54,33 @@ const tasks: TaskDto[] = [
   },
 ];
 
+function renderList(isTemplate: boolean) {
+  const onMoveTask = vi.fn();
+  const onSetState = vi.fn();
+  render(
+    <ListTasks
+      busy={false}
+      isTemplate={isTemplate}
+      locale="en"
+      members={members}
+      onDelete={vi.fn()}
+      onEdit={vi.fn()}
+      onMoveTask={onMoveTask}
+      onOpenDetails={vi.fn()}
+      onSetState={onSetState}
+      onToggleCompleted={vi.fn()}
+      onUnassign={vi.fn()}
+      t={t}
+      tasks={isTemplate ? tasks.filter((task) => !task.completed) : tasks}
+    />,
+  );
+  return { onMoveTask, onSetState };
+}
+
 describe('ListTasks', () => {
-  it('keeps moves inside completion groups and submits the chosen task status', async () => {
+  it('keeps moves inside completion groups and submits the chosen task state', async () => {
     const user = userEvent.setup();
-    const onMoveTask = vi.fn();
-    const onSetStatus = vi.fn();
-    render(
-      <ListTasks
-        busy={false}
-        isTemplate={false}
-        locale="en"
-        members={members}
-        onDelete={vi.fn()}
-        onEdit={vi.fn()}
-        onMoveTask={onMoveTask}
-        onOpenDetails={vi.fn()}
-        onSetStatus={onSetStatus}
-        onToggleCompleted={vi.fn()}
-        onUnassign={vi.fn()}
-        t={t}
-        tasks={tasks}
-      />,
-    );
+    const { onMoveTask, onSetState } = renderList(false);
 
     expect(screen.getByRole('button', { name: 'Move First up' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Move Second down' })).toBeDisabled();
@@ -83,10 +88,23 @@ describe('ListTasks', () => {
 
     await user.click(screen.getByRole('button', { name: 'Move Second up' }));
     expect(onMoveTask).toHaveBeenCalledWith(expect.objectContaining({ id: 't2' }), 'up');
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Change status for Second' }),
-      'blocked',
+    const status = screen.getByRole('combobox', { name: 'Change status for Second' });
+    // An assigned open task reads To-do; the option sends the stored state.
+    expect(status).toHaveDisplayValue('To-do');
+    await user.selectOptions(status, 'Blocked');
+    expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't2' }), 'blocked');
+    expect(screen.getByRole('combobox', { name: 'Change status for First' })).toHaveDisplayValue(
+      'Unassigned',
     );
-    expect(onSetStatus).toHaveBeenCalledWith(expect.objectContaining({ id: 't2' }), 'blocked');
+  });
+
+  it('lets a template reorder its tasks without offering any runtime state', async () => {
+    const user = userEvent.setup();
+    const { onMoveTask } = renderList(true);
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Complete|Mark/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Move First down' }));
+    expect(onMoveTask).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'down');
   });
 });

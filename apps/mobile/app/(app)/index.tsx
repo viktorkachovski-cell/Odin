@@ -13,6 +13,7 @@ import {
   saveListTemplate,
   useCommand,
 } from '@odin/data';
+import { adjacentMoves } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
@@ -106,13 +107,17 @@ export default function HomeScreen(): ReactNode {
       {items.length === 0 ? (
         <EmptyState label={emptyLabel} />
       ) : (
-        [...items]
-          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-          .map((item, index, ordered) => (
+        // The server returns each kind in shared household order.
+        items.map((item, index) => {
+          const moves = adjacentMoves(items, index, (list) => list.kind);
+          return (
             <ListCard
               copyPending={copy.state.pending}
               key={item.id}
               list={item}
+              movePending={reorder.state.pending}
+              moveDownDisabled={!moves.down}
+              moveUpDisabled={!moves.up}
               onMove={(selected, direction) =>
                 void reorder.run({
                   listId: selected.id,
@@ -120,8 +125,6 @@ export default function HomeScreen(): ReactNode {
                   direction,
                 })
               }
-              moveUpDisabled={index === 0}
-              moveDownDisabled={index === ordered.length - 1}
               onCopy={onCopy}
               onDelete={(selected) => {
                 Alert.alert(t('list.delete'), t('list.delete.confirm'), [
@@ -146,10 +149,11 @@ export default function HomeScreen(): ReactNode {
                   : undefined
               }
               saveTemplatePending={saveTemplate.state.pending}
-              deletePending={remove.state.pending || reorder.state.pending}
+              deletePending={remove.state.pending}
               t={t}
             />
-          ))
+          );
+        })
       )}
     </View>
   );

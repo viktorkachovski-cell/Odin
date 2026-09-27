@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-import type { MemberDto, TaskRowModel, TaskStatus } from '@odin/contracts';
-import { isOverdue, taskStatus } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
+import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
+import { isOverdue, taskState, taskStatusOptions } from '@odin/domain';
+import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { Avatar } from './Avatar.tsx';
 import { OverflowMenu, type OverflowItem } from './OverflowMenu.tsx';
@@ -27,8 +27,8 @@ export interface TaskRowProps {
   readonly t: Translator;
   readonly busy?: boolean;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
-  readonly onSetStatus?: ((task: TaskRowModel, status: TaskStatus) => void) | undefined;
-  readonly onMove?: ((task: TaskRowModel, direction: 'up' | 'down') => void) | undefined;
+  readonly onSetState?: ((task: TaskRowModel, state: TaskState) => void) | undefined;
+  readonly onMove?: ((task: TaskRowModel, direction: MoveDirection) => void) | undefined;
   readonly moveUpDisabled?: boolean | undefined;
   readonly moveDownDisabled?: boolean | undefined;
   readonly onOpenDetails?: ((task: TaskRowModel) => void) | undefined;
@@ -146,11 +146,38 @@ function TaskActions({
   );
 }
 
-function formatDue(due_at: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(due_at));
+function StatusSelect({
+  task,
+  t,
+  busy,
+  onSetState,
+}: {
+  readonly task: TaskRowModel;
+  readonly t: Translator;
+  readonly busy: boolean | undefined;
+  readonly onSetState: (task: TaskRowModel, state: TaskState) => void;
+}): ReactNode {
+  const options = taskStatusOptions(task);
+  return (
+    <label className="task-row__status">
+      <span className="visually-hidden">{t('task.status.change', { title: task.title })}</span>
+      <select
+        aria-label={t('task.status.change', { title: task.title })}
+        disabled={busy}
+        onChange={(event) => {
+          const chosen = options.find((option) => option.state === event.target.value);
+          if (chosen !== undefined) onSetState(task, chosen.state);
+        }}
+        value={taskState(task)}
+      >
+        {options.map((option) => (
+          <option key={option.state} value={option.state}>
+            {t(`task.status.${option.status}`)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function TaskMeta({
@@ -159,28 +186,14 @@ function TaskMeta({
   locale,
   t,
   busy,
-  onSetStatus,
-}: Pick<TaskRowProps, 'task' | 'members' | 'locale' | 't' | 'busy' | 'onSetStatus'>): ReactNode {
+  onSetState,
+}: Pick<TaskRowProps, 'task' | 'members' | 'locale' | 't' | 'busy' | 'onSetState'>): ReactNode {
   const assignee = members.find((member) => member.user_id === task.assignee_id);
   const overdue = isOverdue(task);
   return (
     <div className="task-row__meta">
-      {onSetStatus !== undefined && (
-        <label className="task-row__status">
-          <span className="visually-hidden">{t('task.status.change', { title: task.title })}</span>
-          <select
-            aria-label={t('task.status.change', { title: task.title })}
-            disabled={busy}
-            onChange={(event) => onSetStatus(task, event.target.value as TaskStatus)}
-            value={taskStatus(task)}
-          >
-            <option value={task.assignee_id === null ? 'unassigned' : 'todo'}>
-              {t(task.assignee_id === null ? 'task.status.unassigned' : 'task.status.todo')}
-            </option>
-            <option value="blocked">{t('task.status.blocked')}</option>
-            <option value="done">{t('task.status.done')}</option>
-          </select>
-        </label>
+      {onSetState !== undefined && (
+        <StatusSelect busy={busy} onSetState={onSetState} t={t} task={task} />
       )}
       {task.list_title !== undefined && <span>{t('task.in_list', { list: task.list_title })}</span>}
       {assignee === undefined ? (
@@ -196,7 +209,7 @@ function TaskMeta({
       ) : (
         <span className={overdue ? 'overdue' : undefined}>
           {overdue ? `${t('task.overdue')} · ` : ''}
-          {formatDue(task.due_at, locale)}
+          {formatDueAt(task.due_at, locale)}
         </span>
       )}
     </div>
@@ -210,7 +223,7 @@ export function TaskRow({
   t,
   busy = false,
   onToggleCompleted,
-  onSetStatus,
+  onSetState,
   onOpenDetails,
   onEdit,
   onClaim,
@@ -269,7 +282,7 @@ export function TaskRow({
           busy={busy}
           locale={locale}
           members={members}
-          onSetStatus={onSetStatus}
+          onSetState={onSetState}
           t={t}
           task={task}
         />

@@ -88,4 +88,14 @@ describe('ListCard', () => {
     await fireEvent.press(screen.getByLabelText('Move Pantry down'));
     expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ id: 'l1' }), 'down');
   });
+
+  it('refuses a second move while one is in flight', async () => {
+    const onMove = jest.fn();
+    await render(<ListCard list={summary()} movePending onMove={onMove} t={t} />);
+
+    expect(screen.getByLabelText('Move Pantry up')).toBeDisabled();
+    expect(screen.getByLabelText('Move Pantry down')).toBeDisabled();
+    await fireEvent.press(screen.getByLabelText('Move Pantry down'));
+    expect(onMove).not.toHaveBeenCalled();
+  });
 });

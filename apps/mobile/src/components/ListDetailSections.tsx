@@ -5,10 +5,12 @@ import {
   taskRowFromTask,
   type CommandError,
   type MemberDto,
+  type MoveDirection,
   type TaskDto,
   type TaskRowModel,
-  type TaskStatus,
+  type TaskState,
 } from '@odin/contracts';
+import { adjacentMoves } from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -29,7 +31,7 @@ export function ListTasks({
   onUnassign,
   onDelete,
   onOpen,
-  onSetStatus,
+  onSetState,
   onMove,
 }: {
   readonly tasks: readonly TaskDto[];
@@ -43,27 +45,28 @@ export function ListTasks({
   readonly onUnassign: (task: TaskRowModel) => void;
   readonly onDelete: (task: TaskRowModel) => void;
   readonly onOpen: (task: TaskRowModel) => void;
-  readonly onSetStatus: (task: TaskRowModel, status: TaskStatus) => void;
-  readonly onMove: (task: TaskRowModel, direction: 'up' | 'down') => void;
+  readonly onSetState: (task: TaskRowModel, state: TaskState) => void;
+  readonly onMove: (task: TaskRowModel, direction: MoveDirection) => void;
 }): ReactNode {
+  // A template's tasks can be reordered but carry no runtime state, so they
+  // keep the move controls and lose everything else.
   return (
     <View style={{ gap: 12 }}>
-      {tasks.map((task) => {
-        const group = tasks.filter((candidate) => candidate.completed === task.completed);
-        const position = group.findIndex((candidate) => candidate.id === task.id);
+      {tasks.map((task, index) => {
+        const moves = adjacentMoves(tasks, index, (row) => row.completed);
         return (
           <TaskRow
             busy={busy}
             key={task.id}
             locale={locale}
             members={members}
-            moveDownDisabled={position === group.length - 1}
-            moveUpDisabled={position === 0}
-            onMove={isTemplate ? undefined : onMove}
+            moveDownDisabled={!moves.down}
+            moveUpDisabled={!moves.up}
+            onMove={onMove}
             onPress={onOpen}
             onDelete={isTemplate ? undefined : onDelete}
             onEdit={isTemplate ? undefined : onEdit}
-            onSetStatus={isTemplate ? undefined : onSetStatus}
+            onSetState={isTemplate ? undefined : onSetState}
             onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
             onUnassign={isTemplate ? undefined : onUnassign}
             t={t}

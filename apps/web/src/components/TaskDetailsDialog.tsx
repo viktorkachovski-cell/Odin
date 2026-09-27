@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { MemberDto, TaskDto } from '@odin/contracts';
 import { taskStatus } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
+import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { useTaskQuery } from '../app/queries.ts';
 import { Avatar } from './Avatar.tsx';
@@ -30,12 +30,7 @@ export function TaskDetailsDialog({
   const assignee = members.find((member) => member.user_id === task?.assignee_id);
   const dueAt = task?.due_at;
   const dueText =
-    dueAt === null || dueAt === undefined
-      ? t('task.due.none')
-      : new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }).format(new Date(dueAt));
+    dueAt === null || dueAt === undefined ? t('task.due.none') : formatDueAt(dueAt, locale);
 
   return (
     <Dialog

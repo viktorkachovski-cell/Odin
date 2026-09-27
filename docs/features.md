@@ -47,23 +47,28 @@ at most one assignee, an optional deadline and an explicit completion state.
 
 ### Task workflow feature branch — 2026-09-27
 
-These additions are on `codex/task-workflow-polish`; their database migration
-must be installed on the test database before either updated client is used.
-They are not a production deployment record.
+These additions are on `codex/task-workflow-polish`; both of its database
+migrations must be installed on the test database before either updated client
+is used. They are not a production deployment record.
 
 - Tapping or clicking a task opens its complete details, including notes,
   assignee and deadline. Completion, status, move and overflow controls remain
-  independent of opening details. Active tasks can be edited from details.
-- The four visible statuses are Unassigned, To-do, Blocked and Done. Normal
-  status follows assignment automatically: no assignee means Unassigned;
-  an assigned task means To-do. Blocked and Done are explicit choices and do
-  not change the assignee. Returning to normal restores the appropriate label.
-  Assignment changes preserve a blocked state. Completion/reopening clears it.
+  independent of opening details. Active tasks can be edited from details on
+  every screen; a conflicting save keeps the draft and reloads the task, so the
+  member can resubmit against the latest version.
+- The four visible statuses are Unassigned, To-do, Blocked and Done. A task is
+  stored as Open, Blocked or Done; an open task shows Unassigned without an
+  assignee and To-do with one, so that label follows assignment automatically.
+  Blocked and Done are explicit choices and do not change the assignee.
+  Choosing the open option restores the appropriate label. Assignment changes
+  preserve a blocked state. Completion/reopening clears it.
 - Up/down actions persist one shared household order. Active lists and list
   templates each have their own order. Tasks move inside the existing
-  incomplete/completed groups; a template's task order can also be changed.
-  End-of-group moves are disabled. Reordering uses version checks, so an old
-  screen cannot silently overwrite a newer change.
+  incomplete/completed groups; a template's tasks show move controls too.
+  End-of-group moves are disabled, and every move control stays disabled until
+  the previous move's result has reloaded, so rapid taps never send a stale
+  version. Reordering uses version checks, so an old screen cannot silently
+  overwrite a newer change.
 - Saving a list template is an icon beside the list title, with a descriptive
   accessible label that includes the title.
 - All Tasks includes every task in open active lists, including done tasks.
@@ -72,8 +77,11 @@ They are not a production deployment record.
   entire local day; Upcoming starts tomorrow. The custom range includes both
   selected local dates. Tasks without deadlines appear only in All deadlines
   and No deadline. Invalid or reversed ranges cannot be applied.
-- Both clients consume all cursor pages for the affected collections. Counts
-  continue to come from the full-list server aggregates.
+- Home, list detail, My Tasks, Unassigned and All Tasks each load in one read,
+  so a reorder by another member can never drop or repeat a row. A collection
+  above 1,000 rows shows a "too many items" message instead of a partial list.
+- My Tasks and Unassigned rows now show a task's notes, as All Tasks and list
+  detail rows already did, because all three read the same full task rows.
 
 Mobile presentation uses Odin's existing palette with clearer spacing,
 task hierarchy, restrained surfaces and separate accessible touch targets.

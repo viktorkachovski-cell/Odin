@@ -156,7 +156,18 @@ begin
 end;
 $$;
 
-create or replace function private.get_home_v2(p_cursor text default null, p_limit integer default 50)
+-- Current clients read each household collection as one snapshot instead of
+-- paging through it: pages taken at different moments can drop or repeat rows
+-- that another member reorders in between. A collection larger than this
+-- ceiling fails with TOO_LARGE rather than being silently truncated.
+create or replace function private.collection_limit()
+returns integer
+language sql
+immutable
+set search_path = ''
+as $$ select 1000; $$;
+
+create or replace function private.get_home_v2()
 returns jsonb
 language plpgsql
 stable
@@ -165,90 +176,89 @@ set search_path = ''
 as $$
 declare
   v_household uuid := private.active_household_id();
-  v_cursor jsonb := private.decode_cursor(p_cursor);
-  v_kind_order integer;
-  v_sort_order integer;
-  v_id uuid;
-  v_limit integer := least(greatest(coalesce(p_limit, 50), 1), 50);
+  v_count integer;
   v_items jsonb;
-  v_last record;
-  v_more boolean;
 begin
   if auth.uid() is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
   if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
-  if p_cursor is not null and v_cursor is null then
-    return private.error_response('VALIDATION', 'error.cursor_invalid');
-  end if;
-  if v_cursor is not null then
-    begin
-      v_kind_order := (v_cursor ->> 'kind_order')::integer;
-      v_sort_order := (v_cursor ->> 'sort_order')::integer;
-      v_id := (v_cursor ->> 'id')::uuid;
-      if v_kind_order is null or v_kind_order not in (0, 1)
-        or v_sort_order is null or v_sort_order < 0 or v_id is null then
-        return private.error_response('VALIDATION', 'error.cursor_invalid');
-      end if;
-    exception when others then
-      return private.error_response('VALIDATION', 'error.cursor_invalid');
-    end;
-  end if;
 
-  with candidates as (
+  -- Templates first, then active lists, each in shared household order.
+  with summaries as (
     select l.id, l.kind, l.title, l.subtitle, l.notes, l.status, l.sort_order, l.version,
-      case when l.kind = 'template' then 0 else 1 end as kind_order,
       count(t.id)::integer as total_tasks,
       count(t.id) filter (where t.completed)::integer as completed_tasks
     from public.lists l
     left join public.tasks t on t.list_id = l.id
     where l.household_id = v_household and l.status = 'open'
-      and (v_cursor is null or
-        (case when l.kind = 'template' then 0 else 1 end, l.sort_order, l.id) >
-        (v_kind_order, v_sort_order, v_id))
     group by l.id
-  ), page as (
-    select * from candidates
-    order by kind_order, sort_order, id
-    limit v_limit + 1
-  ), visible as (
-    select * from page order by kind_order, sort_order, id limit v_limit
+    order by l.kind = 'active', l.sort_order, l.id
+    limit private.collection_limit() + 1
   )
-  select coalesce(jsonb_agg(to_jsonb(visible) - 'kind_order' order by kind_order, sort_order, id), '[]'::jsonb)
-  into v_items from visible;
+  select count(*)::integer,
+    coalesce(jsonb_agg(to_jsonb(s) order by s.kind = 'active', s.sort_order, s.id), '[]'::jsonb)
+  into v_count, v_items
+  from summaries s;
 
-  with candidates as (
-    select l.id, l.sort_order, case when l.kind = 'template' then 0 else 1 end as kind_order
-    from public.lists l
-    where l.household_id = v_household and l.status = 'open'
-      and (v_cursor is null or
-        (case when l.kind = 'template' then 0 else 1 end, l.sort_order, l.id) >
-        (v_kind_order, v_sort_order, v_id))
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
+  return private.ok_response(jsonb_build_object('items', v_items));
+end;
+$$;
+
+create or replace function public.get_home_v2()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_home_v2(); $$;
+
+create or replace function private.get_list_v2(p_list_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_household uuid := private.active_household_id();
+  v_list jsonb;
+  v_count integer;
+  v_done integer;
+  v_tasks jsonb;
+begin
+  if auth.uid() is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
+
+  select to_jsonb(l) into v_list from public.lists l
+  where l.id = p_list_id and l.household_id = v_household and l.status = 'open';
+  if v_list is null then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+
+  -- Incomplete first, each group in its declared order.
+  with list_tasks as (
+    select t.* from public.tasks t
+    where t.list_id = p_list_id
+    order by t.completed, t.sort_order, t.id
+    limit private.collection_limit() + 1
   )
-  select * into v_last from candidates order by kind_order, sort_order, id
-    offset greatest(v_limit - 1, 0) limit 1;
+  select count(*)::integer, (count(*) filter (where lt.completed))::integer,
+    coalesce(jsonb_agg(to_jsonb(lt) order by lt.completed, lt.sort_order, lt.id), '[]'::jsonb)
+  into v_count, v_done, v_tasks
+  from list_tasks lt;
 
-  with candidates as (
-    select l.id, l.sort_order, case when l.kind = 'template' then 0 else 1 end as kind_order
-    from public.lists l
-    where l.household_id = v_household and l.status = 'open'
-      and (v_cursor is null or
-        (case when l.kind = 'template' then 0 else 1 end, l.sort_order, l.id) >
-        (v_kind_order, v_sort_order, v_id))
-  )
-  select exists (select 1 from candidates order by kind_order, sort_order, id offset v_limit limit 1)
-  into v_more;
-
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
   return private.ok_response(jsonb_build_object(
-    'items', v_items,
-    'next_cursor', case when v_more then private.encode_cursor(jsonb_build_object(
-      'kind_order', v_last.kind_order, 'sort_order', v_last.sort_order, 'id', v_last.id
-    )) else null end
+    'list', v_list,
+    'total_tasks', v_count,
+    'completed_tasks', v_done,
+    'progress_percent', case when v_count = 0 then 0 else round(v_done * 100.0 / v_count)::integer end,
+    'tasks', v_tasks
   ));
 end;
 $$;
 
-create or replace function public.get_home_v2(p_cursor text default null, p_limit integer default 50)
+create or replace function public.get_list_v2(p_list_id uuid)
 returns jsonb language sql stable security invoker set search_path = ''
-as $$ select private.get_home_v2(p_cursor, p_limit); $$;
+as $$ select private.get_list_v2(p_list_id); $$;
 
 create or replace function public.get_list(
   p_list_id uuid,
@@ -447,13 +457,16 @@ create or replace function public.get_my_tasks(p_cursor text default null, p_lim
 returns jsonb language sql stable security invoker set search_path = ''
 as $$ select private.get_cross_list_tasks('mine', p_cursor, p_limit); $$;
 
-create or replace function private.get_all_tasks(
-  p_due_from timestamptz default null,
-  p_due_before timestamptz default null,
-  p_undated boolean default false,
-  p_incomplete_only boolean default false,
-  p_cursor text default null,
-  p_limit integer default 50
+-- My Tasks, Unassigned and All Tasks are one reader with a scope: full task
+-- rows plus their list title, from open active lists in the caller's
+-- household. Date bounds are inclusive-exclusive and apply only to dated
+-- tasks; undated selects exactly the tasks without a deadline.
+create or replace function private.get_household_tasks(
+  p_scope text,
+  p_due_from timestamptz,
+  p_due_before timestamptz,
+  p_undated boolean,
+  p_incomplete_only boolean
 )
 returns jsonb
 language plpgsql
@@ -464,103 +477,66 @@ as $$
 declare
   v_actor uuid := auth.uid();
   v_household uuid := private.active_household_id();
-  v_cursor jsonb := private.decode_cursor(p_cursor);
-  v_has_due boolean;
-  v_due timestamptz;
-  v_list_id uuid;
-  v_task_id uuid;
-  v_limit integer := least(greatest(coalesce(p_limit, 50), 1), 50);
+  v_count integer;
   v_items jsonb;
-  v_more boolean;
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
   if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
-  if p_undated is null or p_incomplete_only is null
+  if p_scope is null or p_scope not in ('all', 'mine', 'unassigned')
+    or p_undated is null or p_incomplete_only is null
     or (p_due_from is not null and p_due_before is not null and p_due_from >= p_due_before)
     or (p_undated and (p_due_from is not null or p_due_before is not null)) then
     return private.error_response('VALIDATION', 'error.task_filter_invalid');
   end if;
-  if p_cursor is not null and v_cursor is null then
-    return private.error_response('VALIDATION', 'error.cursor_invalid');
-  end if;
-  if v_cursor is not null then
-    begin
-      v_has_due := (v_cursor ->> 'has_due')::boolean;
-      v_due := (v_cursor ->> 'sort_due')::timestamptz;
-      v_list_id := (v_cursor ->> 'list_id')::uuid;
-      v_task_id := (v_cursor ->> 'task_id')::uuid;
-      if v_has_due is null or v_due is null or v_list_id is null or v_task_id is null
-        or v_cursor -> 'due_from' is distinct from coalesce(to_jsonb(p_due_from), 'null'::jsonb)
-        or v_cursor -> 'due_before' is distinct from coalesce(to_jsonb(p_due_before), 'null'::jsonb)
-        or v_cursor -> 'undated' is distinct from to_jsonb(p_undated)
-        or v_cursor -> 'incomplete_only' is distinct from to_jsonb(p_incomplete_only) then
-        return private.error_response('VALIDATION', 'error.cursor_invalid');
-      end if;
-    exception when others then
-      return private.error_response('VALIDATION', 'error.cursor_invalid');
-    end;
-  end if;
 
-  with candidates as (
-    select t.id as task_id, t.due_at, t.list_id,
-      (t.due_at is null) as has_no_due,
-      coalesce(t.due_at, 'infinity'::timestamptz) as sort_due
+  -- Deadline ascending with undated last, then list and task id: the order
+  -- compareTasksByDue reproduces on the client.
+  with matches as (
+    select t.*, l.title as list_title
     from public.tasks t
     join public.lists l on l.id = t.list_id and l.household_id = t.household_id
     where t.household_id = v_household and l.kind = 'active' and l.status = 'open'
+      and (p_scope = 'all'
+        or (p_scope = 'mine' and t.assignee_id = v_actor)
+        or (p_scope = 'unassigned' and t.assignee_id is null))
       and (not p_incomplete_only or not t.completed)
-      and (
-        (p_undated and t.due_at is null)
-        or (not p_undated and (
-          (p_due_from is null and p_due_before is null)
-          or (t.due_at is not null
-            and (p_due_from is null or t.due_at >= p_due_from)
-            and (p_due_before is null or t.due_at < p_due_before))
-        ))
-      )
-  ), page as (
-    select c.* from candidates c
-    where v_cursor is null or
-      (c.has_no_due, c.sort_due, c.list_id, c.task_id) >
-      (not v_has_due, v_due, v_list_id, v_task_id)
-    order by has_no_due, sort_due, list_id, task_id
-    limit v_limit + 1
-  ), visible as (
-    select p.* from page p order by has_no_due, sort_due, list_id, task_id limit v_limit
+      and case
+        when p_undated then t.due_at is null
+        when p_due_from is null and p_due_before is null then true
+        else t.due_at is not null
+          and (p_due_from is null or t.due_at >= p_due_from)
+          and (p_due_before is null or t.due_at < p_due_before)
+      end
+    order by t.due_at nulls last, t.list_id, t.id
+    limit private.collection_limit() + 1
   )
-  select coalesce(jsonb_agg(to_jsonb(t) || jsonb_build_object('list_title', l.title)
-    order by v.has_no_due, v.sort_due, v.list_id, v.task_id), '[]'::jsonb),
-    (select count(*) > v_limit from page)
-  into v_items, v_more
-  from visible v
-  join public.tasks t on t.id = v.task_id
-  join public.lists l on l.id = v.list_id and l.household_id = t.household_id;
+  select count(*)::integer,
+    coalesce(jsonb_agg(to_jsonb(m) order by m.due_at nulls last, m.list_id, m.id), '[]'::jsonb)
+  into v_count, v_items
+  from matches m;
 
-  return private.ok_response(jsonb_build_object(
-    'items', v_items,
-    'next_cursor', case when v_more then private.encode_cursor(jsonb_build_object(
-      'has_due', v_items -> -1 ->> 'due_at' is not null,
-      'sort_due', coalesce((v_items -> -1 ->> 'due_at')::timestamptz, 'infinity'::timestamptz),
-      'list_id', v_items -> -1 ->> 'list_id',
-      'task_id', v_items -> -1 ->> 'id',
-      'due_from', p_due_from,
-      'due_before', p_due_before,
-      'undated', p_undated,
-      'incomplete_only', p_incomplete_only
-    )) else null end
-  ));
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
+  return private.ok_response(jsonb_build_object('items', v_items));
 end;
 $$;
+
+create or replace function public.get_my_tasks_v2()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_household_tasks('mine', null, null, false, true); $$;
+
+create or replace function public.get_unassigned_v2()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_household_tasks('unassigned', null, null, false, true); $$;
 
 create or replace function public.get_all_tasks(
   p_due_from timestamptz default null,
   p_due_before timestamptz default null,
   p_undated boolean default false,
-  p_incomplete_only boolean default false,
-  p_cursor text default null,
-  p_limit integer default 50
+  p_incomplete_only boolean default false
 )
 returns jsonb language sql stable security invoker set search_path = ''
 as $$
-  select private.get_all_tasks(p_due_from, p_due_before, p_undated, p_incomplete_only, p_cursor, p_limit);
+  select private.get_household_tasks('all', p_due_from, p_due_before, p_undated, p_incomplete_only);
 $$;

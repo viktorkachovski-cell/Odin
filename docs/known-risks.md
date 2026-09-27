@@ -86,6 +86,12 @@ Every future field on a list or task faces the same fork, so the surface grows
 each time. A reading of `private.command_receipts` by `command_name` would show
 whether the legacy pair is still in use.
 
+The task-workflow branch adds the read side of the same problem: current
+clients read snapshots (`get_home_v2`, `get_list_v2`, `get_my_tasks_v2`,
+`get_unassigned_v2`), while the paged `get_home`, `get_list`, `get_my_tasks`
+and `get_unassigned` stay only for installed builds. Reads leave no receipt, so
+nothing in the database shows when those can go.
+
 Recorded in `docs/deployment-log.md` and
 `docs/features.md`.
 
@@ -156,6 +162,31 @@ here than elsewhere: every other Android feature at least renders in a test
 renderer, while notification delivery has no non-device evidence at all.
 
 Closing it means either the push work in open decision 7, or a device pass.
+
+### R10 — A collection past 1,000 rows cannot be shown
+
+**Severity: low today, grows with history. Opened on the task-workflow branch.**
+
+Each household collection is read in one request and refused with `TOO_LARGE`
+above 1,000 rows, deliberately, rather than paged or truncated
+(`docs/contract.md`). The likeliest to reach it is All Tasks with All deadlines:
+it includes completed tasks in every open active list, so a long-lived list
+such as a shopping list accumulates rows indefinitely. When it happens the
+member sees a "too many items" message on that view and no data, while the
+other views keep working. Archiving old lists is the only relief, and archiving
+is itself one-way (R2).
+
+### R11 — The first task-workflow migration touches every list's version
+
+**Severity: low, one-time. Opened on the task-workflow branch.**
+
+`20260927121823_task_workflow_polish.sql` backfills `lists.sort_order` with an
+`UPDATE`, which fires `lists_touch_version`: every existing list gets one
+version increment and an `updated_at` equal to the migration time. Any list
+editor open during the migration will report a conflict once, and
+`updated_at` stops meaning "last edited" for every list that predates it.
+Disabling the trigger around the backfill would avoid both; it has not been
+applied anywhere yet, so this is still cheap to change before the hosted run.
 
 ## Accepted, not tracked
 

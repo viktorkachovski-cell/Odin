@@ -1,9 +1,16 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import type { CommandError, MemberDto, TaskDto, TaskRowModel } from '@odin/contracts';
-import type { TaskStatus } from '@odin/contracts';
+import type {
+  CommandError,
+  MemberDto,
+  MoveDirection,
+  TaskDto,
+  TaskRowModel,
+  TaskState,
+} from '@odin/contracts';
 import { taskRowFromTask } from '@odin/contracts';
+import { adjacentMoves } from '@odin/domain';
 import type { Locale, TranslationKey, Translator } from '@odin/i18n';
 
 import { ErrorBanner } from './Banner.tsx';
@@ -27,7 +34,7 @@ export function ListTasks({
   onEdit,
   onOpenDetails,
   onToggleCompleted,
-  onSetStatus,
+  onSetState,
   onMoveTask,
   onUnassign,
   onDelete,
@@ -41,34 +48,37 @@ export function ListTasks({
   readonly onEdit: (task: TaskRowModel) => void;
   readonly onOpenDetails: (task: TaskRowModel) => void;
   readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
-  readonly onSetStatus: (task: TaskRowModel, status: TaskStatus) => void;
-  readonly onMoveTask: (task: TaskRowModel, direction: 'up' | 'down') => void;
+  readonly onSetState: (task: TaskRowModel, state: TaskState) => void;
+  readonly onMoveTask: (task: TaskRowModel, direction: MoveDirection) => void;
   readonly onUnassign: (task: TaskRowModel) => void;
   readonly onDelete: (task: TaskRowModel) => void;
 }): ReactNode {
+  // A template's tasks can be reordered but carry no runtime state, so they
+  // keep the move controls and lose everything else.
   return (
     <ul className="task-list">
-      {tasks.map((task, index) => (
-        <TaskRow
-          busy={busy}
-          key={task.id}
-          locale={locale}
-          members={members}
-          onDelete={isTemplate ? undefined : onDelete}
-          onEdit={isTemplate ? undefined : onEdit}
-          onOpenDetails={onOpenDetails}
-          onSetStatus={isTemplate ? undefined : onSetStatus}
-          onMove={isTemplate ? undefined : onMoveTask}
-          moveUpDisabled={index === 0 || tasks[index - 1]?.completed !== task.completed}
-          moveDownDisabled={
-            index === tasks.length - 1 || tasks[index + 1]?.completed !== task.completed
-          }
-          onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
-          onUnassign={isTemplate ? undefined : onUnassign}
-          t={t}
-          task={taskRowFromTask(task)}
-        />
-      ))}
+      {tasks.map((task, index) => {
+        const moves = adjacentMoves(tasks, index, (row) => row.completed);
+        return (
+          <TaskRow
+            busy={busy}
+            key={task.id}
+            locale={locale}
+            members={members}
+            moveDownDisabled={!moves.down}
+            moveUpDisabled={!moves.up}
+            onDelete={isTemplate ? undefined : onDelete}
+            onEdit={isTemplate ? undefined : onEdit}
+            onMove={onMoveTask}
+            onOpenDetails={onOpenDetails}
+            onSetState={isTemplate ? undefined : onSetState}
+            onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
+            onUnassign={isTemplate ? undefined : onUnassign}
+            t={t}
+            task={taskRowFromTask(task)}
+          />
+        );
+      })}
     </ul>
   );
 }

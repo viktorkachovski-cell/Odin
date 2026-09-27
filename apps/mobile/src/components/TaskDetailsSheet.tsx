@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { MemberDto, TaskDto } from '@odin/contracts';
-import type { Locale, Translator } from '@odin/i18n';
+import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { PrimaryButton, SecondaryButton } from './Button.tsx';
@@ -52,13 +52,6 @@ export function TaskDetailsErrorSheet({
   );
 }
 
-function formatDue(dueAt: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  }).format(new Date(dueAt));
-}
-
 export function TaskDetailsSheet({
   task,
   members,
@@ -96,7 +89,7 @@ export function TaskDetailsSheet({
       />
       <Detail
         label={t('task.due.label')}
-        value={task.due_at === null ? t('task.due.none') : formatDue(task.due_at, locale)}
+        value={task.due_at === null ? t('task.due.none') : formatDueAt(task.due_at, locale, 'full')}
       />
     </Sheet>
   );

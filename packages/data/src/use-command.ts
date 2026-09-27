@@ -55,8 +55,11 @@ export function useCommand<TInput, TData>(
         // Settled: the next submission is a genuinely new operation.
         requestIdRef.current = null;
         lastInputRef.current = null;
-        setState({ pending: false, error: null });
+        // Stay pending until the affected reads have refetched. A control that
+        // re-enabled earlier would offer the version the screen still shows,
+        // which the write just made stale -- a quick second move would CONFLICT.
         await invalidateAffected();
+        setState({ pending: false, error: null });
         onSuccess?.(result.data);
         return result;
       }

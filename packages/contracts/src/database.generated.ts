@@ -308,35 +308,33 @@ export type Database = {
       }
       get_all_tasks: {
         Args: {
-          p_cursor?: string
           p_due_before?: string
           p_due_from?: string
           p_incomplete_only?: boolean
-          p_limit?: number
           p_undated?: boolean
         }
         Returns: Json
       }
       get_home: { Args: { p_cursor?: string; p_limit?: number }; Returns: Json }
-      get_home_v2: {
-        Args: { p_cursor?: string; p_limit?: number }
-        Returns: Json
-      }
+      get_home_v2: { Args: never; Returns: Json }
       get_list: {
         Args: { p_cursor?: string; p_limit?: number; p_list_id: string }
         Returns: Json
       }
+      get_list_v2: { Args: { p_list_id: string }; Returns: Json }
       get_members: { Args: never; Returns: Json }
       get_my_household: { Args: never; Returns: Json }
       get_my_tasks: {
         Args: { p_cursor?: string; p_limit?: number }
         Returns: Json
       }
+      get_my_tasks_v2: { Args: never; Returns: Json }
       get_task_templates: { Args: never; Returns: Json }
       get_unassigned: {
         Args: { p_cursor?: string; p_limit?: number }
         Returns: Json
       }
+      get_unassigned_v2: { Args: never; Returns: Json }
       move_list: {
         Args: {
           direction: string
@@ -380,11 +378,11 @@ export type Database = {
         }
         Returns: Json
       }
-      set_task_status: {
+      set_task_state: {
         Args: {
           expected_version: number
           request_id: string
-          status: string
+          state: string
           task_id: string
         }
         Returns: Json

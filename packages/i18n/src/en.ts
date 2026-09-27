@@ -225,6 +225,7 @@ export const en = {
   'error.invite_revoked': 'This invitation was revoked.',
   'error.already_in_household': 'You already belong to a household.',
   'error.rate_limited': 'Too many attempts. Please wait a moment.',
+  'error.too_large': 'There are too many items to show at once.',
   'error.network': 'We could not reach the server. Check your connection.',
   'error.unknown': 'Something went wrong. Please try again.',
 

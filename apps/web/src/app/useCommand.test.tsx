@@ -1,10 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import type { CommandResult } from '@odin/contracts';
-import { useCommand } from '@odin/data';
+import type { CommandResult, TaskRowModel } from '@odin/contracts';
+import { useCommand, useTaskRowActions, type OdinSupabaseClient } from '@odin/data';
 
 /**
  * The request ID rule is the subtlest correctness property on the client:
@@ -115,5 +115,88 @@ describe('useCommand request ids', () => {
       outcome = await result.current.retry();
     });
     expect(outcome).toBeNull();
+  });
+});
+
+describe('useCommand pending state', () => {
+  it('stays pending until the affected reads have refetched', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const shared = ({ children }: { readonly children: ReactNode }): ReactNode => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    let reads = 0;
+    let release = (): void => undefined;
+    const queryFn = (): Promise<number> => {
+      reads += 1;
+      const read = reads;
+      return read === 1
+        ? Promise.resolve(read)
+        : new Promise((resolve) => {
+            release = () => resolve(read);
+          });
+    };
+    const execute = (): Promise<CommandResult<string>> =>
+      Promise.resolve({ ok: true, data: 'moved' });
+
+    const { result } = renderHook(
+      () => ({
+        read: useQuery({ queryKey: ['home'], queryFn }),
+        command: useCommand(execute, { invalidate: [['home']] }),
+      }),
+      { wrapper: shared },
+    );
+    await waitFor(() => expect(result.current.read.data).toBe(1));
+
+    let running: Promise<unknown> = Promise.resolve();
+    act(() => {
+      running = result.current.command.run({});
+    });
+    await waitFor(() => expect(reads).toBe(2));
+    // The write has settled, but the screen still shows the old version.
+    expect(result.current.command.state.pending).toBe(true);
+
+    await act(async () => {
+      release();
+      await running;
+    });
+    expect(result.current.command.state.pending).toBe(false);
+    expect(result.current.read.data).toBe(2);
+  });
+});
+
+describe('useTaskRowActions', () => {
+  const row: TaskRowModel = {
+    id: 'task-1',
+    title: 'Water the plants',
+    completed: false,
+    assignee_id: null,
+    due_at: null,
+    version: 4,
+    list_id: 'list-1',
+  };
+
+  it('sends the chosen state with the row version and offers retry only for NETWORK', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: { ok: false, error: { code: 'CONFLICT', message_key: 'error.conflict' } },
+        error: null,
+      })
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const client = { rpc } as unknown as OdinSupabaseClient;
+    const { result } = renderHook(() => useTaskRowActions(client, 'list-1'), { wrapper });
+
+    act(() => result.current.setState(row, 'blocked'));
+    await waitFor(() => expect(result.current.errors[1]?.error?.code).toBe('CONFLICT'));
+    expect(rpc).toHaveBeenCalledWith(
+      'set_task_state',
+      expect.objectContaining({ task_id: 'task-1', expected_version: 4, state: 'blocked' }),
+    );
+    expect(result.current.errors[1]?.retry).toBeUndefined();
+
+    act(() => result.current.move(row, 'up'));
+    await waitFor(() => expect(result.current.errors[2]?.error?.code).toBe('NETWORK'));
+    expect(result.current.errors[2]?.retry).toBeInstanceOf(Function);
+    expect(result.current.busy).toBe(false);
   });
 });

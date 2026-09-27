@@ -1,26 +1,25 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import type {
-  HomePageDto,
+  HomeDto,
   HouseholdDto,
-  ListPageDto,
+  ListDetailDto,
   MemberDto,
   ProfileDto,
-  TaskPageDto,
-  AllTaskPageDto,
+  TaskCollectionDto,
   TaskDto,
 } from '@odin/contracts';
 import type { TaskDeadlineFilter } from '@odin/domain';
 import {
-  getHomeAll,
-  getListAll,
+  getAllTasks,
+  getHome,
+  getList,
   getMembers,
   getMyHousehold,
   getMyProfile,
-  getMyTasksAll,
-  getUnassignedAll,
-  getAllTasksAll,
+  getMyTasks,
   getTask,
+  getUnassigned,
   queryKeys,
 } from '@odin/data';
 
@@ -55,33 +54,33 @@ export function useMembersQuery(enabled: boolean): UseQueryResult<MemberDto[]> {
   return useQuery({ queryKey: queryKeys.members, queryFn: () => getMembers(client), enabled });
 }
 
-export function useHomeQuery(enabled: boolean): UseQueryResult<HomePageDto> {
+export function useHomeQuery(enabled: boolean): UseQueryResult<HomeDto> {
   const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.home, queryFn: () => getHomeAll(client), enabled });
+  return useQuery({ queryKey: queryKeys.home, queryFn: () => getHome(client), enabled });
 }
 
 export function useListQuery(
   listId: string | undefined,
   enabled: boolean,
-): UseQueryResult<ListPageDto> {
+): UseQueryResult<ListDetailDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.list(listId ?? ''),
-    queryFn: () => getListAll(client, listId ?? ''),
+    queryFn: () => getList(client, listId ?? ''),
     enabled: enabled && listId !== undefined && listId.length > 0,
   });
 }
 
-export function useMyTasksQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
+export function useMyTasksQuery(enabled: boolean): UseQueryResult<TaskCollectionDto> {
   const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasksAll(client), enabled });
+  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasks(client), enabled });
 }
 
-export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskPageDto> {
+export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskCollectionDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.unassigned,
-    queryFn: () => getUnassignedAll(client),
+    queryFn: () => getUnassigned(client),
     enabled,
   });
 }
@@ -89,11 +88,11 @@ export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskPageDto
 export function useAllTasksQuery(
   filter: TaskDeadlineFilter,
   enabled: boolean,
-): UseQueryResult<AllTaskPageDto> {
+): UseQueryResult<TaskCollectionDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: [...queryKeys.allTasks, filter],
-    queryFn: () => getAllTasksAll(client, filter),
+    queryFn: () => getAllTasks(client, filter),
     enabled,
   });
 }

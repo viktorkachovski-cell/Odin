@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 
-import type { CrossListTaskDto } from '@odin/contracts';
+import type { HouseholdTaskDto } from '@odin/contracts';
 
 /**
  * Delivery behaviour, driven through the in-memory `expo-notifications` double
@@ -20,15 +20,15 @@ const native = jest.requireMock<NotificationDouble>('expo-notifications');
 const mockState = {
   foreground: false,
   locale: 'en' as 'en' | 'bg',
-  myTasks: [] as readonly CrossListTaskDto[],
-  unassigned: [] as readonly CrossListTaskDto[],
+  myTasks: [] as readonly HouseholdTaskDto[],
+  unassigned: [] as readonly HouseholdTaskDto[],
 };
 
 jest.mock('./OdinContext.ts', () => ({ useOdin: () => ({ locale: mockState.locale }) }));
 jest.mock('./useAppForeground.ts', () => ({ useAppForeground: () => mockState.foreground }));
 jest.mock('./queries.ts', () => ({
-  useMyTasksQuery: () => ({ data: { items: mockState.myTasks, next_cursor: null } }),
-  useUnassignedQuery: () => ({ data: { items: mockState.unassigned, next_cursor: null } }),
+  useMyTasksQuery: () => ({ data: { items: mockState.myTasks } }),
+  useUnassignedQuery: () => ({ data: { items: mockState.unassigned } }),
 }));
 
 import { useTaskNotifications } from './useTaskNotifications.ts';
@@ -36,14 +36,21 @@ import { useTaskNotifications } from './useTaskNotifications.ts';
 const NOW = Date.now();
 const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
 
-function task(overrides: Partial<CrossListTaskDto> = {}): CrossListTaskDto {
+function task(overrides: Partial<HouseholdTaskDto> = {}): HouseholdTaskDto {
   return {
-    task_id: 't1',
+    id: 't1',
+    household_id: 'h1',
     list_id: 'l1',
     list_title: 'Weekly',
     title: 'Water the plants',
+    notes: null,
+    sort_order: 0,
+    completed: false,
+    blocked: false,
+    assignee_id: 'u1',
     due_at: null,
-    has_no_due: true,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
     version: 1,
     ...overrides,
   };
@@ -101,7 +108,7 @@ describe('announcing changes', () => {
 
     // Leaving the app must not replay the change that was deliberately silent.
     mockState.foreground = false;
-    mockState.myTasks = [task(), task({ task_id: 't2', title: 'Take out bins' })];
+    mockState.myTasks = [task(), task({ id: 't2', title: 'Take out bins' })];
     await rerender(undefined);
 
     await waitFor(() => expect(titles()).toEqual(['A task is now yours']));
@@ -113,8 +120,8 @@ describe('announcing changes', () => {
 
     mockState.myTasks = [
       task(),
-      task({ task_id: 't2', title: 'Take out bins' }),
-      task({ task_id: 't3', title: 'Hoover' }),
+      task({ id: 't2', title: 'Take out bins' }),
+      task({ id: 't3', title: 'Hoover' }),
     ];
     await rerender(undefined);
 
@@ -136,7 +143,7 @@ describe('deadline reminders', () => {
   const dueAt = new Date(NOW + THREE_DAYS).toISOString();
 
   it('schedules one reminder per stage, keyed by task, stage and language', async () => {
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     await renderHook(() => useTaskNotifications(true));
 
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
@@ -148,9 +155,7 @@ describe('deadline reminders', () => {
   });
 
   it('covers unassigned tasks as well as your own', async () => {
-    mockState.unassigned = [
-      task({ task_id: 'u1', title: 'Book the plumber', due_at: dueAt, has_no_due: false }),
-    ];
+    mockState.unassigned = [task({ id: 'u1', title: 'Book the plumber', due_at: dueAt })];
     await renderHook(() => useTaskNotifications(true));
 
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
@@ -158,14 +163,14 @@ describe('deadline reminders', () => {
   });
 
   it('leaves reminders already in place alone', async () => {
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     const { rerender } = await renderHook(() => useTaskNotifications(true));
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
 
     // A fresh array with identical content: the reconciler re-runs and must
     // recognise its own work instead of scheduling a second copy.
     native.scheduleNotificationAsync.mockClear();
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     await rerender(undefined);
 
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
@@ -173,18 +178,18 @@ describe('deadline reminders', () => {
   });
 
   it('cancels reminders when the deadline is removed', async () => {
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     const { rerender } = await renderHook(() => useTaskNotifications(true));
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
 
-    mockState.myTasks = [task({ due_at: null, has_no_due: true })];
+    mockState.myTasks = [task({ due_at: null })];
     await rerender(undefined);
 
     await waitFor(() => expect(native.__scheduled.size).toBe(0));
   });
 
   it('cancels reminders when the task leaves your lists entirely', async () => {
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     const { rerender } = await renderHook(() => useTaskNotifications(true));
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
 
@@ -195,7 +200,7 @@ describe('deadline reminders', () => {
   });
 
   it('re-words reminders when the member changes language', async () => {
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     const { rerender } = await renderHook(() => useTaskNotifications(true));
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
 
@@ -212,7 +217,7 @@ describe('deadline reminders', () => {
   });
 
   it('holds no reminders while notifications are off', async () => {
-    mockState.myTasks = [task({ due_at: dueAt, has_no_due: false })];
+    mockState.myTasks = [task({ due_at: dueAt })];
     const { rerender } = await renderHook(() => useTaskNotifications(true));
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
 

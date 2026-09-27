@@ -34,26 +34,27 @@ The checked-in CLI is pinned in `package.json`; use it through npm/npx. `db rese
 
 The `authenticated` role can select RLS-filtered rows and execute public RPCs. It has no direct insert/update/delete privileges. `anon` receives no application table or RPC access. Private tables are not exposed through PostgREST.
 
-| Public RPC                         | Private helper                   | Security boundary                                                                 |
-| ---------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
-| `update_profile`                   | `private.update_profile`         | Own Auth user only; validated display name/locale                                 |
-| `create_household`                 | `private.create_household`       | One active household; user lock; versioned seed copy                              |
-| `create_list`, `update_list`       | matching private helper          | Active membership; active lists only; optimistic version                          |
-| `create_list_v2`, `update_list_v2` | matching private helper          | As above plus the shared list note; legacy pair stays note-preserving             |
-| `save_list_template`               | `private.save_list_template`     | One transaction; active/open source unchanged; tasks copied without runtime state |
-| `copy_template`                    | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                           |
-| `delete_list`                      | `private.delete_list`            | Archives any open list, template or active; optimistic version; tasks kept        |
-| `delete_task`                      | `private.delete_task`            | Permanent; active/open parent only; optimistic version                            |
-| `create_task`, `update_task`       | matching private helper          | Active list/member locks; same-household assignee                                 |
-| `set_task_completed`               | matching private helper          | Explicit desired state; optimistic version                                        |
-| `set_task_status`                  | matching private helper          | Assignment-consistent status; blocked/done exclusive; optimistic version          |
-| `move_list`, `move_task`           | matching private helpers         | Adjacent swap within household and allowed group; optimistic versions             |
-| `claim_task`                       | matching private helper          | Incomplete and unassigned under row lock                                          |
-| `create_invitation`                | matching private helper          | Creator active; 10/hour; database-generated token; 72-hour default                |
-| `redeem_invitation`                | matching private helper          | Authenticated, single use, expiry/revocation and 10-failures/15-minute limit      |
-| `revoke_invitation`                | matching private helper          | Creator-only proposed default                                                     |
-| read RPCs                          | safe invoker/definer projections | Active household only; no email, locale or token disclosure                       |
-| `get_home_v2`, `get_all_tasks`     | matching private readers         | Shared list order and deadline pagination; active household/open lists only       |
+| Public RPC                                              | Private helper                   | Security boundary                                                                 |
+| ------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
+| `update_profile`                                        | `private.update_profile`         | Own Auth user only; validated display name/locale                                 |
+| `create_household`                                      | `private.create_household`       | One active household; user lock; versioned seed copy                              |
+| `create_list`, `update_list`                            | matching private helper          | Active membership; active lists only; optimistic version                          |
+| `create_list_v2`, `update_list_v2`                      | matching private helper          | As above plus the shared list note; legacy pair stays note-preserving             |
+| `save_list_template`                                    | `private.save_list_template`     | One transaction; active/open source unchanged; tasks copied without runtime state |
+| `copy_template`                                         | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                           |
+| `delete_list`                                           | `private.delete_list`            | Archives any open list, template or active; optimistic version; tasks kept        |
+| `delete_task`                                           | `private.delete_task`            | Permanent; active/open parent only; parent list lock; optimistic version          |
+| `create_task`, `update_task`                            | matching private helper          | Active list/member locks; same-household assignee                                 |
+| `set_task_completed`                                    | matching private helper          | Explicit desired state; optimistic version                                        |
+| `set_task_state`                                        | matching private helper          | Open/blocked/done; never touches assignee; parent list lock; optimistic version   |
+| `move_list`, `move_task`                                | matching private helpers         | Adjacent swap within kind/completion group; lock, then version check              |
+| `claim_task`                                            | matching private helper          | Incomplete and unassigned under row lock                                          |
+| `create_invitation`                                     | matching private helper          | Creator active; 10/hour; database-generated token; 72-hour default                |
+| `redeem_invitation`                                     | matching private helper          | Authenticated, single use, expiry/revocation and 10-failures/15-minute limit      |
+| `revoke_invitation`                                     | matching private helper          | Creator-only proposed default                                                     |
+| read RPCs                                               | safe invoker/definer projections | Active household only; no email, locale or token disclosure                       |
+| `get_home_v2`, `get_list_v2`                            | matching private readers         | One snapshot each; shared list order; `TOO_LARGE` above 1,000 rows                |
+| `get_my_tasks_v2`, `get_unassigned_v2`, `get_all_tasks` | `private.get_household_tasks`    | One reader, three scopes; full task rows plus list title; `TOO_LARGE` ceiling     |
 
 All privileged helpers pin an empty `search_path`, derive the actor from `auth.uid()`, and are inaccessible through the exposed API schema. Public wrappers remain `SECURITY INVOKER`. Mutation receipts are scoped to actor/request ID; payload mismatches fail. Successful household-scoped receipts are not replayed after membership loss.
 
@@ -94,8 +95,10 @@ the next agent:
   `invitation_secret`, `save_command`, `replay_command`, `normalized_text`,
   `command_hash`) not executable by `authenticated`.
 - Types were regenerated into `packages/contracts/src/database.generated.ts`.
-- The task workflow migration is committed on `codex/task-workflow-polish` for
-  branch testing. It has **not** been applied to this hosted production project.
+- The task workflow migrations (`20260927121823_task_workflow_polish.sql` and
+  `20260927154349_task_workflow_review_fixes.sql`) are committed on
+  `codex/task-workflow-polish` for branch testing. They have **not** been
+  applied to this hosted production project.
 - `seed.sql` stays empty, so a new household starts with no templates. That is
   intended, not pending: see the seed-content note above.
 - Verification fixtures (three `@example.invalid` accounts and their data) were

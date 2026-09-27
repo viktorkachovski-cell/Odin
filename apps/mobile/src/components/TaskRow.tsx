@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { MemberDto, TaskRowModel, TaskStatus } from '@odin/contracts';
-import { isOverdue, taskStatus } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
+import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
+import { isOverdue, taskState, taskStatus, taskStatusOptions } from '@odin/domain';
+import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
@@ -31,8 +31,8 @@ export interface TaskRowProps {
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
   readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
   readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
-  readonly onSetStatus?: ((task: TaskRowModel, status: TaskStatus) => void) | undefined;
-  readonly onMove?: ((task: TaskRowModel, direction: 'up' | 'down') => void) | undefined;
+  readonly onSetState?: ((task: TaskRowModel, state: TaskState) => void) | undefined;
+  readonly onMove?: ((task: TaskRowModel, direction: MoveDirection) => void) | undefined;
   readonly moveUpDisabled?: boolean;
   readonly moveDownDisabled?: boolean;
 }
@@ -45,17 +45,12 @@ function TaskActions({
   onEdit,
   onUnassign,
   onDelete,
-  onSetStatus,
+  onSetState,
 }: Pick<
   TaskRowProps,
-  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete' | 'onSetStatus'
+  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete' | 'onSetState'
 >): ReactNode {
-  const currentStatus = taskStatus(task);
-  const availableStatuses: readonly TaskStatus[] = [
-    task.assignee_id === null ? 'unassigned' : 'todo',
-    'blocked',
-    'done',
-  ];
+  const currentState = taskState(task);
   const actions: ActionMenuItem[] = [
     ...(onEdit === undefined
       ? []
@@ -63,13 +58,13 @@ function TaskActions({
     ...(onUnassign === undefined || task.assignee_id === null
       ? []
       : [{ label: t('task.unassign.short'), onPress: () => onUnassign(task) }]),
-    ...(onSetStatus === undefined
+    ...(onSetState === undefined
       ? []
-      : availableStatuses
-          .filter((status) => status !== currentStatus)
-          .map((status) => ({
-            label: `${t('task.status.label')}: ${t(`task.status.${status}`)}`,
-            onPress: () => onSetStatus(task, status),
+      : taskStatusOptions(task)
+          .filter((option) => option.state !== currentState)
+          .map((option) => ({
+            label: `${t('task.status.label')}: ${t(`task.status.${option.status}`)}`,
+            onPress: () => onSetState(task, option.state),
           }))),
     ...(onDelete === undefined
       ? []
@@ -101,13 +96,6 @@ function TaskActions({
   );
 }
 
-function formatDue(dueAt: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(dueAt));
-}
-
 function DueText({
   task,
   locale,
@@ -134,7 +122,7 @@ function DueText({
     >
       {/* Overdue is spelled out; colour alone would not be enough. */}
       {overdue ? `${t('task.overdue')} · ` : ''}
-      {formatDue(task.due_at, locale)}
+      {formatDueAt(task.due_at, locale)}
     </Text>
   );
 }
@@ -151,7 +139,7 @@ export function TaskRow({
   onClaim,
   onUnassign,
   onDelete,
-  onSetStatus,
+  onSetState,
   onMove,
   moveUpDisabled = false,
   moveDownDisabled = false,
@@ -211,7 +199,7 @@ export function TaskRow({
             </Text>
           )}
 
-          {onSetStatus !== undefined && (
+          {onSetState !== undefined && (
             <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
               {t(`task.status.${taskStatus(task)}`)}
             </Text>
@@ -239,7 +227,7 @@ export function TaskRow({
         onClaim={onClaim}
         onDelete={onDelete}
         onEdit={onEdit}
-        onSetStatus={onSetStatus}
+        onSetState={onSetState}
         onUnassign={onUnassign}
         t={t}
         task={task}

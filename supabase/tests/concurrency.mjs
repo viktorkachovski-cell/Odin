@@ -19,6 +19,12 @@ const ids = {
   claimRequestB: '40000000-0000-0000-0000-000000000008',
   appendRequestA: '40000000-0000-0000-0000-000000000009',
   appendRequestB: '40000000-0000-0000-0000-000000000010',
+  moveList: '40000000-0000-0000-0000-000000000011',
+  moveTasks: [
+    '40000000-0000-0000-0000-000000000012',
+    '40000000-0000-0000-0000-000000000013',
+    '40000000-0000-0000-0000-000000000014',
+  ],
 };
 
 const admin = postgres(databaseUrl, { max: 6, prepare: false });
@@ -60,6 +66,16 @@ async function setupFixtures() {
       insert into public.tasks (id, household_id, list_id, title, sort_order)
       values (${ids.claimTask}, ${ids.household}, ${ids.list}, 'Claim once', 0)
     `;
+    await sql`
+      insert into public.lists (id, household_id, kind, title, created_by)
+      values (${ids.moveList}, ${ids.household}, 'active', 'Concurrent order', ${ids.userA})
+    `;
+    for (const [position, taskId] of ids.moveTasks.entries()) {
+      await sql`
+        insert into public.tasks (id, household_id, list_id, title, sort_order)
+        values (${taskId}, ${ids.household}, ${ids.moveList}, ${`Move ${position}`}, ${position})
+      `;
+    }
   });
 }
 
@@ -161,13 +177,124 @@ async function testParallelAppendOrder() {
   assert.equal(rows[1].sortOrder, rows[0].sortOrder + 1);
 }
 
+async function command(userId, statement) {
+  return asAuthenticated(userId, async (sql) => {
+    const [row] = await statement(sql);
+    return row.response;
+  });
+}
+
+/** Resolves once `count` backends are blocked on a lock inside `functionName`. */
+async function waitForLockWaiters(functionName, count = 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const [{ waiting }] = await admin`
+      select count(*)::integer as waiting from pg_stat_activity
+      where wait_event_type = 'Lock' and query like ${`%${functionName}%`}
+    `;
+    if (waiting >= count) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`no backend blocked in ${functionName}`);
+}
+
+async function moveTaskPositions() {
+  return admin`
+    select id, sort_order as "sortOrder" from public.tasks
+    where list_id = ${ids.moveList} order by sort_order
+  `;
+}
+
+/**
+ * A move whose neighbour is deleted by another member mid-flight must settle
+ * cleanly: task deletion and task moves serialise on the parent list, so the
+ * move sees the committed deletion and either moves past it or is a no-op.
+ */
+async function testMoveWhileNeighbourIsDeleted() {
+  const [first, second] = ids.moveTasks;
+  let releaseDelete;
+  const deleteGate = new Promise((resolve) => {
+    releaseDelete = resolve;
+  });
+  let deleted;
+  const deletedSignal = new Promise((resolve) => {
+    deleted = resolve;
+  });
+
+  const deleting = asAuthenticated(ids.userB, async (sql) => {
+    const [row] = await sql`
+      select public.delete_task(gen_random_uuid(), ${first}::uuid, 1) as response
+    `;
+    deleted();
+    await deleteGate;
+    return row.response;
+  });
+  await deletedSignal;
+
+  const moving = command(
+    ids.userA,
+    (sql) => sql`
+      select public.move_task(gen_random_uuid(), ${second}::uuid, 1, 'up') as response
+    `,
+  ).catch((error) => ({ ok: false, thrown: error.message }));
+  await waitForLockWaiters('move_task');
+  releaseDelete();
+
+  const [deleteResponse, moveResponse] = await Promise.all([deleting, moving]);
+  assert.equal(deleteResponse.ok, true);
+  assert.deepEqual(moveResponse, { ok: true, data: { task_id: second } });
+
+  const positions = await moveTaskPositions();
+  assert.deepEqual(
+    positions.map((row) => row.id),
+    ids.moveTasks.slice(1),
+  );
+}
+
+/**
+ * Two members moving adjacent tasks at once never deadlock, never lose a
+ * position and never let a stale expected version through.
+ */
+async function testCompetingAdjacentMoves() {
+  const [, second, third] = ids.moveTasks;
+  const responses = await Promise.all([
+    command(
+      ids.userA,
+      (sql) => sql`
+        select public.move_task(gen_random_uuid(), ${third}::uuid, 1, 'up') as response
+      `,
+    ),
+    command(
+      ids.userB,
+      (sql) => sql`
+        select public.move_task(gen_random_uuid(), ${second}::uuid, 1, 'down') as response
+      `,
+    ),
+  ]);
+
+  const winners = responses.filter((response) => response.ok === true);
+  const losers = responses.filter((response) => response.ok !== true);
+  assert.equal(winners.length, 1);
+  assert.equal(losers.length, 1);
+  assert.equal(losers[0].error.code, 'CONFLICT');
+
+  const positions = await moveTaskPositions();
+  assert.deepEqual(
+    positions.map((row) => row.id),
+    [third, second],
+  );
+  assert.equal(new Set(positions.map((row) => row.sortOrder)).size, 2);
+}
+
 try {
   await setupFixtures();
   await testDuplicateCreate();
   await testCompetingClaims();
   await testParallelAppendOrder();
+  await testMoveWhileNeighbourIsDeleted();
+  await testCompetingAdjacentMoves();
   console.info(
-    'Database concurrency tests passed: duplicate create, competing claims, append order',
+    'Database concurrency tests passed: duplicate create, competing claims, append order, ' +
+      'move during neighbour delete, competing adjacent moves',
   );
 } finally {
   await cleanFixtures();

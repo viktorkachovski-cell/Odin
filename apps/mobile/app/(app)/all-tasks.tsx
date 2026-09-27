@@ -1,9 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { TaskStatus } from '@odin/contracts';
-import { keysAffectedByTaskChange, setTaskCompleted, setTaskStatus, useCommand } from '@odin/data';
-import { resolveTaskDeadlineFilter, sortTasksByDue, type TaskDeadlineFilter } from '@odin/domain';
+import { taskRowFromHouseholdTask } from '@odin/contracts';
+import { useTaskRowActions } from '@odin/data';
+import {
+  resolveTaskDeadlineFilter,
+  TASK_DEADLINE_PRESETS,
+  type TaskDeadlineFilter,
+  type TaskDeadlinePreset,
+} from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
@@ -12,20 +17,12 @@ import { useAllTasksQuery, useMembersQuery } from '../../src/state/queries.ts';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { ActionMenu } from '../../src/components/ActionMenu.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
+import { CommandErrors } from '../../src/components/ListDetailSections.tsx';
 import { Field } from '../../src/components/Field.tsx';
 import { SecondaryButton } from '../../src/components/Button.tsx';
 import { Screen, EmptyState, LoadingState } from '../../src/components/Screen.tsx';
 import { TaskDetailsFlow } from '../../src/components/TaskDetailsFlow.tsx';
 import { TaskRow } from '../../src/components/TaskRow.tsx';
-
-const PRESETS: readonly TaskDeadlineFilter['preset'][] = [
-  'all',
-  'overdue',
-  'today',
-  'upcoming',
-  'undated',
-  'range',
-];
 
 export default function AllTasksScreen(): ReactNode {
   const { t, locale, client } = useOdin();
@@ -40,30 +37,9 @@ export default function AllTasksScreen(): ReactNode {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const tasks = useAllTasksQuery(filter, true);
 
-  const complete = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly completed: boolean;
-      },
-    ) => setTaskCompleted(client, requestId, input),
-    { invalidate: keysAffectedByTaskChange() },
-  );
-  const changeStatus = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly status: TaskStatus;
-      },
-    ) => setTaskStatus(client, requestId, input),
-    { invalidate: keysAffectedByTaskChange() },
-  );
+  const actions = useTaskRowActions(client);
 
-  const chooseFilter = (preset: TaskDeadlineFilter['preset']): void => {
+  const chooseFilter = (preset: TaskDeadlinePreset): void => {
     setFilterError(false);
     if (preset === 'range') {
       setRangeOpen(true);
@@ -84,13 +60,8 @@ export default function AllTasksScreen(): ReactNode {
   };
 
   if (tasks.isPending) return <LoadingState label={t('state.loading')} />;
-  const rows = sortTasksByDue(
-    (tasks.data?.items ?? []).map((task) => ({
-      ...task,
-      list_title: task.list_title,
-      assignee_id: task.assignee_id,
-    })),
-  );
+  // The server already returns deadline ascending with undated last.
+  const rows = (tasks.data?.items ?? []).map(taskRowFromHouseholdTask);
 
   return (
     <Screen title={t('tasks.all.title')}>
@@ -106,21 +77,12 @@ export default function AllTasksScreen(): ReactNode {
             t={t}
           />
         )}
-        {complete.state.error !== null && (
-          <ErrorBanner error={complete.state.error} onRetry={() => void complete.retry()} t={t} />
-        )}
-        {changeStatus.state.error !== null && (
-          <ErrorBanner
-            error={changeStatus.state.error}
-            onRetry={() => void changeStatus.retry()}
-            t={t}
-          />
-        )}
+        <CommandErrors errors={actions.errors} t={t} />
 
         <View style={styles.filter}>
           <ActionMenu
             accessibilityLabel={t('filter.deadline.label')}
-            actions={PRESETS.map((preset) => ({
+            actions={TASK_DEADLINE_PRESETS.map((preset) => ({
               label: t(`filter.deadline.${preset}`),
               onPress: () => chooseFilter(preset),
             }))}
@@ -163,25 +125,13 @@ export default function AllTasksScreen(): ReactNode {
         ) : (
           rows.map((task) => (
             <TaskRow
-              busy={complete.state.pending || changeStatus.state.pending}
+              busy={actions.busy}
               key={task.id}
               locale={locale}
               members={members.data ?? []}
               onPress={(selected) => setSelectedTaskId(selected.id)}
-              onSetStatus={(selected, status) =>
-                void changeStatus.run({
-                  taskId: selected.id,
-                  expectedVersion: selected.version,
-                  status,
-                })
-              }
-              onToggleCompleted={(selected, completed) =>
-                void complete.run({
-                  taskId: selected.id,
-                  expectedVersion: selected.version,
-                  completed,
-                })
-              }
+              onSetState={actions.setState}
+              onToggleCompleted={actions.toggleCompleted}
               t={t}
               task={task}
             />
@@ -190,6 +140,7 @@ export default function AllTasksScreen(): ReactNode {
         <NavSpacer />
       </ScrollView>
       <TaskDetailsFlow
+        editable
         key={selectedTaskId ?? 'closed'}
         members={members.data ?? []}
         onClose={() => setSelectedTaskId(null)}

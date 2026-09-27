@@ -10,21 +10,22 @@
  */
 
 import type {
-  HomePageDto,
+  HomeDto,
   HouseholdDto,
-  ListPageDto,
+  ListDetailDto,
   MemberDto,
   ProfileDto,
-  TaskPageDto,
+  TaskCollectionDto,
 } from '@odin/contracts';
 import {
-  parseHomePage,
+  parseHome,
   parseHousehold,
-  parseListPage,
+  parseListDetail,
   parseMembers,
   parseProfile,
-  parseTaskPage,
+  parseTaskCollection,
 } from '@odin/contracts';
+import { resolveTaskDeadlineFilter, type TaskDeadlineFilter } from '@odin/domain';
 
 import type { OdinSupabaseClient } from './client.ts';
 import { mapPostgrestError, OdinError, toOdinError, unwrapEnvelope } from './error-mapping.ts';
@@ -93,49 +94,41 @@ export async function getMembers(client: OdinSupabaseClient): Promise<MemberDto[
   return readRpc(client, 'get_members', parseMembers);
 }
 
-export async function getHome(
-  client: OdinSupabaseClient,
-  cursor?: string | null,
-): Promise<HomePageDto> {
-  return readRpc(
-    client,
-    'get_home_v2',
-    parseHomePage,
-    cursor === null || cursor === undefined ? undefined : { p_cursor: cursor },
-  );
+/*
+ * Household collections are read as one snapshot each. Paging them would let
+ * a row that another member reorders between two page reads be dropped or
+ * repeated; the server refuses a collection too large for one read with
+ * TOO_LARGE instead of truncating it.
+ */
+
+export function getHome(client: OdinSupabaseClient): Promise<HomeDto> {
+  return readRpc(client, 'get_home_v2', parseHome);
 }
 
-export async function getList(
+export function getList(client: OdinSupabaseClient, listId: string): Promise<ListDetailDto> {
+  return readRpc(client, 'get_list_v2', parseListDetail, { p_list_id: listId });
+}
+
+export function getMyTasks(client: OdinSupabaseClient): Promise<TaskCollectionDto> {
+  return readRpc(client, 'get_my_tasks_v2', parseTaskCollection);
+}
+
+export function getUnassigned(client: OdinSupabaseClient): Promise<TaskCollectionDto> {
+  return readRpc(client, 'get_unassigned_v2', parseTaskCollection);
+}
+
+/** Local-day deadline filters resolve against `now`, so one read has one notion of today. */
+export async function getAllTasks(
   client: OdinSupabaseClient,
-  listId: string,
-  cursor?: string | null,
-): Promise<ListPageDto> {
-  return readRpc(client, 'get_list', parseListPage, {
-    p_list_id: listId,
-    ...(cursor === null || cursor === undefined ? {} : { p_cursor: cursor }),
+  filter: TaskDeadlineFilter,
+  now = new Date(),
+): Promise<TaskCollectionDto> {
+  const result = resolveTaskDeadlineFilter(filter, now);
+  if (!result.ok) throw new OdinError({ code: 'VALIDATION', message_key: 'filter.date.invalid' });
+  return readRpc(client, 'get_all_tasks', parseTaskCollection, {
+    p_due_from: result.bounds.dueFrom,
+    p_due_before: result.bounds.dueBefore,
+    p_undated: result.bounds.undated,
+    p_incomplete_only: result.bounds.incompleteOnly,
   });
-}
-
-export async function getMyTasks(
-  client: OdinSupabaseClient,
-  cursor?: string | null,
-): Promise<TaskPageDto> {
-  return readRpc(
-    client,
-    'get_my_tasks',
-    parseTaskPage,
-    cursor === null || cursor === undefined ? undefined : { p_cursor: cursor },
-  );
-}
-
-export async function getUnassigned(
-  client: OdinSupabaseClient,
-  cursor?: string | null,
-): Promise<TaskPageDto> {
-  return readRpc(
-    client,
-    'get_unassigned',
-    parseTaskPage,
-    cursor === null || cursor === undefined ? undefined : { p_cursor: cursor },
-  );
 }

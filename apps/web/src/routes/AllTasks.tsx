@@ -2,35 +2,31 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 
 import {
-  taskRowFromTask,
-  type AllTaskDto,
+  taskRowFromHouseholdTask,
+  type HouseholdTaskDto,
   type MemberDto,
-  type TaskDto,
   type TaskRowModel,
-  type TaskStatus,
 } from '@odin/contracts';
+import { useTaskRowActions, type TaskRowActions } from '@odin/data';
 import {
-  keysAffectedByTaskChange,
-  setTaskCompleted,
-  setTaskStatus,
-  updateTask,
-  useCommand,
-} from '@odin/data';
-import { resolveTaskDeadlineFilter, type TaskDeadlineFilter } from '@odin/domain';
+  resolveTaskDeadlineFilter,
+  TASK_DEADLINE_PRESETS,
+  type TaskDeadlineFilter,
+  type TaskDeadlinePreset,
+} from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useAllTasksQuery, useMembersQuery } from '../app/queries.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
-import { TaskDetailsDialog } from '../components/TaskDetailsDialog.tsx';
-import { TaskEditor } from '../components/TaskEditor.tsx';
+import { CommandErrors } from '../components/ListDetailParts.tsx';
+import { TaskDetailsFlow } from '../components/TaskDetailsFlow.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 
-const PRESETS = ['all', 'overdue', 'today', 'upcoming', 'undated', 'range'] as const;
-type Preset = (typeof PRESETS)[number];
+type Preset = TaskDeadlinePreset;
 
 function isPreset(value: string | null): value is Preset {
-  return value !== null && PRESETS.some((preset) => preset === value);
+  return value !== null && TASK_DEADLINE_PRESETS.some((preset) => preset === value);
 }
 
 function filterLabel(preset: Preset): `filter.deadline.${Preset}` {
@@ -60,8 +56,14 @@ function DeadlineControls({
     <>
       <label className="field">
         <span className="field__label">{t('filter.deadline.label')}</span>
-        <select onChange={(event) => applyPreset(event.target.value as Preset)} value={preset}>
-          {PRESETS.map((value) => (
+        <select
+          onChange={(event) => {
+            const next = event.target.value;
+            if (isPreset(next)) applyPreset(next);
+          }}
+          value={preset}
+        >
+          {TASK_DEADLINE_PRESETS.map((value) => (
             <option key={value} value={value}>
               {t(filterLabel(value))}
             </option>
@@ -92,33 +94,29 @@ function AllTaskRows({
   members,
   locale,
   t,
-  busy,
+  actions,
   onOpenDetails,
-  onSetStatus,
-  onToggleCompleted,
 }: {
-  readonly tasks: readonly AllTaskDto[];
+  readonly tasks: readonly HouseholdTaskDto[];
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
-  readonly busy: boolean;
+  readonly actions: TaskRowActions;
   readonly onOpenDetails: (task: TaskRowModel) => void;
-  readonly onSetStatus: (task: TaskRowModel, status: TaskStatus) => void;
-  readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
 }): ReactNode {
   return (
     <ul className="task-list">
       {tasks.map((task) => (
         <TaskRow
-          busy={busy}
+          busy={actions.busy}
           key={task.id}
           locale={locale}
           members={members}
           onOpenDetails={onOpenDetails}
-          onSetStatus={onSetStatus}
-          onToggleCompleted={onToggleCompleted}
+          onSetState={actions.setState}
+          onToggleCompleted={actions.toggleCompleted}
           t={t}
-          task={{ ...taskRowFromTask(task), list_title: task.list_title }}
+          task={taskRowFromHouseholdTask(task)}
         />
       ))}
     </ul>
@@ -159,24 +157,20 @@ function TaskResults({
   members,
   locale,
   t,
-  busy,
+  actions,
   retry,
   onOpenDetails,
-  onSetStatus,
-  onToggleCompleted,
 }: {
   readonly valid: boolean;
   readonly pending: boolean;
   readonly failed: boolean;
-  readonly tasks: readonly AllTaskDto[];
+  readonly tasks: readonly HouseholdTaskDto[];
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
-  readonly busy: boolean;
+  readonly actions: TaskRowActions;
   readonly retry: () => void;
   readonly onOpenDetails: (task: TaskRowModel) => void;
-  readonly onSetStatus: (task: TaskRowModel, status: TaskStatus) => void;
-  readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
 }): ReactNode {
   if (!valid)
     return (
@@ -196,12 +190,10 @@ function TaskResults({
   if (tasks.length === 0) return <p className="empty">{t('tasks.all.empty')}</p>;
   return (
     <AllTaskRows
-      busy={busy}
+      actions={actions}
       locale={locale}
       members={members}
       onOpenDetails={onOpenDetails}
-      onSetStatus={onSetStatus}
-      onToggleCompleted={onToggleCompleted}
       t={t}
       tasks={tasks}
     />
@@ -215,48 +207,9 @@ export function AllTasks(): ReactNode {
   const resolution = resolveTaskDeadlineFilter(filter);
   const query = useAllTasksQuery(filter, resolution.ok);
   const members = useMembersQuery(true);
-  const [detailsTask, setDetailsTask] = useState<TaskRowModel | null>(null);
-  const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
+  const actions = useTaskRowActions(client);
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
 
-  const invalidate = keysAffectedByTaskChange();
-  const complete = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly completed: boolean;
-      },
-    ) => setTaskCompleted(client, requestId, input),
-    { invalidate },
-  );
-  const status = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly status: TaskStatus;
-      },
-    ) => setTaskStatus(client, requestId, input),
-    { invalidate },
-  );
-  const saveTask = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly notes: string;
-        readonly assigneeId: string | null;
-        readonly dueAt: string | null;
-      },
-    ) => updateTask(client, requestId, input),
-    { invalidate, onSuccess: () => setEditingTask(null) },
-  );
-
-  const tasks = query.data?.items ?? [];
   return (
     <>
       <div className="page-header">
@@ -272,75 +225,25 @@ export function AllTasks(): ReactNode {
         t={t}
         to={to}
       />
-      {complete.state.error !== null && (
-        <ErrorBanner error={complete.state.error} onRetry={() => void complete.retry()} t={t} />
-      )}
-      {status.state.error !== null && (
-        <ErrorBanner error={status.state.error} onRetry={() => void status.retry()} t={t} />
-      )}
+      <CommandErrors errors={actions.errors} t={t} />
       <TaskResults
-        busy={complete.state.pending || status.state.pending}
+        actions={actions}
         failed={query.isError}
         locale={locale}
         members={members.data ?? []}
-        onOpenDetails={setDetailsTask}
-        onSetStatus={(selected, nextStatus) =>
-          void status.run({
-            taskId: selected.id,
-            expectedVersion: selected.version,
-            status: nextStatus,
-          })
-        }
-        onToggleCompleted={(selected, completed) =>
-          void complete.run({ taskId: selected.id, expectedVersion: selected.version, completed })
-        }
+        onOpenDetails={(selected) => setDetailsTaskId(selected.id)}
         pending={query.isPending}
         retry={() => void query.refetch()}
         t={t}
-        tasks={tasks}
+        tasks={query.data?.items ?? []}
         valid={resolution.ok}
       />
-      {detailsTask !== null && (
-        <TaskDetailsDialog
+      {detailsTaskId !== null && (
+        <TaskDetailsFlow
           canEdit
-          locale={locale}
           members={members.data ?? []}
-          onClose={() => setDetailsTask(null)}
-          onEdit={(task) => {
-            setDetailsTask(null);
-            setEditingTask(task);
-          }}
-          t={t}
-          taskId={detailsTask.id}
-        />
-      )}
-      {editingTask !== null && (
-        <TaskEditor
-          conflict={saveTask.state.error?.code === 'CONFLICT'}
-          error={saveTask.state.error}
-          key={editingTask.id}
-          members={members.data ?? []}
-          onCancel={() => {
-            saveTask.reset();
-            setEditingTask(null);
-          }}
-          onReviewConflict={() => {
-            saveTask.reset();
-            setEditingTask(null);
-          }}
-          onSubmit={(input) =>
-            void saveTask.run({
-              taskId: editingTask.id,
-              expectedVersion: editingTask.version,
-              title: input.title,
-              notes: input.notes,
-              assigneeId: input.assigneeId,
-              dueAt: input.dueAt,
-            })
-          }
-          pending={saveTask.state.pending}
-          t={t}
-          task={editingTask}
+          onClose={() => setDetailsTaskId(null)}
+          taskId={detailsTaskId}
         />
       )}
     </>

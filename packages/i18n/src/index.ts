@@ -36,6 +36,19 @@ export function createTranslator(locale: Locale) {
 
 export type Translator = ReturnType<typeof createTranslator>;
 
+const INTL_LOCALES: Readonly<Record<Locale, string>> = { en: 'en-GB', bg: 'bg-BG' };
+
+/** A task deadline as both clients show it: the date plus a short local time. */
+export function formatDueAt(
+  dueAt: string,
+  locale: Locale,
+  dateStyle: 'medium' | 'full' = 'medium',
+): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], { dateStyle, timeStyle: 'short' }).format(
+    new Date(dueAt),
+  );
+}
+
 /** Device locale to a supported locale; anything else falls back to English. */
 export function resolveLocale(candidate: string | null | undefined): Locale {
   if (candidate === null || candidate === undefined) return 'en';

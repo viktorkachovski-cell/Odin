@@ -38,6 +38,12 @@ All Tasks filters are overdue, today, upcoming, no deadline and a custom
 inclusive local-date range, plus an unfiltered view. No list deadline,
 multi-assignee, permission hierarchy or template runtime state is introduced.
 
+After the branch review the owner confirmed (2026-09-27) that the stored task
+lifecycle is Open/Blocked/Done -- Unassigned and To-do are display labels
+derived from the assignee, never command input -- and that each household
+collection is read in one request rather than paged, failing visibly above a
+fixed ceiling instead of truncating.
+
 ### Other defaults
 
 These fill technical gaps without redefining confirmed task rules. Record deviations before implementation; do not silently treat proposed lifecycle policy as approved product scope.

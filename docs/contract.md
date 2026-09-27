@@ -42,7 +42,7 @@ Preserve successful receipt identity for MVP; do not purge receipts on an arbitr
 
 Responses are a discriminated union: `{ok:true,data:...}` or `{ok:false,error:{code,message_key,current_version?}}`. SQL RPC transport/auth errors are mapped by `@odin/data` to the same typed client error model. Do not show SQL text to users.
 
-Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `ALREADY_ASSIGNED`, `IDEMPOTENCY_MISMATCH`, `INVITE_EXPIRED`, `INVITE_USED`, `INVITE_REVOKED`, `ALREADY_IN_HOUSEHOLD`, `RATE_LIMITED`, `NETWORK`, `UNKNOWN`. Cross-household nonexistent/inaccessible IDs produce the same non-disclosing `NOT_FOUND` shape. Validation errors identify safe field names. `NETWORK` can mean an unknown commit outcome; retry with the same ID.
+Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `ALREADY_ASSIGNED`, `IDEMPOTENCY_MISMATCH`, `INVITE_EXPIRED`, `INVITE_USED`, `INVITE_REVOKED`, `ALREADY_IN_HOUSEHOLD`, `RATE_LIMITED`, `TOO_LARGE`, `NETWORK`, `UNKNOWN`. `TOO_LARGE` is returned only by the snapshot reads below, when a collection exceeds what one read returns. Cross-household nonexistent/inaccessible IDs produce the same non-disclosing `NOT_FOUND` shape. Validation errors identify safe field names. `NETWORK` can mean an unknown commit outcome; retry with the same ID.
 
 | Command              | Input beyond envelope                                  | Result and atomic behavior                                                                                                                                                   |
 | -------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -90,65 +90,81 @@ Compatibility: no SQL migration, DTO change, error-code enum change, or identity
 
 All task mutations use conditional version checks; no last-write-wins full-row overwrite. Any changed task increments its own version once. List text changes increment list version; task mutations do not invalidate unrelated list-editor versions. Claims check eligibility in the transaction. Assignment must serialize with membership revocation so an inactive member cannot become an assignee after validation.
 
-Lock order: caller/target membership rows sorted by user ID, then parent list, then tasks sorted by ID. Invite redemption locks the user membership serialization key before invitation row. Explain exceptions and retry bounded serialization failures with the same request ID. Test genuine simultaneous transactions, not sequential calls labeled concurrency.
+Lock order: caller/target membership rows sorted by user ID, then parent list, then tasks sorted by ID. The one exception is `move_task`, which locks its own task before the adjacent one; only moves lock two tasks, and they take the parent list lock first, so no cycle can form. `move_list` takes the household list-ordering lock before either list row. Invite redemption locks the user membership serialization key before invitation row. Explain exceptions and retry bounded serialization failures with the same request ID. Test genuine simultaneous transactions, not sequential calls labeled concurrency.
 
 If a future approved operation deactivates membership, its transaction clears that member's task assignments and advances affected task versions, while denying further access. Do not implement a client removal button until authority/recovery rules are approved. Tests may use an internal fixture command to simulate revocation.
 
 ## Synchronization contract
 
+Subscribe to RLS-protected list/task/membership changes for the active household, and identity updates where authorized. Treat payloads as invalidation hints. Refetch Home, current detail, My Tasks and Unassigned as affected; apply response immediately in initiating client. A stale fetch cannot overwrite a newer mutation result; cancel/reconcile query requests and compare versions. On subscription establishment/reconnect, window focus, Android foreground or expired-session recovery, refetch authoritative membership then data.
+
+Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. Provide a 3-second foreground fallback refetch while realtime is unhealthy, with backoff during actual network failure. Verify the normal connected update budget of 5 seconds; do not promise background delivery.
+
 ## Task workflow amendment — 2026-09-27 (feature branch)
 
 Owner-confirmed choices: unassigned follows assignment automatically, ordering
-is shared by the household, and the All Tasks filters use task deadlines.
+is shared by the household, the All Tasks filters use task deadlines, the
+stored task lifecycle is Open/Blocked/Done, and each household collection is
+read in one request.
 
-- `tasks.blocked` is a non-null boolean defaulting to false. The shared
-  `taskStatus` projection returns done when completed, otherwise blocked when
-  blocked, otherwise unassigned for a null assignee, otherwise todo. Assignment
-  and text edits preserve blocked. Completing or reopening with the legacy
-  completion command clears blocked. Templates cannot be blocked, and copying
-  resets blocked along with every other runtime field.
-- `set_task_status(request_id, task_id, expected_version, status)` accepts
-  blocked/done plus the assignment-consistent normal state (todo for assigned,
-  unassigned for unassigned). It does not change assignment. Conflicting normal
-  states return VALIDATION. Every mutation retains authorization, receipts,
-  conflict checks and a single version increment.
+- `tasks.blocked` is a non-null boolean defaulting to false, exclusive with
+  `completed`. The stored state is `open`, `blocked` or `done`; the shared
+  `taskStatus` projection shows Done, Blocked, or -- for an open task --
+  Unassigned without an assignee and To-do with one. Assignment and text edits
+  preserve blocked. Completing or reopening with the legacy completion command
+  clears blocked. Templates cannot be blocked, and copying resets blocked along
+  with every other runtime field.
+- `set_task_state(request_id, task_id, expected_version, state)` accepts
+  `open`, `blocked` or `done` and sets `completed`/`blocked` to match; `open`
+  clears both. It never changes or validates against the assignee, so there is
+  no assignment-dependent input. It returns the updated task DTO with one
+  version increment.
 - `lists.sort_order` provides order within each household and list kind.
   `move_list(request_id, list_id, expected_version, direction)` and
   `move_task(request_id, task_id, expected_version, direction)` accept up/down,
   swap adjacent rows atomically, and return `{list_id}` / `{task_id}`. Lists move
   within their open kind; tasks move within their incomplete/completed group
-  in one open parent. Template task order can change; runtime state cannot.
-  A move at a boundary is an idempotent no-op. Both swapped rows advance their
-  versions once. New lists append, including lists created by older clients.
-- `get_home_v2(p_cursor, p_limit)` returns the home summary with `sort_order`
-  using `(kind, sort_order, id)` keyset ordering. Legacy `get_home` keeps its
-  UUID order and cursor so installed clients remain compatible.
-- `get_all_tasks(p_due_from, p_due_before, p_undated, p_incomplete_only,
-p_cursor, p_limit)` returns `{items: [TaskDto plus list_title], next_cursor}`
-  from open active lists in the caller's household. Both dates default null;
-  booleans default false. Lower bound is inclusive, upper exclusive. The page
-  cap is 50; ordering is deadline ascending/null-last, then list/task ID.
-  Invalid ranges, incompatible undated bounds and malformed cursors fail safely.
+  in one open parent, including a template's tasks. A move at a boundary is an
+  idempotent no-op. Both swapped rows advance their versions once. New lists
+  append, including lists created by older clients.
+- Every command that changes a task's position or completion group -- create,
+  delete, complete, set state, move -- locks the open parent list before it
+  touches task rows, then checks the expected version under the row lock. A
+  move therefore always sees committed neighbours; a concurrent delete of the
+  neighbour settles as a move past it or a boundary no-op.
+- Current clients read each household collection as one snapshot:
+  `get_home_v2()`, `get_list_v2(p_list_id)`, `get_my_tasks_v2()`,
+  `get_unassigned_v2()` and `get_all_tasks(p_due_from, p_due_before,
+p_undated, p_incomplete_only)`. Home returns `{items}` with templates first,
+  then active lists, each by `sort_order` then id. List detail returns
+  `{list, total_tasks, completed_tasks, progress_percent, tasks}`, incomplete
+  first. The three task collections return `{items: [TaskDto plus
+list_title]}` from open active lists, deadline ascending with undated last,
+  then list and task ID; My Tasks and Unassigned are incomplete only. A
+  collection above 1,000 rows returns `TOO_LARGE` instead of a truncated
+  result. There is no cursor: pages read at different moments could drop or
+  repeat a row another member reorders in between.
+- `get_all_tasks` date bounds default null and booleans default false. The
+  lower bound is inclusive, the upper exclusive, and bounds apply only to
+  dated tasks; `p_undated` selects exactly the undated tasks and cannot be
+  combined with bounds. Invalid combinations return `VALIDATION`.
 - `getTask(client, taskId)` reads one full task through RLS and an inner join
-  requiring an open parent, independent of list pagination. Missing, archived
-  and inaccessible tasks all produce NOT_FOUND. No additional privilege is
-  granted. Full notes remain shared household content.
-- `getHomeAll`, `getListAll`, `getMyTasksAll`, `getUnassignedAll` and
-  `getAllTasksAll` exhaust cursor pages for both clients. A failed page fails
-  the read instead of presenting a partial collection as complete. Filter
-  boundaries remain fixed across pages. Task/detail/all-tasks queries join the
-  existing mutation and Realtime invalidation sets.
+  requiring an open parent. Missing, archived and inaccessible tasks all
+  produce NOT_FOUND. No additional privilege is granted. Full notes remain
+  shared household content. Task/detail/all-tasks queries join the existing
+  mutation and Realtime invalidation sets.
 
-Compatibility: all existing RPC signatures and `completed` remain intact.
-Legacy payloads without blocked/sort_order parse as false/zero. Both updated
-clients consume the additions together. **Apply the migration before testing
-these branch clients against a database**: get_home_v2, status, movement and
-filtered reads require the new RPCs. Older installed clients retain their
-previous ordering UI and can continue editing and completing tasks. This
-amendment documents branch behaviour, not a production deployment.
-
-### Existing synchronization guarantees
-
-Subscribe to RLS-protected list/task/membership changes for the active household, and identity updates where authorized. Treat payloads as invalidation hints. Refetch Home, current detail, My Tasks and Unassigned as affected; apply response immediately in initiating client. A stale fetch cannot overwrite a newer mutation result; cancel/reconcile query requests and compare versions. On subscription establishment/reconnect, window focus, Android foreground or expired-session recovery, refetch authoritative membership then data.
-
-Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. Provide a 3-second foreground fallback refetch while realtime is unhealthy, with backoff during actual network failure. Verify the normal connected update budget of 5 seconds; do not promise background delivery.
+Compatibility: every RPC an installed client calls keeps its signature --
+`get_home`, `get_list`, `get_my_tasks`, `get_unassigned` (still paged) and
+`set_task_completed` among them -- and `completed` keeps its meaning. Within
+this unmerged branch, migration `20260927154349_task_workflow_review_fixes`
+replaces the branch's own first-draft RPCs: `set_task_status` becomes
+`set_task_state`, and the paged `get_home_v2(p_cursor, p_limit)` and
+`get_all_tasks(..., p_cursor, p_limit)` become snapshot reads. Neither draft
+was deployed, so no installed client calls them. `TOO_LARGE` is a new error
+code that only the new reads return; both updated clients localise it. Legacy
+payloads without blocked/sort_order parse as false/zero. **Apply both branch
+migrations before testing these branch clients against a database.** Older
+installed clients keep their previous ordering UI and can continue editing and
+completing tasks. This amendment documents branch behaviour, not a production
+deployment.

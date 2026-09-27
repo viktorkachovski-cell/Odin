@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { OdinSupabaseClient } from './client.ts';
-import { getHomeAll, getAllTasksAll } from './complete-reads.ts';
-import { getAllTasks, moveList, moveTask, setTaskStatus } from './task-workflow.ts';
+import { getAllTasks, getHome, getList, getMyTasks } from './repositories.ts';
+import { moveList, moveTask, setTaskState } from './task-workflow.ts';
 
 const task = {
   id: 'task',
@@ -27,23 +27,20 @@ function fixture() {
 }
 
 describe('workflow commands', () => {
-  it('carries status, expected version and request id without changing assignment', async () => {
+  it('sends the stored state, never a display label, with version and request id', async () => {
     const { client, rpc } = fixture();
     rpc.mockResolvedValue(success(task));
-    expect(
-      (
-        await setTaskStatus(client, 'request', {
-          taskId: 'task',
-          expectedVersion: 1,
-          status: 'blocked',
-        })
-      ).ok,
-    ).toBe(true);
-    expect(rpc).toHaveBeenCalledWith('set_task_status', {
+    const result = await setTaskState(client, 'request', {
+      taskId: 'task',
+      expectedVersion: 1,
+      state: 'open',
+    });
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('set_task_state', {
       request_id: 'request',
       task_id: 'task',
       expected_version: 1,
-      status: 'blocked',
+      state: 'open',
     });
   });
 
@@ -65,41 +62,76 @@ describe('workflow commands', () => {
   });
 });
 
-describe('complete filtered reads', () => {
-  it('fetches every page with the same overdue instant', async () => {
+describe('snapshot reads', () => {
+  it('reads each collection in one call, with no cursor', async () => {
     const { client, rpc } = fixture();
     rpc
-      .mockResolvedValueOnce(success({ items: [task], next_cursor: 'page2' }))
-      .mockResolvedValueOnce(success({ items: [{ ...task, id: 'task-51' }], next_cursor: null }));
-    const result = await getAllTasksAll(client, { preset: 'overdue' });
-    expect(result.items.map((item) => item.id)).toEqual(['task', 'task-51']);
-    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_incomplete_only: true, p_cursor: null });
-    expect(rpc.mock.calls[1]?.[1]).toEqual({ ...rpc.mock.calls[0]?.[1], p_cursor: 'page2' });
+      .mockResolvedValueOnce(success({ items: [] }))
+      .mockResolvedValueOnce(
+        success({
+          list: {
+            id: 'list',
+            household_id: 'household',
+            kind: 'active',
+            title: 'List',
+            subtitle: null,
+            notes: null,
+            status: 'open',
+            sort_order: 0,
+            seed_key: null,
+            created_by: 'member',
+            created_at: '2026-09-27T00:00:00Z',
+            updated_at: '2026-09-27T00:00:00Z',
+            version: 1,
+          },
+          total_tasks: 1,
+          completed_tasks: 0,
+          progress_percent: 0,
+          tasks: [task],
+        }),
+      )
+      .mockResolvedValueOnce(success({ items: [task] }));
+
+    expect((await getHome(client)).items).toEqual([]);
+    expect((await getList(client, 'list')).tasks[0]?.blocked).toBe(true);
+    expect((await getMyTasks(client)).items[0]?.list_title).toBe('List');
+    expect(rpc.mock.calls).toEqual([
+      ['get_home_v2', undefined],
+      ['get_list_v2', { p_list_id: 'list' }],
+      ['get_my_tasks_v2', undefined],
+    ]);
   });
 
-  it('rejects invalid ranges before issuing a read', () => {
+  it('resolves deadline filters against one instant', async () => {
     const { client, rpc } = fixture();
-    expect(() =>
+    rpc.mockResolvedValue(success({ items: [task] }));
+    const now = new Date(2026, 8, 27, 12, 30);
+    const result = await getAllTasks(client, { preset: 'overdue' }, now);
+    expect(result.items.map((item) => item.id)).toEqual(['task']);
+    expect(rpc).toHaveBeenCalledWith('get_all_tasks', {
+      p_due_from: null,
+      p_due_before: now.toISOString(),
+      p_undated: false,
+      p_incomplete_only: true,
+    });
+  });
+
+  it('rejects invalid ranges before issuing a read', async () => {
+    const { client, rpc } = fixture();
+    await expect(
       getAllTasks(client, { preset: 'range', from: '2026-02-30', to: '2026-03-01' }),
-    ).toThrow();
+    ).rejects.toMatchObject({ info: { code: 'VALIDATION', message_key: 'filter.date.invalid' } });
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('uses ordered home v2 and rejects repeated cursors instead of silently truncating', async () => {
+  it('surfaces an oversized collection as TOO_LARGE rather than a partial result', async () => {
     const { client, rpc } = fixture();
-    rpc.mockResolvedValue(success({ items: [], next_cursor: 'stuck' }));
-    await expect(getHomeAll(client)).rejects.toMatchObject({ info: { code: 'UNKNOWN' } });
-    expect(rpc).toHaveBeenCalledTimes(2);
-    expect(rpc.mock.calls[0]?.[0]).toBe('get_home_v2');
-  });
-
-  it('does not return partial results when a later page fails', async () => {
-    const { client, rpc } = fixture();
-    rpc
-      .mockResolvedValueOnce(success({ items: [task], next_cursor: 'page2' }))
-      .mockResolvedValueOnce({ data: null, error: { code: '42501' } });
-    await expect(getAllTasksAll(client, { preset: 'all' })).rejects.toMatchObject({
-      info: { code: 'FORBIDDEN' },
+    rpc.mockResolvedValue({
+      data: { ok: false, error: { code: 'TOO_LARGE', message_key: 'error.too_large' } },
+      error: null,
+    });
+    await expect(getAllTasks(client, { preset: 'all' })).rejects.toMatchObject({
+      info: { code: 'TOO_LARGE', message_key: 'error.too_large' },
     });
   });
 });

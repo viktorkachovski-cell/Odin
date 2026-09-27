@@ -1,31 +1,26 @@
-import type { AllTaskPageDto, CommandResult, TaskDto, TaskStatus } from '@odin/contracts';
-import { parseAllTaskPage, parseListId, parseTask, parseTaskId } from '@odin/contracts';
-import { resolveTaskDeadlineFilter, type TaskDeadlineFilter } from '@odin/domain';
+import type { CommandResult, MoveDirection, TaskDto, TaskState } from '@odin/contracts';
+import { parseListId, parseTask, parseTaskId } from '@odin/contracts';
 
 import type { OdinSupabaseClient } from './client.ts';
 import { command } from './commands.ts';
-import { OdinError } from './error-mapping.ts';
-import { readRpc } from './repositories.ts';
 
-export interface TaskStatusInput {
-  readonly taskId: string;
-  readonly expectedVersion: number;
-  readonly status: TaskStatus;
-}
-
-export function setTaskStatus(
+export function setTaskState(
   client: OdinSupabaseClient,
   requestId: string,
-  input: TaskStatusInput,
+  input: {
+    readonly taskId: string;
+    readonly expectedVersion: number;
+    readonly state: TaskState;
+  },
 ): Promise<CommandResult<TaskDto>> {
   return command(
     client,
-    'set_task_status',
+    'set_task_state',
     {
       request_id: requestId,
       task_id: input.taskId,
       expected_version: input.expectedVersion,
-      status: input.status,
+      state: input.state,
     },
     parseTask,
   );
@@ -37,7 +32,7 @@ export function moveTask(
   input: {
     readonly taskId: string;
     readonly expectedVersion: number;
-    readonly direction: 'up' | 'down';
+    readonly direction: MoveDirection;
   },
 ): Promise<CommandResult<string>> {
   return command(
@@ -59,7 +54,7 @@ export function moveList(
   input: {
     readonly listId: string;
     readonly expectedVersion: number;
-    readonly direction: 'up' | 'down';
+    readonly direction: MoveDirection;
   },
 ): Promise<CommandResult<string>> {
   return command(
@@ -73,21 +68,4 @@ export function moveList(
     },
     parseListId,
   );
-}
-
-export function getAllTasks(
-  client: OdinSupabaseClient,
-  filter: TaskDeadlineFilter,
-  cursor?: string | null,
-  now = new Date(),
-): Promise<AllTaskPageDto> {
-  const result = resolveTaskDeadlineFilter(filter, now);
-  if (!result.ok) throw new OdinError({ code: 'VALIDATION', message_key: 'filter.date.invalid' });
-  return readRpc(client, 'get_all_tasks', parseAllTaskPage, {
-    p_due_from: result.bounds.dueFrom,
-    p_due_before: result.bounds.dueBefore,
-    p_undated: result.bounds.undated,
-    p_incomplete_only: result.bounds.incompleteOnly,
-    p_cursor: cursor ?? null,
-  });
 }

@@ -211,6 +211,32 @@ as $$
   );
 $$;
 
+-- Locks the open parent list of a household task and returns its id, or null
+-- when the task is missing, archived or outside the household. Every command
+-- that changes a task's position or completion group -- create, delete,
+-- complete, set state, move -- takes this lock before touching task rows, so
+-- those changes serialise per list and a move always sees committed
+-- neighbours. Lock order is membership rows, then this list row, then task
+-- rows.
+create or replace function private.lock_task_list(
+  p_household_id uuid,
+  p_task_id uuid,
+  p_active_only boolean
+)
+returns uuid
+language sql
+volatile
+security definer
+set search_path = ''
+as $$
+  select l.id
+  from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = p_household_id and l.status = 'open'
+    and (not p_active_only or l.kind = 'active')
+  for update of l;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.households enable row level security;
 alter table public.memberships enable row level security;

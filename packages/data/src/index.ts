@@ -33,6 +33,7 @@ export {
 } from './password-auth.ts';
 
 export {
+  getAllTasks,
   getHome,
   getList,
   getMembers,
@@ -78,11 +79,6 @@ export { useCommand } from './use-command.ts';
 
 export { getTaskTemplates, saveTaskTemplate } from './task-templates.ts';
 export { getTask } from './task-detail.ts';
-export { setTaskStatus, moveTask, moveList, getAllTasks } from './task-workflow.ts';
-export {
-  getHomeAll,
-  getListAll,
-  getMyTasksAll,
-  getUnassignedAll,
-  getAllTasksAll,
-} from './complete-reads.ts';
+export { moveList, moveTask, setTaskState } from './task-workflow.ts';
+export type { TaskRowActions, TaskRowCommandError } from './use-task-actions.ts';
+export { useTaskRowActions } from './use-task-actions.ts';

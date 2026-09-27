@@ -41,12 +41,14 @@ The read hooks in `src/state/queries.ts` are deliberately **not** shared: they
 are per-app glue binding an app-specific context to the already-shared
 repositories and query keys.
 
-The task-workflow branch uses a full-details sheet from every task row, with
-completion and status actions as separate touch targets. All Tasks provides
-deadline presets and a local-date range. Lists and tasks have up/down actions;
-the save-template icon sits beside the list title. The layout retains Odin's
-palette while using clearer spacing, task hierarchy and touch targets. The
-updated client requires the branch migration on its test database.
+The task-workflow branch opens `TaskDetailsFlow` from every task row, list
+detail included, with completion and status actions as separate touch targets
+wired through the shared `useTaskRowActions` hook. All Tasks provides deadline
+presets and a local-date range. Lists and tasks have up/down actions,
+including a template's tasks, and list moves are disabled while one is in
+flight; the save-template icon sits beside the list title. The layout retains
+Odin's palette while using clearer spacing, task hierarchy and touch targets.
+The updated client requires both branch migrations on its test database.
 
 ## Android specifics
 

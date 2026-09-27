@@ -225,6 +225,7 @@ export const bg: Record<TranslationKey, string> = {
   'error.invite_revoked': 'Тази покана е оттеглена.',
   'error.already_in_household': 'Вие вече сте част от домакинство.',
   'error.rate_limited': 'Твърде много опити. Моля, изчакайте малко.',
+  'error.too_large': 'Има твърде много елементи, за да се покажат наведнъж.',
   'error.network': 'Не успяхме да се свържем със сървъра. Проверете връзката си.',
   'error.unknown': 'Нещо се обърка. Моля, опитайте отново.',
 

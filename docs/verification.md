@@ -41,11 +41,43 @@ export passed with non-secret placeholder public configuration; Expo Doctor
 passed 21/21 after the four required SDK patch updates. These checks validate
 code and bundles, not an installed device or a live hosted test session.
 
-Before merging, apply the migration to the chosen test database, then check
-two-client movement/status synchronization, all deadline filters around local
+### Review fixes — 2026-09-27
+
+After the branch review, migration
+`20260927154349_task_workflow_review_fixes.sql` replaced the first-draft RPCs:
+`set_task_state` (open/blocked/done) instead of `set_task_status`, snapshot
+reads instead of paged ones, and one parent-list lock for every command that
+changes a task's position or completion group. It was generated with
+`npm run db:diff` from the declarative schema and replayed on a disposable
+local stack (Docker, `supabase start` without Realtime/Studio/Storage).
+
+On that stack, before the fix, a new concurrency case reproduced the reviewed
+race: `move_task` whose neighbour is deleted by another member mid-flight
+failed with `null value in column "sort_order" ... violates not-null
+constraint`. After the migration:
+
+- `npx supabase test db`: 122 assertions across three files pass, 43 of them in
+  `003_task_workflow.sql` -- state transitions, completion-group boundaries,
+  template task moves, snapshot ordering, the 1,000-row `TOO_LARGE` ceiling
+  and household isolation.
+- `npm run db:test:concurrency`: five cases pass, including the move-during-
+  neighbour-delete race and two members moving adjacent tasks at once (one
+  wins, the other gets `CONFLICT`, positions stay unique).
+- `npx supabase db lint --local --level warning --fail-on warning`: clean.
+- `packages/contracts/src/database.generated.ts` regenerated with
+  `supabase gen types typescript --local --schema public`.
+
+Local Node 22: `npm run check` passed -- ESLint, Prettier, every workspace
+typecheck, 12 tooling tests, 209 Vitest tests across 25 files and 121 mobile
+Jest tests plus four build-environment tests. The web production build and
+the Android JavaScript export passed with placeholder public configuration.
+None of this ran on a device or against the hosted project.
+
+Before merging, apply both migrations to the chosen test database, then check
+two-client movement/state synchronization, all deadline filters around local
 midnight and DST, and phone/tablet visual fit against the supplied reference.
 The single hosted Odin project is production; this branch does not apply its
-migration or deploy either client there.
+migrations or deploy either client there.
 
 ## Requirements traceability
 

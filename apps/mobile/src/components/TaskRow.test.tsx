@@ -97,15 +97,15 @@ describe('TaskRow', () => {
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
 
-  it('changes a task status from the overflow without triggering row details', async () => {
-    const onSetStatus = jest.fn();
+  it('changes a task state from the overflow without triggering row details', async () => {
+    const onSetState = jest.fn();
     const onPress = jest.fn();
     await render(
       <TaskRow
         locale="en"
         members={members}
         onPress={onPress}
-        onSetStatus={onSetStatus}
+        onSetState={onSetState}
         t={t}
         task={row({ assignee_id: 'u1' })}
       />,
@@ -114,8 +114,27 @@ describe('TaskRow', () => {
     await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
     await fireEvent.press(screen.getByText('Status: Blocked'));
 
-    expect(onSetStatus).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'blocked');
+    expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'blocked');
     expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('offers a blocked task back as open, labelled from its assignee', async () => {
+    const onSetState = jest.fn();
+    await render(
+      <TaskRow
+        locale="en"
+        members={members}
+        onSetState={onSetState}
+        t={t}
+        task={row({ blocked: true })}
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
+    expect(screen.queryByText('Status: Blocked')).toBeNull();
+    await fireEvent.press(screen.getByText('Status: Unassigned'));
+
+    expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'open');
   });
 
   it('disables move controls at the visible ordering boundaries', async () => {

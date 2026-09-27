@@ -2,7 +2,7 @@ import { Link } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { ListSummaryDto } from '@odin/contracts';
+import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import type { Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -45,12 +45,14 @@ function ListMoveControls({
   list,
   t,
   onMove,
+  pending,
   moveUpDisabled,
   moveDownDisabled,
 }: {
   readonly list: ListSummaryDto;
   readonly t: Translator;
-  readonly onMove?: ((list: ListSummaryDto, direction: 'up' | 'down') => void) | undefined;
+  readonly onMove?: ((list: ListSummaryDto, direction: MoveDirection) => void) | undefined;
+  readonly pending: boolean;
   readonly moveUpDisabled: boolean;
   readonly moveDownDisabled: boolean;
 }): ReactNode {
@@ -59,7 +61,9 @@ function ListMoveControls({
   return (
     <View style={styles.moveButtons}>
       {(['up', 'down'] as const).map((direction) => {
-        const disabled = direction === 'up' ? moveUpDisabled : moveDownDisabled;
+        // Disabled while any move is in flight: a second tap would reuse the
+        // pending request id for different input, or send a stale version.
+        const disabled = pending || (direction === 'up' ? moveUpDisabled : moveDownDisabled);
         return (
           <Pressable
             accessibilityLabel={t(`list.move.${direction}`, { title: list.title })}
@@ -100,6 +104,7 @@ export function ListCard({
   onSaveTemplate,
   saveTemplatePending = false,
   onMove,
+  movePending = false,
   moveUpDisabled = false,
   moveDownDisabled = false,
 }: {
@@ -111,7 +116,8 @@ export function ListCard({
   readonly deletePending?: boolean;
   readonly onSaveTemplate?: ((list: ListSummaryDto) => void) | undefined;
   readonly saveTemplatePending?: boolean;
-  readonly onMove?: ((list: ListSummaryDto, direction: 'up' | 'down') => void) | undefined;
+  readonly onMove?: ((list: ListSummaryDto, direction: MoveDirection) => void) | undefined;
+  readonly movePending?: boolean;
   readonly moveUpDisabled?: boolean;
   readonly moveDownDisabled?: boolean;
 }): ReactNode {
@@ -150,6 +156,7 @@ export function ListCard({
             moveDownDisabled={moveDownDisabled}
             moveUpDisabled={moveUpDisabled}
             onMove={onMove}
+            pending={movePending}
             t={t}
           />
         </View>

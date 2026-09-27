@@ -23,11 +23,16 @@ deterministic locks, and clients cannot bypass them with direct table writes.
 
 On the `codex/task-workflow-polish` branch, migration
 `20260927121823_task_workflow_polish.sql` adds task `blocked`, household list
-positions, and versioned adjacent move/status commands. It backfills existing
-list positions in creation order before enforcing uniqueness. `get_home_v2`
-keeps legacy `get_home` cursors intact, while `get_all_tasks` reads open active
-tasks by deadline through a bounded cursor. The migration has passed disposable
-database CI; it is not installed on the hosted production database.
+positions, and versioned adjacent move commands, backfilling existing list
+positions in creation order before enforcing uniqueness.
+`20260927154349_task_workflow_review_fixes.sql` then replaces the status
+command with `set_task_state` (open/blocked/done), makes every command that
+changes a task's position or completion group lock the parent list through
+`private.lock_task_list` before checking versions, and replaces paged reads with
+one-snapshot readers (`get_home_v2`, `get_list_v2` and
+`private.get_household_tasks` behind My Tasks, Unassigned and All Tasks) that
+return `TOO_LARGE` above 1,000 rows. Legacy paged reads stay for installed
+clients. Neither migration is installed on the hosted production database.
 
 ## Authorization design
 

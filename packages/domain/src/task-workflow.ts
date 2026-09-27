@@ -1,17 +1,71 @@
-import type { TaskStatus } from '@odin/contracts';
+import { TASK_STATES, type TaskState } from '@odin/contracts';
 
-export function taskStatus(task: {
+/**
+ * What a member sees. The stored state is open, blocked or done; an open task
+ * reads as Unassigned or To-do depending on whether anyone is assigned.
+ */
+export const TASK_STATUSES = ['unassigned', 'todo', 'blocked', 'done'] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+interface StatusSubject {
   readonly completed: boolean;
   readonly blocked?: boolean;
   readonly assignee_id: string | null;
-}): TaskStatus {
+}
+
+export function taskState(task: StatusSubject): TaskState {
   if (task.completed) return 'done';
-  if (task.blocked === true) return 'blocked';
+  return task.blocked === true ? 'blocked' : 'open';
+}
+
+export function taskStatus(task: StatusSubject): TaskStatus {
+  const state = taskState(task);
+  if (state !== 'open') return state;
   return task.assignee_id === null ? 'unassigned' : 'todo';
 }
 
+export interface TaskStatusOption {
+  readonly state: TaskState;
+  readonly status: TaskStatus;
+}
+
+/** Every state a member can choose for this task, labelled with the status it would show. */
+export function taskStatusOptions(task: StatusSubject): readonly TaskStatusOption[] {
+  return TASK_STATES.map((state) => ({
+    state,
+    status: taskStatus({ ...task, completed: state === 'done', blocked: state === 'blocked' }),
+  }));
+}
+
+/**
+ * Whether the row at `index` can move one place up or down. Rows move only
+ * within their group -- tasks within their completion group, lists within
+ * their kind -- so a neighbour from another group is a boundary.
+ */
+export function adjacentMoves<T>(
+  rows: readonly T[],
+  index: number,
+  group: (row: T) => unknown,
+): { readonly up: boolean; readonly down: boolean } {
+  const row = rows[index];
+  if (row === undefined) return { up: false, down: false };
+  const sameGroup = (neighbour: T | undefined): boolean =>
+    neighbour !== undefined && group(neighbour) === group(row);
+  return { up: sameGroup(rows[index - 1]), down: sameGroup(rows[index + 1]) };
+}
+
+export const TASK_DEADLINE_PRESETS = [
+  'all',
+  'overdue',
+  'today',
+  'upcoming',
+  'undated',
+  'range',
+] as const;
+export type TaskDeadlinePreset = (typeof TASK_DEADLINE_PRESETS)[number];
+
 export interface TaskDeadlineFilter {
-  readonly preset: 'all' | 'overdue' | 'today' | 'upcoming' | 'undated' | 'range';
+  readonly preset: TaskDeadlinePreset;
   readonly from?: string;
   readonly to?: string;
 }

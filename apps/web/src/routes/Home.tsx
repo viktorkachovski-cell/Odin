@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import type { ListSummaryDto } from '@odin/contracts';
+import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import {
   copyTemplate,
   createList,
@@ -12,6 +12,7 @@ import {
   saveListTemplate,
   useCommand,
 } from '@odin/data';
+import { adjacentMoves } from '@odin/domain';
 import type { Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
@@ -56,7 +57,7 @@ function TemplateCard({
   readonly t: Translator;
   readonly onCopy: (id: string) => void;
   readonly onDelete: () => void;
-  readonly onMove: (direction: 'up' | 'down') => void;
+  readonly onMove: (direction: MoveDirection) => void;
   readonly moveUpDisabled: boolean;
   readonly moveDownDisabled: boolean;
   readonly busy: boolean;
@@ -119,7 +120,7 @@ function ActiveCard({
   readonly t: Translator;
   readonly onDelete: () => void;
   readonly onSaveTemplate: () => void;
-  readonly onMove: (direction: 'up' | 'down') => void;
+  readonly onMove: (direction: MoveDirection) => void;
   readonly moveUpDisabled: boolean;
   readonly moveDownDisabled: boolean;
   readonly busy: boolean;
@@ -184,7 +185,7 @@ function ListOrderButtons({
   readonly disabled: boolean;
   readonly moveUpDisabled: boolean;
   readonly moveDownDisabled: boolean;
-  readonly onMove: (direction: 'up' | 'down') => void;
+  readonly onMove: (direction: MoveDirection) => void;
 }): ReactNode {
   return (
     <span className="order-buttons">
@@ -209,6 +210,9 @@ function ListOrderButtons({
     </span>
   );
 }
+
+/** Lists move only among lists of their own kind. */
+const byKind = (list: ListSummaryDto): string => list.kind;
 
 export function Home(): ReactNode {
   const { t, client } = useOdin();
@@ -261,7 +265,7 @@ export function Home(): ReactNode {
       input: {
         readonly listId: string;
         readonly expectedVersion: number;
-        readonly direction: 'up' | 'down';
+        readonly direction: MoveDirection;
       },
     ) => moveList(client, requestId, input),
     { invalidate: keysAffectedByListChange() },
@@ -319,25 +323,28 @@ export function Home(): ReactNode {
           <p className="empty">{t('home.templates.empty')}</p>
         ) : (
           <ul className="card-grid">
-            {templates.map((summary, index) => (
-              <TemplateCard
-                busy={copy.state.pending || remove.state.pending || reorderList.state.pending}
-                moveDownDisabled={index === templates.length - 1}
-                moveUpDisabled={index === 0}
-                key={summary.id}
-                onMove={(direction) =>
-                  void reorderList.run({
-                    listId: summary.id,
-                    expectedVersion: summary.version,
-                    direction,
-                  })
-                }
-                onCopy={(templateId) => void copy.run({ templateId })}
-                onDelete={() => setPendingDelete(summary)}
-                summary={summary}
-                t={t}
-              />
-            ))}
+            {templates.map((summary, index) => {
+              const moves = adjacentMoves(templates, index, byKind);
+              return (
+                <TemplateCard
+                  busy={copy.state.pending || remove.state.pending || reorderList.state.pending}
+                  moveDownDisabled={!moves.down}
+                  moveUpDisabled={!moves.up}
+                  key={summary.id}
+                  onMove={(direction) =>
+                    void reorderList.run({
+                      listId: summary.id,
+                      expectedVersion: summary.version,
+                      direction,
+                    })
+                  }
+                  onCopy={(templateId) => void copy.run({ templateId })}
+                  onDelete={() => setPendingDelete(summary)}
+                  summary={summary}
+                  t={t}
+                />
+              );
+            })}
           </ul>
         )}
       </section>
@@ -350,30 +357,33 @@ export function Home(): ReactNode {
           <p className="empty">{t('home.active.empty')}</p>
         ) : (
           <ul className="card-grid">
-            {active.map((summary, index) => (
-              <ActiveCard
-                busy={
-                  remove.state.pending || saveTemplate.state.pending || reorderList.state.pending
-                }
-                moveDownDisabled={index === active.length - 1}
-                moveUpDisabled={index === 0}
-                key={summary.id}
-                onDelete={() => setPendingDelete(summary)}
-                onMove={(direction) =>
-                  void reorderList.run({
-                    listId: summary.id,
-                    expectedVersion: summary.version,
-                    direction,
-                  })
-                }
-                onSaveTemplate={() => {
-                  setTemplateSaved(false);
-                  void saveTemplate.run({ listId: summary.id });
-                }}
-                summary={summary}
-                t={t}
-              />
-            ))}
+            {active.map((summary, index) => {
+              const moves = adjacentMoves(active, index, byKind);
+              return (
+                <ActiveCard
+                  busy={
+                    remove.state.pending || saveTemplate.state.pending || reorderList.state.pending
+                  }
+                  moveDownDisabled={!moves.down}
+                  moveUpDisabled={!moves.up}
+                  key={summary.id}
+                  onDelete={() => setPendingDelete(summary)}
+                  onMove={(direction) =>
+                    void reorderList.run({
+                      listId: summary.id,
+                      expectedVersion: summary.version,
+                      direction,
+                    })
+                  }
+                  onSaveTemplate={() => {
+                    setTemplateSaved(false);
+                    void saveTemplate.run({ listId: summary.id });
+                  }}
+                  summary={summary}
+                  t={t}
+                />
+              );
+            })}
           </ul>
         )}
       </section>

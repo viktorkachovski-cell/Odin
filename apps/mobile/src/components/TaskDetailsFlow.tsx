@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
 
-import type { TaskDto } from '@odin/contracts';
+import type { MemberDto, TaskDto } from '@odin/contracts';
 import { keysAffectedByTaskChange, updateTask, useCommand } from '@odin/data';
-import type { MemberDto } from '@odin/contracts';
 
 import { useOdin } from '../state/OdinContext.ts';
 import { useTaskQuery } from '../state/queries.ts';
@@ -13,13 +12,21 @@ import {
   TaskDetailsSheet,
 } from './TaskDetailsSheet.tsx';
 
+/**
+ * Opening a task from any row: its complete details, and for an active task
+ * an editor in place. A conflicting save keeps the member's draft and reloads
+ * the task, so resubmitting targets the latest version -- the same flow as the
+ * web client.
+ */
 export function TaskDetailsFlow({
   taskId,
   members,
+  editable,
   onClose,
 }: {
   readonly taskId: string | null;
   readonly members: readonly MemberDto[];
+  readonly editable: boolean;
   readonly onClose: () => void;
 }): ReactNode {
   const { t, locale, client } = useOdin();
@@ -89,7 +96,7 @@ export function TaskDetailsFlow({
 
   return (
     <TaskDetailsSheet
-      editable
+      editable={editable}
       locale={locale}
       members={members}
       onClose={onClose}
