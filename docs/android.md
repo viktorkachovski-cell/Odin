@@ -8,10 +8,10 @@ app _does_ is `features.md`; this file is how Android does it.
 
 | Choice           | Version         | Why                                                          |
 | ---------------- | --------------- | ------------------------------------------------------------ |
-| Expo SDK         | 57.0.24         | Current stable release                                       |
+| Expo SDK         | 57.0.25         | SDK 57 patch required by Expo Doctor                         |
 | React Native     | 0.86.3          | Prescribed by SDK 57                                         |
 | React            | 19.2.3          | Prescribed by SDK 57                                         |
-| Expo Router      | 57.0.22         | File-based routing, as the brief requires                    |
+| Expo Router      | 57.0.23         | File-based routing, as the brief requires                    |
 | Jest + jest-expo | 29.7.0 / 57.0.5 | React Native ships untranspiled source; Vitest cannot run it |
 
 **The web client was moved from React 19.3.0 to 19.2.3 to match.** React Native's
@@ -24,15 +24,20 @@ component tests and its production build all pass on 19.2.3.
 
 ## What is shared rather than reimplemented
 
-Three pieces moved into shared packages while building this client, because
-duplicating them would let the two clients drift apart on rules the server
-enforces:
+Cross-platform rules and actions live in shared packages so the clients use
+the same behaviour:
 
 - `useCommand` → `@odin/data`. It holds one request ID across an ambiguous
   `NETWORK` retry and mints a fresh one after any settled outcome. That is the
   client half of the idempotency contract, not presentation.
 - `resolveDueInput` and `dueDraftFromIso` → `@odin/domain`. Both-or-neither
   deadline entry and the DST-gap rejection.
+- `taskState`, `taskStatusOptions`, `adjacentMoves` and deadline presets →
+  `@odin/domain`. They keep status choices, move availability and All Tasks
+  filters consistent with web.
+- `useTaskRowActions` → `@odin/data`. It coordinates task commands and cache
+  invalidation across the task views.
+- `formatDueAt` → `@odin/i18n`. Both clients show deadlines consistently.
 - `task.claim.short` / `task.edit_action.short` → `@odin/i18n`. The existing
   keys are accessible labels ("Claim {title}"); a compact button needs its own
   short text in both languages.
@@ -40,6 +45,15 @@ enforces:
 The read hooks in `src/state/queries.ts` are deliberately **not** shared: they
 are per-app glue binding an app-specific context to the already-shared
 repositories and query keys.
+
+The task-workflow branch opens `TaskDetailsFlow` from every task row, list
+detail included, with completion and status actions as separate touch targets
+wired through the shared `useTaskRowActions` hook. All Tasks provides deadline
+presets and a local-date range. Lists and tasks have up/down actions,
+including a template's tasks, and list moves are disabled while one is in
+flight; the save-template icon sits beside the list title. The layout retains
+Odin's palette while using clearer spacing, task hierarchy and touch targets.
+The updated client requires both branch migrations on its test database.
 
 ## Android specifics
 
@@ -125,25 +139,24 @@ permissions and task behaviour stay aligned with the web client.
 - Completion and Claim stay directly reachable: they are the primary action of
   their row.
 - Template cards keep their border; active cards do not.
-- A template's tasks are read-only — no completion, edit, delete or unassign
-  control is rendered on them.
+- A template's tasks can be reordered but have no completion, edit, delete or
+  unassign controls.
 - Touch targets stay at least 48 dp, every control carries a TalkBack label,
   and English/Bulgarian text is shared with web.
 
 ## Lists, templates and notes on Android
 
-| Action                     | Where it lives                                      | Command               |
-| -------------------------- | --------------------------------------------------- | --------------------- |
-| Save a list as a template  | Overflow on the Home card, and on list detail       | `save_list_template`  |
-| Delete a list or template  | Overflow on the Home card, and on list detail       | `delete_list`         |
-| Read a list's shared note  | Under the subtitle on the Home card and list detail | `get_home`/`get_list` |
-| Write a list's shared note | Note field under the subtitle field in the editor   | `update_list_v2`      |
+| Action                     | Where it lives                                      | Command                     |
+| -------------------------- | --------------------------------------------------- | --------------------------- |
+| Save a list as a template  | Icon beside the Home card title; list-detail header | `save_list_template`        |
+| Delete a list or template  | Overflow on the Home card, and on list detail       | `delete_list`               |
+| Read a list's shared note  | Under the subtitle on the Home card and list detail | `get_home_v2`/`get_list_v2` |
+| Write a list's shared note | Note field under the subtitle field in the editor   | `update_list_v2`            |
 
-- `Save as list template` sits in the same `ActionMenu` that carries
-  `Delete list`. It is not destructive, so it takes no confirmation alert — the
-  new template card appearing on Home is the confirmation, backed by a polite
-  live-region line. It invalidates Home only: the source list is unmodified and
-  keeps its version.
+- The save-template icon sits beside an active list's name on Home, and the
+  list-detail header exposes the same action. It takes no confirmation alert;
+  the new template card appearing on Home confirms the save. The source list
+  stays unchanged and keeps its version.
 - `Delete list` appears on template cards as well as active ones, with the same
   destructive alert and the same `expected_version` from the summary. The
   summary DTO already carries `version`, so deleting from Home needs no extra

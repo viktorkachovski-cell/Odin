@@ -42,6 +42,15 @@ a read-only list call does not prove a mutating one will succeed.
 Hosted and local migration histories already diverge. Match applied names and
 contents rather than pushing the full local history.
 
+The task workflow needed `20260927121823_task_workflow_polish.sql`,
+`20260927154349_task_workflow_review_fixes.sql` and
+`20260927194500_task_workflow_function_permissions.sql`, applied in that order
+on 2026-09-27 before its web client merged. The first backfilled every
+existing list's order and advanced its version and `updated_at` once (accepted
+risk R11). Because there is no hosted staging project, test unmerged database
+changes on a disposable local database, and never treat a preview build
+against an unmigrated production API as functional verification.
+
 ## Vercel configuration
 
 The Vite client needs two public, environment-scoped build variables:
@@ -71,9 +80,8 @@ credentials and privileged tokens must never use those prefixes.
 
 ### Which backend did an artifact build against?
 
-A built bundle is opaque and its asset hash cannot be reproduced locally,
-because Vercel builds on a different Node major. The build therefore logs its
-target host, which is public:
+A built bundle is opaque and its asset hash can vary with the build
+environment. The build logs its target host, which is public:
 
 ```
 [odin] building against <project-ref>.supabase.co
@@ -130,12 +138,12 @@ workaround, and do not create a new identity for an existing user.
 Reviewed against the current lockfile after a successful deployment. These are
 maintenance signals, not evidence that the deployed application failed.
 
-| Urgency | Warning                                                                   | Assessment and action                                                                                                                                              |
-| ------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| High    | `engines.node: >=22` permits an automatic future major                    | Fixed by pinning `22.x`, matching CI and preventing an unreviewed Vercel runtime jump                                                                              |
-| Medium  | `@testing-library/jest-dom` 6.10.x was withdrawn                          | Fixed by pinning 6.9.1, the upstream-recommended 6.x release; test-only, never in the production bundle                                                            |
-| Medium  | ESLint 9 is end-of-life                                                   | Open. ESLint 10 cannot be adopted until the accessibility plugin's published peer range supports it; keep accessibility linting enabled. See `code-standards.md`   |
-| Low     | `glob@7`, `inflight`, `uuid@7`, `whatwg-encoding`, `abab`, `domexception` | Transitive development dependencies from Expo/Jest tooling; the lockfile audit reports zero known vulnerabilities. Resolve through a tested upgrade, not overrides |
+| Urgency | Warning                                                                   | Assessment and action                                                                                                                                            |
+| ------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| High    | `engines.node: >=22` permits an automatic future major                    | Fixed by pinning `22.x`, matching CI and preventing an unreviewed Vercel runtime jump                                                                            |
+| Medium  | `@testing-library/jest-dom` 6.10.x was withdrawn                          | Fixed by pinning 6.9.1, the upstream-recommended 6.x release; test-only, never in the production bundle                                                          |
+| Medium  | ESLint 9 is end-of-life                                                   | Open. ESLint 10 cannot be adopted until the accessibility plugin's published peer range supports it; keep accessibility linting enabled. See `code-standards.md` |
+| Low     | `glob@7`, `inflight`, `uuid@7`, `whatwg-encoding`, `abab`, `domexception` | Transitive development dependencies from Expo/Jest tooling; re-run `npm audit` for current findings and resolve through tested upgrades, not overrides           |
 
 Re-run `npm audit`, all workspace tests, the Android bundle check and the Vercel
 production build when upgrading Expo, Jest or ESLint.

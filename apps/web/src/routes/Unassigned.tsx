@@ -1,11 +1,13 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { claimTask, keysAffectedByTaskChange, useCommand } from '@odin/data';
-import { taskRowFromCrossList } from '@odin/contracts';
+import { taskRowFromHouseholdTask } from '@odin/contracts';
+import { claimTask, keysAffectedByTaskChange, useCommand, useTaskRowActions } from '@odin/data';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useUnassignedQuery } from '../app/queries.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
+import { CommandErrors } from '../components/ListDetailParts.tsx';
+import { TaskDetailsFlow } from '../components/TaskDetailsFlow.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 
 /**
@@ -18,6 +20,8 @@ export function Unassigned(): ReactNode {
   const { t, locale, client } = useOdin();
   const query = useUnassignedQuery(true);
   const members = useMembersQuery(true);
+  const actions = useTaskRowActions(client);
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
 
   const claim = useCommand(
     (requestId, input: { readonly taskId: string; readonly expectedVersion: number }) =>
@@ -48,6 +52,7 @@ export function Unassigned(): ReactNode {
       {claim.state.error !== null && (
         <ErrorBanner error={claim.state.error} onRetry={() => void query.refetch()} t={t} />
       )}
+      <CommandErrors errors={actions.errors} t={t} />
 
       {tasks.length === 0 ? (
         <p className="empty">{t('unassigned.empty')}</p>
@@ -55,8 +60,8 @@ export function Unassigned(): ReactNode {
         <ul className="task-list">
           {tasks.map((task) => (
             <TaskRow
-              busy={claim.state.pending}
-              key={task.task_id}
+              busy={claim.state.pending || actions.busy}
+              key={task.id}
               locale={locale}
               members={members.data ?? []}
               onClaim={(selected) =>
@@ -65,11 +70,22 @@ export function Unassigned(): ReactNode {
                   expectedVersion: selected.version,
                 })
               }
+              onOpenDetails={(selected) => setDetailsTaskId(selected.id)}
+              onSetState={actions.setState}
               t={t}
-              task={taskRowFromCrossList(task, null)}
+              task={taskRowFromHouseholdTask(task)}
             />
           ))}
         </ul>
+      )}
+
+      {detailsTaskId !== null && (
+        <TaskDetailsFlow
+          canEdit
+          members={members.data ?? []}
+          onClose={() => setDetailsTaskId(null)}
+          taskId={detailsTaskId}
+        />
       )}
     </>
   );

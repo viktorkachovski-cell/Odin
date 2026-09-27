@@ -22,6 +22,36 @@ Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment
 limitation, not a project finding; CI reports 21/21.
 
+## Task-workflow branch evidence — review-fix commit `69197cc`
+
+The reviewed code commit `69197cc` on `codex/task-workflow-polish` passed GitHub [Quality](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210138)
+and [Database](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210226).
+Quality covers ESLint, Prettier, workspace typechecks, 12 tooling tests, 209
+Vitest tests in 25 files, 121 Android Jest tests, four build-environment tests,
+the web build, Expo Doctor (21/21) and Android JavaScript export. The web
+JavaScript output was 595.39 kB before gzip; see R8 in `known-risks.md`.
+
+Database CI replayed both branch migrations on a disposable Supabase stack.
+SQL lint found no schema errors; pgTAP passed 122 assertions across three
+files, including 43 task-workflow assertions. Five genuine parallel cases
+passed: duplicate create, competing claims, append order, moving while a
+neighbour is deleted, and competing adjacent moves. The review had reproduced
+the neighbour-delete race as a not-null `sort_order` failure before the fix.
+`20260927154349_task_workflow_review_fixes.sql` adds the list lock and changes
+the draft status and read RPCs; generated public types were refreshed from
+the disposable database.
+
+Local Node 22 `npm run check`, web build and Android export also passed after
+the review fixes using non-secret placeholder public configuration. No branch
+client was installed on a device or exercised against the hosted project.
+On 2026-09-27 the migrations were dry-run on the hosted project inside a
+transaction forced to roll back, then applied with a follow-up permissions
+migration, and `supabase/smoke/task-workflow-smoke.sql` passed there with
+identical row counts before and after (`deployment-log.md`). Nobody has yet
+checked two-client movement/state synchronization, deadline filters around
+local midnight and DST, or phone/tablet visual fit against the supplied
+reference, on a device or in a browser.
+
 ## Requirements traceability
 
 | Source IDs                        | Implementation owner     | Acceptance evidence required                                                                                                                                                    |
@@ -43,7 +73,7 @@ limitation, not a project finding; CI reports 21/21.
 | FR 27                             | Both clients, optional   | Read-only preview with separate copy action; never blocks Must completion                                                                                                       |
 | Notification amendment 2026-09-22 | Android + `@odin/domain` | Assignment, update and 24h/4h/1h deadline notifications fire under both gates and only then; scheduled set matches current deadlines; **delivery itself is unproven — risk R9** |
 
-BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/10 to full-list aggregates and completion tests; BR 06/07/09 to cross-list filters; BR 08 to incomplete-only overdue display. User-facing removal is deferred; any later removal must recalculate progress.
+BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/10 to full-list aggregates and completion tests; BR 06/07/09 to cross-list filters; BR 08 to incomplete-only overdue display. Task deletion and list archival are implemented; restoration and purge remain open under R2.
 
 ## Mandatory adversarial and edge cases
 
@@ -55,7 +85,7 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 - [ ] Stale fetch after successful mutation cannot restore older state; Realtime loss, reconnect and Android foreground resynchronize.
 - [ ] Completed tasks disappear from cross-list views, remain in detail/totals, and never show overdue.
 - [ ] Progress 0/0 = 0, 1/3 = 33, 2/3 = 67, 1/8 = 13 and all complete = 100.
-- [ ] More than 50 tasks/lists paginate correctly; counts reflect all pages; no N+1 Home queries or silent row-limit truncation.
+- [ ] Current snapshot readers return complete lists through 1,000 rows and a visible `TOO_LARGE` above it; installed clients' 50-row paged readers remain correct; counts cover all tasks and Home has no N+1 reads.
 - [ ] Blank/whitespace-only title, max length, emoji/supplementary Unicode, Bulgarian, very long member/title labels, null subtitle/deadline/assignee.
 - [ ] Same UTC due instant renders correctly in Europe/Sofia and another zone; DST invalid/ambiguous input handled explicitly; locale switching doesn't mutate instants.
 - [ ] Invalid, expired, revoked and already-used invite; logged-out deep-link continuation; account already in another household; no token in logs/referrers.

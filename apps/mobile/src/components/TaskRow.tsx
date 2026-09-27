@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { MemberDto, TaskRowModel } from '@odin/contracts';
-import { isOverdue } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
+import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
+import { isOverdue, taskState, taskStatus, taskStatusOptions } from '@odin/domain';
+import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
@@ -25,11 +25,16 @@ export interface TaskRowProps {
   readonly locale: Locale;
   readonly t: Translator;
   readonly busy?: boolean;
+  readonly onPress?: ((task: TaskRowModel) => void) | undefined;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
   readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
   readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
   readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
+  readonly onSetState?: ((task: TaskRowModel, state: TaskState) => void) | undefined;
+  readonly onMove?: ((task: TaskRowModel, direction: MoveDirection) => void) | undefined;
+  readonly moveUpDisabled?: boolean;
+  readonly moveDownDisabled?: boolean;
 }
 
 function TaskActions({
@@ -40,10 +45,12 @@ function TaskActions({
   onEdit,
   onUnassign,
   onDelete,
+  onSetState,
 }: Pick<
   TaskRowProps,
-  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
+  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete' | 'onSetState'
 >): ReactNode {
+  const currentState = taskState(task);
   const actions: ActionMenuItem[] = [
     ...(onEdit === undefined
       ? []
@@ -51,6 +58,14 @@ function TaskActions({
     ...(onUnassign === undefined || task.assignee_id === null
       ? []
       : [{ label: t('task.unassign.short'), onPress: () => onUnassign(task) }]),
+    ...(onSetState === undefined
+      ? []
+      : taskStatusOptions(task)
+          .filter((option) => option.state !== currentState)
+          .map((option) => ({
+            label: `${t('task.status.label')}: ${t(`task.status.${option.status}`)}`,
+            onPress: () => onSetState(task, option.state),
+          }))),
     ...(onDelete === undefined
       ? []
       : [
@@ -81,13 +96,6 @@ function TaskActions({
   );
 }
 
-function formatDue(dueAt: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(dueAt));
-}
-
 function DueText({
   task,
   locale,
@@ -114,7 +122,7 @@ function DueText({
     >
       {/* Overdue is spelled out; colour alone would not be enough. */}
       {overdue ? `${t('task.overdue')} · ` : ''}
-      {formatDue(task.due_at, locale)}
+      {formatDueAt(task.due_at, locale)}
     </Text>
   );
 }
@@ -125,11 +133,16 @@ export function TaskRow({
   locale,
   t,
   busy = false,
+  onPress,
   onToggleCompleted,
   onEdit,
   onClaim,
   onUnassign,
   onDelete,
+  onSetState,
+  onMove,
+  moveUpDisabled = false,
+  moveDownDisabled = false,
 }: TaskRowProps): ReactNode {
   const theme = useTheme();
   const assignee = members.find((member) => member.user_id === task.assignee_id);
@@ -161,7 +174,13 @@ export function TaskRow({
         </Pressable>
       )}
 
-      <View style={styles.body}>
+      <Pressable
+        accessibilityLabel={task.title}
+        accessibilityRole={onPress === undefined ? undefined : 'button'}
+        disabled={onPress === undefined}
+        onPress={() => onPress?.(task)}
+        style={styles.body}
+      >
         <Text
           style={[styles.title, { color: theme.colors.text }, task.completed && styles.titleDone]}
         >
@@ -180,6 +199,12 @@ export function TaskRow({
             </Text>
           )}
 
+          {onSetState !== undefined && (
+            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
+              {t(`task.status.${taskStatus(task)}`)}
+            </Text>
+          )}
+
           {assignee === undefined ? (
             <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
               {t('task.assignee.unassigned')}
@@ -195,17 +220,67 @@ export function TaskRow({
 
           <DueText locale={locale} t={t} task={task} />
         </View>
-      </View>
+      </Pressable>
 
       <TaskActions
         busy={busy}
         onClaim={onClaim}
         onDelete={onDelete}
         onEdit={onEdit}
+        onSetState={onSetState}
         onUnassign={onUnassign}
         t={t}
         task={task}
       />
+      <TaskMoveControls
+        busy={busy}
+        moveDownDisabled={moveDownDisabled}
+        moveUpDisabled={moveUpDisabled}
+        onMove={onMove}
+        t={t}
+        task={task}
+      />
+    </View>
+  );
+}
+
+function TaskMoveControls({
+  task,
+  t,
+  busy,
+  onMove,
+  moveUpDisabled,
+  moveDownDisabled,
+}: Pick<
+  TaskRowProps,
+  'task' | 't' | 'busy' | 'onMove' | 'moveUpDisabled' | 'moveDownDisabled'
+>): ReactNode {
+  const theme = useTheme();
+  if (onMove === undefined) return null;
+  return (
+    <View style={styles.moveActions}>
+      <Pressable
+        accessibilityLabel={t('task.move.up', { title: task.title })}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: moveUpDisabled || busy }}
+        disabled={moveUpDisabled || busy}
+        hitSlop={4}
+        onPress={() => onMove(task, 'up')}
+        style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+      >
+        <Text style={[styles.moveGlyph, { color: theme.colors.textMuted }]}>↑</Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel={t('task.move.down', { title: task.title })}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: moveDownDisabled || busy }}
+        disabled={moveDownDisabled || busy}
+        hitSlop={4}
+        onPress={() => onMove(task, 'down')}
+        style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+      >
+        <Text style={[styles.moveGlyph, { color: theme.colors.textMuted }]}>↓</Text>
+      </Pressable>
     </View>
   );
 }
@@ -224,6 +299,9 @@ const styles = StyleSheet.create({
     rowGap: 4,
   },
   metaStrong: { fontWeight: '700' },
+  moveActions: { flexDirection: 'column' },
+  moveButton: { alignItems: 'center', justifyContent: 'center' },
+  moveGlyph: { fontSize: 18, fontWeight: '700' },
   row: {
     alignItems: 'flex-start',
     borderRadius: 10,

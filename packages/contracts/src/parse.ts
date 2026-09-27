@@ -6,22 +6,22 @@
  */
 
 import type {
-  CrossListTaskDto,
-  HomePageDto,
+  HomeDto,
   HouseholdDto,
+  HouseholdTaskDto,
   InvitationDto,
+  ListDetailDto,
   ListDto,
   ListKind,
-  ListPageDto,
   ListStatus,
   ListSummaryDto,
   Locale,
   MemberDto,
   ProfileDto,
+  TaskCollectionDto,
   TaskDto,
   TaskTemplateDto,
   TaskTemplatePageDto,
-  TaskPageDto,
 } from './dto.ts';
 import { LIST_KINDS, LIST_STATUSES, LOCALES } from './dto.ts';
 
@@ -120,6 +120,7 @@ export function parseHousehold(value: unknown): HouseholdDto {
 export function parseList(value: unknown, field = 'list'): ListDto {
   const raw = obj(value, field);
   return {
+    sort_order: raw['sort_order'] === undefined ? 0 : num(raw['sort_order'], `${field}.sort_order`),
     id: str(raw['id'], `${field}.id`),
     household_id: str(raw['household_id'], `${field}.household_id`),
     kind: parseListKind(raw['kind'], `${field}.kind`),
@@ -140,6 +141,7 @@ export function parseList(value: unknown, field = 'list'): ListDto {
 function parseListSummary(value: unknown, field: string): ListSummaryDto {
   const raw = obj(value, field);
   return {
+    sort_order: raw['sort_order'] === undefined ? 0 : num(raw['sort_order'], `${field}.sort_order`),
     id: str(raw['id'], `${field}.id`),
     kind: parseListKind(raw['kind'], `${field}.kind`),
     title: str(raw['title'], `${field}.title`),
@@ -152,19 +154,19 @@ function parseListSummary(value: unknown, field: string): ListSummaryDto {
   };
 }
 
-export function parseHomePage(value: unknown): HomePageDto {
+export function parseHome(value: unknown): HomeDto {
   const raw = obj(value, 'home');
   return {
     items: arr(raw['items'], 'home.items').map((entry, index) =>
       parseListSummary(entry, `home.items[${index}]`),
     ),
-    next_cursor: nullableStr(raw['next_cursor'], 'home.next_cursor'),
   };
 }
 
 export function parseTask(value: unknown, field = 'task'): TaskDto {
   const raw = obj(value, field);
   return {
+    blocked: raw['blocked'] === undefined ? false : bool(raw['blocked'], `${field}.blocked`),
     notes: raw['notes'] === undefined ? null : nullableStr(raw['notes'], `${field}.notes`),
     id: str(raw['id'], `${field}.id`),
     household_id: str(raw['household_id'], `${field}.household_id`),
@@ -180,40 +182,32 @@ export function parseTask(value: unknown, field = 'task'): TaskDto {
   };
 }
 
-function parseCrossListTask(value: unknown, field: string): CrossListTaskDto {
-  const raw = obj(value, field);
-  return {
-    task_id: str(raw['task_id'], `${field}.task_id`),
-    list_id: str(raw['list_id'], `${field}.list_id`),
-    list_title: str(raw['list_title'], `${field}.list_title`),
-    title: str(raw['title'], `${field}.title`),
-    due_at: nullableStr(raw['due_at'], `${field}.due_at`),
-    has_no_due: bool(raw['has_no_due'], `${field}.has_no_due`),
-    version: num(raw['version'], `${field}.version`),
-  };
-}
-
-export function parseListPage(value: unknown): ListPageDto {
-  const raw = obj(value, 'listPage');
+export function parseListDetail(value: unknown): ListDetailDto {
+  const raw = obj(value, 'listDetail');
   return {
     list: parseList(raw['list']),
-    total_tasks: num(raw['total_tasks'], 'listPage.total_tasks'),
-    completed_tasks: num(raw['completed_tasks'], 'listPage.completed_tasks'),
-    progress_percent: num(raw['progress_percent'], 'listPage.progress_percent'),
-    tasks: arr(raw['tasks'], 'listPage.tasks').map((entry, index) =>
-      parseTask(entry, `listPage.tasks[${index}]`),
+    total_tasks: num(raw['total_tasks'], 'listDetail.total_tasks'),
+    completed_tasks: num(raw['completed_tasks'], 'listDetail.completed_tasks'),
+    progress_percent: num(raw['progress_percent'], 'listDetail.progress_percent'),
+    tasks: arr(raw['tasks'], 'listDetail.tasks').map((entry, index) =>
+      parseTask(entry, `listDetail.tasks[${index}]`),
     ),
-    next_cursor: nullableStr(raw['next_cursor'], 'listPage.next_cursor'),
   };
 }
 
-export function parseTaskPage(value: unknown): TaskPageDto {
-  const raw = obj(value, 'taskPage');
+function parseHouseholdTask(value: unknown, field: string): HouseholdTaskDto {
   return {
-    items: arr(raw['items'], 'taskPage.items').map((entry, index) =>
-      parseCrossListTask(entry, `taskPage.items[${index}]`),
+    ...parseTask(value, field),
+    list_title: str(obj(value, field)['list_title'], `${field}.list_title`),
+  };
+}
+
+export function parseTaskCollection(value: unknown): TaskCollectionDto {
+  const raw = obj(value, 'tasks');
+  return {
+    items: arr(raw['items'], 'tasks.items').map((entry, index) =>
+      parseHouseholdTask(entry, `tasks.items[${index}]`),
     ),
-    next_cursor: nullableStr(raw['next_cursor'], 'taskPage.next_cursor'),
   };
 }
 

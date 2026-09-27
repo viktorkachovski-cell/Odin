@@ -20,6 +20,7 @@ const DESTINATIONS = [
   { to: '/', glyph: '⌂', key: 'nav.home' },
   { to: '/unassigned', glyph: '?', key: 'nav.unassigned' },
   { to: '/my-tasks', glyph: '☺', key: 'nav.my_tasks' },
+  { to: '/all-tasks', glyph: '☷', key: 'nav.all_tasks' },
   { to: '/settings', glyph: '⚙', key: 'nav.settings' },
 ] as const;
 

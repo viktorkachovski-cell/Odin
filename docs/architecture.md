@@ -43,7 +43,7 @@ packages/design-tokens/src/  Colors, spacing, typography values
 supabase/schemas/            Desired declarative SQL schema
 supabase/migrations/         Generated and reviewed migrations
 supabase/tests/              SQL authorization and constraint tests
-tests/integration/           Two-user, concurrency and reconnect tests
+supabase/tests/concurrency.mjs Parallel database transaction tests
 docs/                        Contracts, decisions, operational records
 tooling/                     Quality checks
 ```
@@ -61,6 +61,11 @@ npm workspaces with a single root lockfile. The Expo SDK dictates the React and 
 ## State and reliability
 
 Use TanStack Query for server state and local form state for unfinished edits. Inject platform-specific session storage into the shared client factory. Use current supported Expo secure-storage guidance for native refresh tokens; never hardcode token-size assumptions. Web uses the normal Supabase browser session mechanism; protect against XSS, avoid untrusted HTML and third-party script injection.
+
+The task-workflow branch reads Home, list detail and cross-list tasks as
+bounded server snapshots. That prevents a reorder between client-side pages
+from dropping or repeating a row. The tradeoff is a visible `TOO_LARGE`
+response above 1,000 rows; see `contract.md` and risk R10 in `known-risks.md`.
 
 MVP offline support means last loaded data while available, a visible offline/stale state, and preservation of unsaved form text during navigation/network failures. No persistent background mutation queue. Disable submission when known offline and keep drafts; an uncertain timed-out online operation retries with the same request ID. On sign-out or account switch, clear queries, drafts and subscriptions. Process-kill draft recovery and durable offline cache are deferred unless approved.
 

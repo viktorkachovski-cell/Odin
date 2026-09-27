@@ -11,6 +11,8 @@ export const queryKeys = {
   home: ['home'] as const,
   taskTemplates: ['task-templates'] as const,
   list: (listId: string) => ['list', listId] as const,
+  task: (taskId: string) => ['task', taskId] as const,
+  allTasks: ['all-tasks'] as const,
   myTasks: ['my-tasks'] as const,
   unassigned: ['unassigned'] as const,
 } as const;
@@ -21,10 +23,12 @@ export const queryKeys = {
  */
 export function keysAffectedByTaskChange(listId?: string): readonly (readonly string[])[] {
   return [
+    ['task'],
+    queryKeys.allTasks,
     queryKeys.home,
     queryKeys.myTasks,
     queryKeys.unassigned,
-    ...(listId === undefined ? [] : [queryKeys.list(listId)]),
+    listId === undefined ? ['list'] : queryKeys.list(listId),
   ];
 }
 
@@ -33,11 +37,21 @@ export function keysAffectedByTaskTemplateChange(): readonly (readonly string[])
 }
 
 export function keysAffectedByListChange(listId?: string): readonly (readonly string[])[] {
-  return [queryKeys.home, ...(listId === undefined ? [] : [queryKeys.list(listId)])];
+  return [
+    queryKeys.allTasks,
+    ['task'],
+    queryKeys.home,
+    queryKeys.myTasks,
+    queryKeys.unassigned,
+    listId === undefined ? ['list'] : queryKeys.list(listId),
+  ];
 }
 
 export function keysAffectedByMembershipChange(): readonly (readonly string[])[] {
   return [
+    ['list'],
+    queryKeys.allTasks,
+    ['task'],
     queryKeys.taskTemplates,
     queryKeys.profile,
     queryKeys.household,

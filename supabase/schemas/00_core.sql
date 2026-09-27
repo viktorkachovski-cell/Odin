@@ -67,6 +67,7 @@ create table public.lists (
   subtitle text,
   notes text,
   status text not null default 'open',
+  sort_order integer not null default 0,
   seed_key text,
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(),
@@ -74,6 +75,7 @@ create table public.lists (
   version bigint not null default 1,
   constraint lists_kind_valid check (kind in ('template', 'active')),
   constraint lists_status_valid check (status in ('open', 'archived')),
+  constraint lists_sort_order_nonnegative check (sort_order >= 0),
   constraint lists_title_normalized check (
     title = private.normalized_text(title)
     and char_length(title) between 1 and 160
@@ -93,6 +95,8 @@ create table public.lists (
   -- Templates seeded by create_household carry a seed_key; member-saved
   -- templates have none, so only the uniqueness of a seed_key is enforced.
   unique (household_id, id),
+  constraint lists_household_kind_sort_order_key
+    unique (household_id, kind, sort_order) deferrable initially immediate,
   unique (household_id, seed_key)
 );
 
@@ -106,6 +110,7 @@ create table public.tasks (
   title text not null,
   sort_order integer not null,
   completed boolean not null default false,
+  blocked boolean not null default false,
   assignee_id uuid,
   due_at timestamptz,
   notes text,
@@ -122,11 +127,13 @@ create table public.tasks (
   ),
   constraint tasks_sort_order_nonnegative check (sort_order >= 0),
   constraint tasks_version_positive check (version > 0),
+  constraint tasks_completed_blocked_exclusive check (not (completed and blocked)),
   constraint tasks_list_fk foreign key (household_id, list_id)
     references public.lists(household_id, id) on delete cascade,
   constraint tasks_assignee_membership_fk foreign key (household_id, assignee_id)
     references public.memberships(household_id, user_id),
-  unique (list_id, sort_order)
+  constraint tasks_list_id_sort_order_key
+    unique (list_id, sort_order) deferrable initially immediate
 );
 
 create index tasks_household_list_completed_order_idx
@@ -139,6 +146,38 @@ where completed = false;
 create index tasks_incomplete_unassigned_due_idx
 on public.tasks (household_id, due_at, list_id, id)
 where completed = false and assignee_id is null;
+
+create index tasks_open_household_due_idx
+on public.tasks (household_id, due_at, list_id, id);
+
+create or replace function private.lock_list_ordering(p_household_id uuid)
+returns void
+language sql
+volatile
+security definer
+set search_path = ''
+as $$
+  select pg_advisory_xact_lock(hashtextextended(p_household_id::text, 2));
+$$;
+
+create or replace function private.assign_list_order()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.lock_list_ordering(new.household_id);
+  select coalesce(max(sort_order), -1) + 1 into new.sort_order
+  from public.lists
+  where household_id = new.household_id and kind = new.kind;
+  return new;
+end;
+$$;
+
+create trigger lists_assign_order
+before insert on public.lists
+for each row execute function private.assign_list_order();
 
 create table public.task_templates (
   id uuid primary key default gen_random_uuid(),
@@ -289,7 +328,7 @@ begin
   end if;
 
   if parent_kind = 'template'
-    and (new.completed or new.assignee_id is not null or new.due_at is not null) then
+    and (new.completed or new.blocked or new.assignee_id is not null or new.due_at is not null) then
     raise exception 'template tasks cannot carry runtime state' using errcode = '23514';
   end if;
 

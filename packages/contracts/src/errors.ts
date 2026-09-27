@@ -17,6 +17,8 @@ export const ERROR_CODES = [
   'INVITE_REVOKED',
   'ALREADY_IN_HOUSEHOLD',
   'RATE_LIMITED',
+  /** A snapshot read found more rows than it will return at once. */
+  'TOO_LARGE',
   'NETWORK',
   'UNKNOWN',
 ] as const;

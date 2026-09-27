@@ -117,6 +117,7 @@ describe('query keys', () => {
   });
 
   it('omits the list key when the list is unknown', () => {
-    expect(keysAffectedByTaskChange()).toHaveLength(3);
+    expect(keysAffectedByTaskChange()).toContainEqual(['task']);
+    expect(keysAffectedByTaskChange()).not.toContainEqual(['list', '']);
   });
 });

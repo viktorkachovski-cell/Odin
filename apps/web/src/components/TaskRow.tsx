@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-import type { MemberDto, TaskRowModel } from '@odin/contracts';
-import { isOverdue } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
+import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
+import { isOverdue, taskState, taskStatusOptions } from '@odin/domain';
+import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { Avatar } from './Avatar.tsx';
 import { OverflowMenu, type OverflowItem } from './OverflowMenu.tsx';
@@ -27,6 +27,11 @@ export interface TaskRowProps {
   readonly t: Translator;
   readonly busy?: boolean;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
+  readonly onSetState?: ((task: TaskRowModel, state: TaskState) => void) | undefined;
+  readonly onMove?: ((task: TaskRowModel, direction: MoveDirection) => void) | undefined;
+  readonly moveUpDisabled?: boolean | undefined;
+  readonly moveDownDisabled?: boolean | undefined;
+  readonly onOpenDetails?: ((task: TaskRowModel) => void) | undefined;
   readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
   readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
@@ -41,9 +46,21 @@ function TaskActions({
   onEdit,
   onUnassign,
   onDelete,
+  onMove,
+  moveUpDisabled,
+  moveDownDisabled,
 }: Pick<
   TaskRowProps,
-  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete'
+  | 'task'
+  | 'busy'
+  | 't'
+  | 'onClaim'
+  | 'onEdit'
+  | 'onUnassign'
+  | 'onDelete'
+  | 'onMove'
+  | 'moveUpDisabled'
+  | 'moveDownDisabled'
 >): ReactNode {
   const overflowItems: OverflowItem[] = [];
 
@@ -65,7 +82,13 @@ function TaskActions({
     });
   }
 
-  if (onClaim === undefined && onEdit === undefined && overflowItems.length === 0) return null;
+  if (
+    onClaim === undefined &&
+    onEdit === undefined &&
+    onMove === undefined &&
+    overflowItems.length === 0
+  )
+    return null;
 
   return (
     <div className="task-row__actions">
@@ -90,6 +113,28 @@ function TaskActions({
           {t('task.edit_action.short')}
         </button>
       )}
+      {onMove !== undefined && (
+        <>
+          <button
+            aria-label={t('task.move.up', { title: task.title })}
+            className="button button--quiet task-row__move"
+            disabled={busy || moveUpDisabled}
+            onClick={() => onMove(task, 'up')}
+            type="button"
+          >
+            <span aria-hidden="true">↑</span>
+          </button>
+          <button
+            aria-label={t('task.move.down', { title: task.title })}
+            className="button button--quiet task-row__move"
+            disabled={busy || moveDownDisabled}
+            onClick={() => onMove(task, 'down')}
+            type="button"
+          >
+            <span aria-hidden="true">↓</span>
+          </button>
+        </>
+      )}
       {overflowItems.length > 0 && (
         <OverflowMenu
           disabled={busy}
@@ -101,11 +146,74 @@ function TaskActions({
   );
 }
 
-function formatDue(due_at: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(due_at));
+function StatusSelect({
+  task,
+  t,
+  busy,
+  onSetState,
+}: {
+  readonly task: TaskRowModel;
+  readonly t: Translator;
+  readonly busy: boolean | undefined;
+  readonly onSetState: (task: TaskRowModel, state: TaskState) => void;
+}): ReactNode {
+  const options = taskStatusOptions(task);
+  return (
+    <label className="task-row__status">
+      <span className="visually-hidden">{t('task.status.change', { title: task.title })}</span>
+      <select
+        aria-label={t('task.status.change', { title: task.title })}
+        disabled={busy}
+        onChange={(event) => {
+          const chosen = options.find((option) => option.state === event.target.value);
+          if (chosen !== undefined) onSetState(task, chosen.state);
+        }}
+        value={taskState(task)}
+      >
+        {options.map((option) => (
+          <option key={option.state} value={option.state}>
+            {t(`task.status.${option.status}`)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TaskMeta({
+  task,
+  members,
+  locale,
+  t,
+  busy,
+  onSetState,
+}: Pick<TaskRowProps, 'task' | 'members' | 'locale' | 't' | 'busy' | 'onSetState'>): ReactNode {
+  const assignee = members.find((member) => member.user_id === task.assignee_id);
+  const overdue = isOverdue(task);
+  return (
+    <div className="task-row__meta">
+      {onSetState !== undefined && (
+        <StatusSelect busy={busy} onSetState={onSetState} t={t} task={task} />
+      )}
+      {task.list_title !== undefined && <span>{t('task.in_list', { list: task.list_title })}</span>}
+      {assignee === undefined ? (
+        <span className="chip">{t('task.assignee.unassigned')}</span>
+      ) : (
+        <span className="chip">
+          <Avatar displayName={assignee.display_name} userId={assignee.user_id} />
+          {assignee.display_name}
+        </span>
+      )}
+      {task.due_at === null ? (
+        <span>{t('task.due.none')}</span>
+      ) : (
+        <span className={overdue ? 'overdue' : undefined}>
+          {overdue ? `${t('task.overdue')} · ` : ''}
+          {formatDueAt(task.due_at, locale)}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export function TaskRow({
@@ -115,14 +223,16 @@ export function TaskRow({
   t,
   busy = false,
   onToggleCompleted,
+  onSetState,
+  onOpenDetails,
   onEdit,
   onClaim,
   onUnassign,
   onDelete,
+  onMove,
+  moveUpDisabled,
+  moveDownDisabled,
 }: TaskRowProps): ReactNode {
-  const assignee = members.find((member) => member.user_id === task.assignee_id);
-  const overdue = isOverdue(task);
-
   return (
     <li className={task.completed ? 'task-row task-row--done' : 'task-row'}>
       {onToggleCompleted !== undefined && (
@@ -143,41 +253,39 @@ export function TaskRow({
       )}
 
       <div className="task-row__body">
-        <span
-          className={task.completed ? 'task-row__title task-row__title--done' : 'task-row__title'}
-        >
-          {task.title}
-        </span>
+        {onOpenDetails === undefined ? (
+          <span
+            className={task.completed ? 'task-row__title task-row__title--done' : 'task-row__title'}
+          >
+            {task.title}
+          </span>
+        ) : (
+          <button
+            className={
+              task.completed
+                ? 'task-row__title task-row__title--done task-row__title-button'
+                : 'task-row__title task-row__title-button'
+            }
+            onClick={() => onOpenDetails(task)}
+            type="button"
+          >
+            {task.title}
+          </button>
+        )}
         {task.notes !== undefined && task.notes !== null && (
           <p className="task-row__notes" title={task.notes}>
             {task.notes}
           </p>
         )}
 
-        <div className="task-row__meta">
-          {task.list_title !== undefined && (
-            <span>{t('task.in_list', { list: task.list_title })}</span>
-          )}
-
-          {assignee === undefined ? (
-            <span className="chip">{t('task.assignee.unassigned')}</span>
-          ) : (
-            <span className="chip">
-              <Avatar displayName={assignee.display_name} userId={assignee.user_id} />
-              {assignee.display_name}
-            </span>
-          )}
-
-          {task.due_at === null ? (
-            <span>{t('task.due.none')}</span>
-          ) : (
-            <span className={overdue ? 'overdue' : undefined}>
-              {/* Overdue is spelled out; colour alone would not be enough. */}
-              {overdue ? `${t('task.overdue')} · ` : ''}
-              {formatDue(task.due_at, locale)}
-            </span>
-          )}
-        </div>
+        <TaskMeta
+          busy={busy}
+          locale={locale}
+          members={members}
+          onSetState={onSetState}
+          t={t}
+          task={task}
+        />
       </div>
 
       <TaskActions
@@ -185,7 +293,10 @@ export function TaskRow({
         onClaim={onClaim}
         onDelete={onDelete}
         onEdit={onEdit}
+        onMove={onMove}
         onUnassign={onUnassign}
+        moveUpDisabled={moveUpDisabled}
+        moveDownDisabled={moveDownDisabled}
         t={t}
         task={task}
       />

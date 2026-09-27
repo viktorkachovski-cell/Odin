@@ -45,6 +45,48 @@ at most one assignee, an optional deadline and an explicit completion state.
   due timestamp ascending, nulls last, with a stable list/task ID tie-breaker.
 - A completed task never shows as overdue.
 
+### Task workflow — 2026-09-27
+
+The three task-workflow migrations were applied to the hosted database on
+2026-09-27 (`deployment-log.md`) and the web client ships these additions from
+`main`. No Android build containing them has been released yet.
+
+- Tapping or clicking a task opens its complete details, including notes,
+  assignee and deadline. Completion, status, move and overflow controls remain
+  independent of opening details. Active tasks can be edited from details on
+  every screen; a conflicting save keeps the draft and reloads the task, so the
+  member can resubmit against the latest version.
+- The four visible statuses are Unassigned, To-do, Blocked and Done. A task is
+  stored as Open, Blocked or Done; an open task shows Unassigned without an
+  assignee and To-do with one, so that label follows assignment automatically.
+  Blocked and Done are explicit choices and do not change the assignee.
+  Choosing the open option restores the appropriate label. Assignment changes
+  preserve a blocked state. Completion/reopening clears it.
+- Up/down actions persist one shared household order. Active lists and list
+  templates each have their own order. Tasks move inside the existing
+  incomplete/completed groups; a template's tasks show move controls too.
+  End-of-group moves are disabled, and every move control stays disabled until
+  the previous move's result has reloaded, so rapid taps never send a stale
+  version. Reordering uses version checks, so an old screen cannot silently
+  overwrite a newer change.
+- Saving a list template is an icon beside the list title, with a descriptive
+  accessible label that includes the title.
+- All Tasks includes every task in open active lists, including done tasks.
+  It offers All deadlines, Overdue, Today, Upcoming, No deadline and Date range.
+  Overdue excludes done tasks and means deadline before now; Today uses the
+  entire local day; Upcoming starts tomorrow. The custom range includes both
+  selected local dates. Tasks without deadlines appear only in All deadlines
+  and No deadline. Invalid or reversed ranges cannot be applied.
+- Home, list detail, My Tasks, Unassigned and All Tasks each load in one read,
+  so a reorder by another member can never drop or repeat a row. A collection
+  above 1,000 rows shows a "too many items" message instead of a partial list.
+- My Tasks and Unassigned rows now show a task's notes, as All Tasks and list
+  detail rows already did, because all three read the same full task rows.
+
+Mobile presentation uses Odin's existing palette with clearer spacing,
+task hierarchy, restrained surfaces and separate accessible touch targets.
+English and Bulgarian labels cover the new controls.
+
 ## Templates
 
 Templates are **two separate types that never mix**.
@@ -70,7 +112,7 @@ Templates are **two separate types that never mix**.
   `kind = 'template'`, `status = 'open'`, `seed_key = null` and
   `created_by = <actor>`.
 - Every task copies with its `title`, `notes` and `sort_order`. Completion,
-  assignee and deadline are **not** copied; the
+  blocked state, assignee and deadline are **not** copied; the
   `validate_task_parent_and_assignee` trigger enforces that independently.
 - The source list is unmodified, so the command takes no `expected_version`.
 - Templates and archived lists cannot be saved as templates; both return the
@@ -140,7 +182,7 @@ announced while Odin's process is alive.
   kind** by setting `status = 'archived'`. Its tasks stay for operator
   recovery. An archived list cannot be deleted again. An archived template
   leaves Home and stops being copyable with no further change, because
-  `get_home` and `copy_template` both require `status = 'open'`.
+  Home reads and `copy_template` require `status = 'open'`.
 
   Templates became deletable on 2026-09-22. While the only templates were
   seeded ones they were deliberately undeletable; once a member could save any
@@ -161,16 +203,15 @@ announced while Odin's process is alive.
 
 All of these are actor-scoped, idempotent by `request_id`, and available to any
 active household member. Both clients confirm destructive actions and
-invalidate Home, list detail, My Tasks and Unassigned after success.
+invalidate Home, list detail, My Tasks, Unassigned and All Tasks after success.
 
 ## Client compatibility
 
-Installed Android builds keep calling the original `create_list`, `update_list`,
-`create_task` and `update_task`, which are unchanged and preserve an existing
-note. Updated clients call the additive `*_v2` variants that accept notes. No
-RPC signature, DTO field or error code was ever changed to add a field.
+Installed Android builds retain their original note-preserving create/update
+RPCs and the paged household reads. Updated clients use `*_v2` note commands
+and snapshot reads. Parsers tolerate a missing `notes`, `blocked` or list
+`sort_order` in legacy payloads, but the updated workflow clients still
+require both task-workflow migrations before they can call the new RPCs.
 
-`ListDto`, `ListSummaryDto` and `TaskDto` parse a missing `notes` as `null`, so
-the deployment order between database and clients is not load-bearing.
-
-This pattern has no deprecation plan — risk R5 in `known-risks.md`.
+The legacy API has no deprecation plan — risk R5 in `known-risks.md`. Exact
+signatures and migration order are in `contract.md` and `operations.md`.

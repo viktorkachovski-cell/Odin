@@ -19,6 +19,29 @@ One active household per account in MVP; equal task permissions for every member
 
 Home keeps bordered template cards and unbordered active cards in separately labeled sections. The question-mark control opens Unassigned, the person control opens My Tasks, and scrolling hides/reveals the bottom navigation. My Tasks and Unassigned exclude completed/template tasks. Empty-list progress is 0 percent.
 
+## Task workflow — confirmed 2026-09-27
+
+The owner requested task details, up/down movement for tasks and lists, an
+inline save-template icon, deadline filtering across all tasks, four task
+statuses, and mobile visual polish that retains Odin's palette. It merged and
+reached production on 2026-09-27.
+
+The owner confirmed that Unassigned follows assignment automatically, order is
+shared across household members, and date filters refer to task deadlines.
+Blocked and Done are explicit choices. Task movement preserves the existing
+incomplete-first groups; list movement is within the existing active/template
+sections. New tasks and lists still append before a member moves them.
+
+All Tasks filters are overdue, today, upcoming, no deadline and a custom
+inclusive local-date range, plus an unfiltered view. No list deadline,
+multi-assignee, permission hierarchy or template runtime state is introduced.
+
+The reviewed branch implements the stored task lifecycle as Open/Blocked/Done.
+Unassigned and To-do are display labels derived from assignment, never command
+input. Home, list detail and cross-list tasks each read one snapshot; a view
+above 1,000 rows fails visibly instead of truncating. These are implementation
+choices recorded with their tradeoffs in `known-risks.md`.
+
 ## Proposed implementation defaults
 
 These fill technical gaps without redefining confirmed task rules. Record deviations before implementation; do not silently treat proposed lifecycle policy as approved product scope.
@@ -32,7 +55,7 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 | Email delivery        | Custom SMTP required for general-user confirmation and recovery email delivery; preserve default confirmation/reset link templates |
 | Task time             | Optional local date and time converted to UTC; date-only tasks resolve to local end of day                                         |
 | Text limits           | List title 1–160; task title 1–500; notes 5,000; subtitle 300; display name 1–80 Unicode code points                               |
-| List task ordering    | Append at end, stable ordering; no drag-and-drop editing in MVP                                                                    |
+| Drag-and-drop         | Confirmed up/down actions set shared order; drag-and-drop is not implemented                                                       |
 | Avatars               | Initials and deterministic accessible colors satisfy fallback requirement; uploads deferred                                        |
 | Templates             | Superseded 2026-09-22: no seed content. A household saves its own list templates; see item 4 below and `features.md`               |
 | Seed selection        | Household chooses seed language during creation; UI language changes never translate existing user content                         |

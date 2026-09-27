@@ -1,8 +1,16 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import type { CommandError, MemberDto, TaskDto, TaskRowModel } from '@odin/contracts';
+import type {
+  CommandError,
+  MemberDto,
+  MoveDirection,
+  TaskDto,
+  TaskRowModel,
+  TaskState,
+} from '@odin/contracts';
 import { taskRowFromTask } from '@odin/contracts';
+import { adjacentMoves } from '@odin/domain';
 import type { Locale, TranslationKey, Translator } from '@odin/i18n';
 
 import { ErrorBanner } from './Banner.tsx';
@@ -24,7 +32,10 @@ export function ListTasks({
   isTemplate,
   busy,
   onEdit,
+  onOpenDetails,
   onToggleCompleted,
+  onSetState,
+  onMoveTask,
   onUnassign,
   onDelete,
 }: {
@@ -35,26 +46,39 @@ export function ListTasks({
   readonly isTemplate: boolean;
   readonly busy: boolean;
   readonly onEdit: (task: TaskRowModel) => void;
+  readonly onOpenDetails: (task: TaskRowModel) => void;
   readonly onToggleCompleted: (task: TaskRowModel, completed: boolean) => void;
+  readonly onSetState: (task: TaskRowModel, state: TaskState) => void;
+  readonly onMoveTask: (task: TaskRowModel, direction: MoveDirection) => void;
   readonly onUnassign: (task: TaskRowModel) => void;
   readonly onDelete: (task: TaskRowModel) => void;
 }): ReactNode {
+  // A template's tasks can be reordered but carry no runtime state, so they
+  // keep the move controls and lose everything else.
   return (
     <ul className="task-list">
-      {tasks.map((task) => (
-        <TaskRow
-          busy={busy}
-          key={task.id}
-          locale={locale}
-          members={members}
-          onDelete={isTemplate ? undefined : onDelete}
-          onEdit={isTemplate ? undefined : onEdit}
-          onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
-          onUnassign={isTemplate ? undefined : onUnassign}
-          t={t}
-          task={taskRowFromTask(task)}
-        />
-      ))}
+      {tasks.map((task, index) => {
+        const moves = adjacentMoves(tasks, index, (row) => row.completed);
+        return (
+          <TaskRow
+            busy={busy}
+            key={task.id}
+            locale={locale}
+            members={members}
+            moveDownDisabled={!moves.down}
+            moveUpDisabled={!moves.up}
+            onDelete={isTemplate ? undefined : onDelete}
+            onEdit={isTemplate ? undefined : onEdit}
+            onMove={onMoveTask}
+            onOpenDetails={onOpenDetails}
+            onSetState={isTemplate ? undefined : onSetState}
+            onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
+            onUnassign={isTemplate ? undefined : onUnassign}
+            t={t}
+            task={taskRowFromTask(task)}
+          />
+        );
+      })}
     </ul>
   );
 }
@@ -86,7 +110,21 @@ export function ListHeader({
     <div className="page-header page-header--sticky">
       <div>
         <Link to="/">{t('list.back')}</Link>
-        <h1>{title}</h1>
+        <div className="card__title-actions">
+          <h1>{title}</h1>
+          {!isTemplate && (
+            <button
+              aria-label={t('list.template.save_named', { title })}
+              className="button button--quiet template-save-icon"
+              disabled={pending}
+              onClick={onSaveTemplate}
+              title={t('list.template.save_named', { title })}
+              type="button"
+            >
+              <span aria-hidden="true">⧉</span>
+            </button>
+          )}
+        </div>
         {subtitle !== null && <p className="card__subtitle">{subtitle}</p>}
         {notes !== null && <p className="card__notes">{notes}</p>}
       </div>
@@ -101,15 +139,7 @@ export function ListHeader({
           items={[
             ...(isTemplate
               ? []
-              : [
-                  { key: 'edit', label: t('list.edit'), glyph: '✎', onSelect: onEdit },
-                  {
-                    key: 'save-template',
-                    label: t('list.template.save'),
-                    glyph: '⧉',
-                    onSelect: onSaveTemplate,
-                  },
-                ]),
+              : [{ key: 'edit', label: t('list.edit'), glyph: '✎', onSelect: onEdit }]),
             {
               key: 'delete',
               label: t('list.delete'),

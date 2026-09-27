@@ -3,16 +3,15 @@ import { Link, useNavigate, useParams } from 'react-router';
 
 import type { TaskDto } from '@odin/contracts';
 import {
-  createTask,
   deleteList,
   deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   saveListTemplate,
-  setTaskCompleted,
   updateList,
   updateTask,
   useCommand,
+  useTaskRowActions,
 } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
 
@@ -29,8 +28,9 @@ import {
   type PendingConfirm,
 } from '../components/ListDetailParts.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
+import { ListTaskEditor } from '../components/ListTaskEditor.tsx';
 import { Progress } from '../components/Progress.tsx';
-import { TaskEditor } from '../components/TaskEditor.tsx';
+import { TaskDetailsFlow } from '../components/TaskDetailsFlow.tsx';
 
 /**
  * List detail. Tasks render incomplete-first with their declared order
@@ -47,60 +47,13 @@ export function ListDetail(): ReactNode {
 
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
   const [templateSaved, setTemplateSaved] = useState(false);
 
   const invalidateTask = keysAffectedByTaskChange(listId);
-
-  const completeCommand = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly completed: boolean;
-      },
-    ) => setTaskCompleted(client, requestId, input),
-    { invalidate: invalidateTask },
-  );
-
-  const saveTask = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string | null;
-        readonly notes: string | null;
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly assigneeId: string | null;
-        readonly dueAt: string | null;
-      },
-    ) =>
-      input.taskId === null
-        ? createTask(client, requestId, {
-            listId: listId ?? '',
-            title: input.title,
-            notes: input.notes,
-            assigneeId: input.assigneeId,
-            dueAt: input.dueAt,
-          })
-        : updateTask(client, requestId, {
-            taskId: input.taskId,
-            expectedVersion: input.expectedVersion,
-            title: input.title,
-            notes: input.notes,
-            assigneeId: input.assigneeId,
-            dueAt: input.dueAt,
-          }),
-    {
-      invalidate: invalidateTask,
-      onSuccess: () => {
-        setEditingTask(null);
-        setAddingTask(false);
-      },
-    },
-  );
+  const rowActions = useTaskRowActions(client, listId);
 
   const saveList = useCommand(
     (
@@ -172,7 +125,7 @@ export function ListDetail(): ReactNode {
   );
 
   if (list.isPending) return <p role="status">{t('state.loading')}</p>;
-  if (list.isError) {
+  if (!list.data) {
     return (
       <>
         <p className="empty">{t('list.not_found')}</p>
@@ -186,7 +139,11 @@ export function ListDetail(): ReactNode {
   const page = list.data;
   const ordered = sortTasksInList(page.tasks);
   const isTemplate = page.list.kind === 'template';
-  const taskConflict = saveTask.state.error?.code === 'CONFLICT';
+  const memberList = members.data ?? [];
+  const closeTaskEditor = (): void => {
+    setEditingTask(null);
+    setAddingTask(false);
+  };
 
   return (
     <>
@@ -223,13 +180,12 @@ export function ListDetail(): ReactNode {
 
       <CommandErrors
         errors={[
-          { error: completeCommand.state.error, retry: () => void completeCommand.retry() },
+          ...rowActions.errors,
           { error: removeList.state.error, retry: () => void removeList.retry() },
           { error: removeTask.state.error, retry: () => void removeTask.retry() },
           { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
           { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
         ]}
-        onRetry={() => void completeCommand.retry()}
         t={t}
       />
 
@@ -237,10 +193,10 @@ export function ListDetail(): ReactNode {
         <p className="empty">{t('list.empty')}</p>
       ) : (
         <ListTasks
-          busy={anyPending([completeCommand.state, removeTask.state, unassignTask.state])}
+          busy={rowActions.busy || anyPending([removeTask.state, unassignTask.state])}
           isTemplate={isTemplate}
           locale={locale}
-          members={members.data ?? []}
+          members={memberList}
           onDelete={(selected) =>
             setConfirming({
               titleKey: 'task.delete.title',
@@ -256,13 +212,10 @@ export function ListDetail(): ReactNode {
           onEdit={(selected) =>
             setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
           }
-          onToggleCompleted={(selected, completed) =>
-            void completeCommand.run({
-              taskId: selected.id,
-              expectedVersion: selected.version,
-              completed,
-            })
-          }
+          onMoveTask={rowActions.move}
+          onOpenDetails={(selected) => setDetailsTaskId(selected.id)}
+          onSetState={rowActions.setState}
+          onToggleCompleted={rowActions.toggleCompleted}
           onUnassign={(selected) =>
             setConfirming({
               titleKey: 'task.unassign.title',
@@ -291,35 +244,25 @@ export function ListDetail(): ReactNode {
         t={t}
       />
 
+      {detailsTaskId !== null && (
+        <TaskDetailsFlow
+          canEdit={!isTemplate}
+          members={memberList}
+          onClose={() => setDetailsTaskId(null)}
+          taskId={detailsTaskId}
+        />
+      )}
+
       {(addingTask || editingTask !== null) && (
-        <TaskEditor
-          conflict={taskConflict}
-          error={saveTask.state.error}
+        <ListTaskEditor
           key={editingTask?.id ?? 'new'}
-          members={members.data ?? []}
-          onCancel={() => {
-            saveTask.reset();
-            setEditingTask(null);
-            setAddingTask(false);
-          }}
+          listId={page.list.id}
+          members={memberList}
+          onClose={closeTaskEditor}
           onReviewConflict={() => {
-            saveTask.reset();
-            setEditingTask(null);
-            setAddingTask(false);
+            closeTaskEditor();
             void list.refetch();
           }}
-          onSubmit={(input) =>
-            void saveTask.run({
-              taskId: editingTask?.id ?? null,
-              expectedVersion: editingTask?.version ?? 0,
-              title: input.title,
-              notes: input.notes,
-              assigneeId: input.assigneeId,
-              dueAt: input.dueAt,
-            })
-          }
-          pending={saveTask.state.pending}
-          t={t}
           task={editingTask}
         />
       )}

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  parseHomePage,
-  parseListPage,
+  parseHome,
+  parseListDetail,
   parseMembers,
   parseTask,
+  parseTaskCollection,
   parseTaskId,
-  parseTaskPage,
   ShapeError,
 } from './parse.ts';
 import { commandError, isErrorCode, isRetryableWithSameRequestId } from './errors.ts';
@@ -60,9 +60,9 @@ describe('delete result parsers', () => {
   });
 });
 
-describe('parseHomePage', () => {
-  it('parses one paginated page carrying both list kinds', () => {
-    const home = parseHomePage({
+describe('parseHome', () => {
+  it('parses the home snapshot carrying both list kinds', () => {
+    const home = parseHome({
       items: [
         {
           id: 'l1',
@@ -85,17 +85,15 @@ describe('parseHomePage', () => {
           completed_tasks: 2,
         },
       ],
-      next_cursor: null,
     });
     expect(home.items).toHaveLength(2);
     expect(home.items[0]?.total_tasks).toBe(4);
     expect(home.items[1]?.completed_tasks).toBe(2);
-    expect(home.next_cursor).toBeNull();
   });
 
   it('rejects an unexpected list kind', () => {
     expect(() =>
-      parseHomePage({
+      parseHome({
         items: [
           {
             id: 'l1',
@@ -108,7 +106,6 @@ describe('parseHomePage', () => {
             completed_tasks: 0,
           },
         ],
-        next_cursor: null,
       }),
     ).toThrow(ShapeError);
   });
@@ -130,31 +127,29 @@ describe('list notes', () => {
   };
 
   it('reads the shared list note', () => {
-    const page = parseListPage({
+    const page = parseListDetail({
       list: { ...listRow, notes: 'Buy the good olive oil' },
       tasks: [],
       total_tasks: 0,
       completed_tasks: 0,
       progress_percent: 0,
-      next_cursor: null,
     });
     expect(page.list.notes).toBe('Buy the good olive oil');
   });
 
   it('reads a database that predates the list note as having none', () => {
-    const page = parseListPage({
+    const page = parseListDetail({
       list: listRow,
       tasks: [],
       total_tasks: 0,
       completed_tasks: 0,
       progress_percent: 0,
-      next_cursor: null,
     });
     expect(page.list.notes).toBeNull();
   });
 
   it('carries the note onto Home cards and tolerates its absence', () => {
-    const home = parseHomePage({
+    const home = parseHome({
       items: [
         {
           id: 'l1',
@@ -178,16 +173,15 @@ describe('list notes', () => {
           completed_tasks: 0,
         },
       ],
-      next_cursor: null,
     });
     expect(home.items[0]?.notes).toBe('Start on Saturday');
     expect(home.items[1]?.notes).toBeNull();
   });
 });
 
-describe('parseListPage', () => {
-  it('keeps the server cursor and whole-list totals', () => {
-    const page = parseListPage({
+describe('parseListDetail', () => {
+  it('keeps whole-list totals', () => {
+    const page = parseListDetail({
       list: {
         id: 'l1',
         household_id: 'h1',
@@ -205,38 +199,28 @@ describe('parseListPage', () => {
       total_tasks: 5,
       completed_tasks: 1,
       progress_percent: 20,
-      next_cursor: 'abc',
     });
     expect(page.total_tasks).toBe(5);
     expect(page.completed_tasks).toBe(1);
     expect(page.progress_percent).toBe(20);
-    expect(page.next_cursor).toBe('abc');
+    expect(page.tasks[0]?.blocked).toBe(false);
   });
 });
 
-describe('parseTaskPage', () => {
-  const crossListRow = {
-    task_id: 't1',
-    list_id: 'l1',
-    list_title: 'Weekly cleaning',
-    title: 'Bathroom',
-    due_at: null,
-    notes: null,
-    has_no_due: true,
-    version: 1,
-  };
+describe('parseTaskCollection', () => {
+  const householdRow = { ...task, list_title: 'Weekly cleaning', blocked: true };
 
-  it('parses the narrower cross-list projection', () => {
-    const page = parseTaskPage({ items: [crossListRow], next_cursor: null });
-    expect(page.items[0]?.list_title).toBe('Weekly cleaning');
-    expect(page.items[0]?.task_id).toBe('t1');
-    expect(page.next_cursor).toBeNull();
+  it('parses full task rows with their list title', () => {
+    const collection = parseTaskCollection({ items: [householdRow] });
+    expect(collection.items[0]?.list_title).toBe('Weekly cleaning');
+    expect(collection.items[0]?.id).toBe('t1');
+    expect(collection.items[0]?.blocked).toBe(true);
   });
 
   it('requires the parent list title', () => {
-    const withoutTitle: Record<string, unknown> = { ...crossListRow };
+    const withoutTitle: Record<string, unknown> = { ...householdRow };
     delete withoutTitle['list_title'];
-    expect(() => parseTaskPage({ items: [withoutTitle], next_cursor: null })).toThrow(ShapeError);
+    expect(() => parseTaskCollection({ items: [withoutTitle] })).toThrow(ShapeError);
   });
 });
 

@@ -155,6 +155,7 @@ begin
   if not private.lock_active_members(v_household, array[v_actor]) then
     return private.error_response('FORBIDDEN', 'error.household_required');
   end if;
+  perform private.lock_list_ordering(v_household);
   v_hash := private.command_hash(jsonb_build_object('title', v_title, 'subtitle', v_subtitle));
   v_replay := private.replay_command(v_actor, p_request_id, 'create_list', v_hash);
   if v_replay is not null then return v_replay; end if;
@@ -265,6 +266,7 @@ begin
   if not private.lock_active_members(v_household, array[v_actor]) then
     return private.error_response('FORBIDDEN', 'error.household_required');
   end if;
+  perform private.lock_list_ordering(v_household);
   v_hash := private.command_hash(jsonb_build_object(
     'title', v_title, 'subtitle', v_subtitle, 'notes', v_notes
   ));
@@ -372,6 +374,7 @@ begin
   if not private.lock_active_members(v_household, array[v_actor]) then
     return private.error_response('FORBIDDEN', 'error.household_required');
   end if;
+  perform private.lock_list_ordering(v_household);
   v_hash := private.command_hash(jsonb_build_object('list_id', p_list_id));
   v_replay := private.replay_command(v_actor, p_request_id, 'save_list_template', v_hash);
   if v_replay is not null then return v_replay; end if;
@@ -422,6 +425,7 @@ begin
   if not private.lock_active_members(v_household, array[v_actor]) then
     return private.error_response('FORBIDDEN', 'error.household_required');
   end if;
+  perform private.lock_list_ordering(v_household);
   v_hash := private.command_hash(jsonb_build_object('template_id', p_template_id));
   v_replay := private.replay_command(v_actor, p_request_id, 'copy_template', v_hash);
   if v_replay is not null then return v_replay; end if;
@@ -785,23 +789,77 @@ begin
   if not private.lock_active_members(v_household, array[v_actor]) then
     return private.error_response('FORBIDDEN', 'error.household_required');
   end if;
+  if private.lock_task_list(v_household, p_task_id, true) is null then
+    return private.error_response('NOT_FOUND', 'error.not_found');
+  end if;
 
-  select t.* into v_task from public.tasks t
-  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
-  where t.id = p_task_id and t.household_id = v_household
-    and l.kind = 'active' and l.status = 'open'
-  for update of t;
-  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  select * into v_task from public.tasks where id = p_task_id for update;
   if v_task.version <> p_expected_version then
     return private.error_response('CONFLICT', 'error.conflict', v_task.version);
   end if;
 
-  update public.tasks set completed = p_completed
+  update public.tasks set completed = p_completed, blocked = false
   where id = p_task_id returning * into v_task;
   v_response := private.ok_response(to_jsonb(v_task));
   perform private.save_command(
     v_actor, p_request_id, v_household, 'set_task_completed', v_hash, v_response
   );
+  return v_response;
+end;
+$$;
+
+-- The stored lifecycle is open, blocked or done. Whether an open task reads as
+-- Unassigned or To-do is a projection of its assignee, never an input here.
+create or replace function private.set_task_state(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_expected_version bigint,
+  p_state text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_task_id is null or p_expected_version is null or p_expected_version < 1
+    or p_state is null or p_state not in ('open', 'blocked', 'done') then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'task_id', p_task_id, 'expected_version', p_expected_version, 'state', p_state
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'set_task_state', v_hash);
+  if v_replay is not null then return v_replay; end if;
+
+  if not private.lock_active_members(v_household, array[v_actor]) then
+    return private.error_response('FORBIDDEN', 'error.household_required');
+  end if;
+  if private.lock_task_list(v_household, p_task_id, true) is null then
+    return private.error_response('NOT_FOUND', 'error.not_found');
+  end if;
+
+  select * into v_task from public.tasks where id = p_task_id for update;
+  if v_task.version <> p_expected_version then
+    return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+
+  update public.tasks
+  set completed = (p_state = 'done'), blocked = (p_state = 'blocked')
+  where id = p_task_id returning * into v_task;
+  v_response := private.ok_response(to_jsonb(v_task));
+  perform private.save_command(v_actor, p_request_id, v_household, 'set_task_state', v_hash, v_response);
   return v_response;
 end;
 $$;
@@ -859,6 +917,158 @@ begin
   where id = p_task_id returning * into v_task;
   v_response := private.ok_response(to_jsonb(v_task));
   perform private.save_command(v_actor, p_request_id, v_household, 'claim_task', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function private.move_task(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_expected_version bigint,
+  p_direction text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_list_id uuid;
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_neighbor public.tasks%rowtype;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_task_id is null or p_expected_version is null or p_expected_version < 1
+    or p_direction is null or p_direction not in ('up', 'down') then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'task_id', p_task_id, 'expected_version', p_expected_version, 'direction', p_direction
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'move_task', v_hash);
+  if v_replay is not null then return v_replay; end if;
+
+  if not private.lock_active_members(v_household, array[v_actor]) then
+    return private.error_response('FORBIDDEN', 'error.household_required');
+  end if;
+  -- Template task order can change too, so either list kind qualifies.
+  v_list_id := private.lock_task_list(v_household, p_task_id, false);
+  if v_list_id is null then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+
+  select * into v_task from public.tasks where id = p_task_id for update;
+  if v_task.version <> p_expected_version then
+    return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+
+  -- Moves stay inside the task's completion group; with the list locked, the
+  -- neighbour found here is the committed one.
+  if p_direction = 'up' then
+    select * into v_neighbor from public.tasks
+    where list_id = v_list_id and completed = v_task.completed and sort_order < v_task.sort_order
+    order by sort_order desc limit 1
+    for update;
+  else
+    select * into v_neighbor from public.tasks
+    where list_id = v_list_id and completed = v_task.completed and sort_order > v_task.sort_order
+    order by sort_order limit 1
+    for update;
+  end if;
+
+  if found then
+    set constraints public.tasks_list_id_sort_order_key deferred;
+    update public.tasks
+    set sort_order = case id when v_task.id then v_neighbor.sort_order else v_task.sort_order end
+    where id in (v_task.id, v_neighbor.id);
+    set constraints public.tasks_list_id_sort_order_key immediate;
+  end if;
+
+  v_response := private.ok_response(jsonb_build_object('task_id', p_task_id));
+  perform private.save_command(v_actor, p_request_id, v_household, 'move_task', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function private.move_list(
+  p_request_id uuid,
+  p_list_id uuid,
+  p_expected_version bigint,
+  p_direction text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_hash bytea;
+  v_replay jsonb;
+  v_list public.lists%rowtype;
+  v_neighbor public.lists%rowtype;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_list_id is null or p_expected_version is null or p_expected_version < 1
+    or p_direction is null or p_direction not in ('up', 'down') then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'list_id', p_list_id, 'expected_version', p_expected_version, 'direction', p_direction
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'move_list', v_hash);
+  if v_replay is not null then return v_replay; end if;
+
+  if not private.lock_active_members(v_household, array[v_actor]) then
+    return private.error_response('FORBIDDEN', 'error.household_required');
+  end if;
+  -- The household ordering lock serialises every change to list positions
+  -- (moves and new lists); it is always taken before any list row lock.
+  perform private.lock_list_ordering(v_household);
+
+  select * into v_list from public.lists
+  where id = p_list_id and household_id = v_household and status = 'open'
+  for update;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  if v_list.version <> p_expected_version then
+    return private.error_response('CONFLICT', 'error.conflict', v_list.version);
+  end if;
+
+  if p_direction = 'up' then
+    select * into v_neighbor from public.lists
+    where household_id = v_household and kind = v_list.kind and status = 'open'
+      and sort_order < v_list.sort_order
+    order by sort_order desc limit 1
+    for update;
+  else
+    select * into v_neighbor from public.lists
+    where household_id = v_household and kind = v_list.kind and status = 'open'
+      and sort_order > v_list.sort_order
+    order by sort_order limit 1
+    for update;
+  end if;
+
+  if found then
+    set constraints public.lists_household_kind_sort_order_key deferred;
+    update public.lists
+    set sort_order = case id when v_list.id then v_neighbor.sort_order else v_list.sort_order end
+    where id in (v_list.id, v_neighbor.id);
+    set constraints public.lists_household_kind_sort_order_key immediate;
+  end if;
+
+  v_response := private.ok_response(jsonb_build_object('list_id', p_list_id));
+  perform private.save_command(v_actor, p_request_id, v_household, 'move_list', v_hash, v_response);
   return v_response;
 end;
 $$;
@@ -1124,6 +1334,21 @@ create or replace function public.set_task_completed(
 ) returns jsonb language sql security invoker set search_path = ''
 as $$ select private.set_task_completed(request_id, task_id, expected_version, completed); $$;
 
+create or replace function public.set_task_state(
+  request_id uuid, task_id uuid, expected_version bigint, state text
+) returns jsonb language sql security invoker set search_path = ''
+as $$ select private.set_task_state(request_id, task_id, expected_version, state); $$;
+
+create or replace function public.move_task(
+  request_id uuid, task_id uuid, expected_version bigint, direction text
+) returns jsonb language sql security invoker set search_path = ''
+as $$ select private.move_task(request_id, task_id, expected_version, direction); $$;
+
+create or replace function public.move_list(
+  request_id uuid, list_id uuid, expected_version bigint, direction text
+) returns jsonb language sql security invoker set search_path = ''
+as $$ select private.move_list(request_id, list_id, expected_version, direction); $$;
+
 create or replace function public.claim_task(
   request_id uuid, task_id uuid, expected_version bigint
 ) returns jsonb language sql security invoker set search_path = ''
@@ -1232,12 +1457,11 @@ begin
   v_replay := private.replay_command(v_actor, p_request_id, 'delete_task', v_hash);
   if v_replay is not null then return v_replay; end if;
 
-  select t.* into v_task from public.tasks t
-  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
-  where t.id = p_task_id and t.household_id = v_household
-    and l.kind = 'active' and l.status = 'open'
-  for update of t;
-  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  -- Removing a task changes its neighbours' order, so it serialises with moves.
+  if private.lock_task_list(v_household, p_task_id, true) is null then
+    return private.error_response('NOT_FOUND', 'error.not_found');
+  end if;
+  select * into v_task from public.tasks where id = p_task_id for update;
   if v_task.version <> p_expected_version then
     return private.error_response('CONFLICT', 'error.conflict', v_task.version);
   end if;

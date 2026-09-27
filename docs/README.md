@@ -2,7 +2,10 @@
 
 Odin is a shared household task app: an Expo Android client, a Vite React web
 client on Vercel, and a Supabase Postgres backend. All three are implemented
-and in production.
+and in production. The 2026-09-27 task-workflow migrations are on the hosted
+database and the web client ships them from `main`; no Android build with them
+has been released yet. `deployment-log.md` is the authority for what reached
+the host.
 
 Files are named for the question they answer. There is no reading order
 implied by the filenames — this index is the order.

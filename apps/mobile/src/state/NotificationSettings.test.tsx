@@ -23,8 +23,8 @@ const mockContext = { locale: 'en' as const, t: createTranslator('en') };
 jest.mock('./OdinContext.ts', () => ({ useOdin: () => mockContext }));
 jest.mock('./useAppForeground.ts', () => ({ useAppForeground: () => true }));
 jest.mock('./queries.ts', () => ({
-  useMyTasksQuery: () => ({ data: { items: [], next_cursor: null } }),
-  useUnassignedQuery: () => ({ data: { items: [], next_cursor: null } }),
+  useMyTasksQuery: () => ({ data: { items: [] } }),
+  useUnassignedQuery: () => ({ data: { items: [] } }),
 }));
 
 import { NotificationsProvider, useNotificationSettings } from './NotificationSettings.tsx';

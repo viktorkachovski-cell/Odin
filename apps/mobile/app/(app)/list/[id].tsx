@@ -4,16 +4,15 @@ import { Alert, ScrollView, StyleSheet } from 'react-native';
 
 import type { TaskDto } from '@odin/contracts';
 import {
-  createTask,
   deleteList,
   deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   saveListTemplate,
-  setTaskCompleted,
   updateList,
   updateTask,
   useCommand,
+  useTaskRowActions,
 } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
 
@@ -24,6 +23,7 @@ import { NavSpacer } from '../../../src/components/BottomNav.tsx';
 import { SecondaryButton } from '../../../src/components/Button.tsx';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton.tsx';
 import { ListEditor } from '../../../src/components/ListEditor.tsx';
+import { ListTaskEditor } from '../../../src/components/ListTaskEditor.tsx';
 import {
   anyPending,
   CommandErrors,
@@ -34,19 +34,7 @@ import {
   TemplateSavedNotice,
 } from '../../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
-import { TaskEditor } from '../../../src/components/TaskEditor.tsx';
-
-function AddTaskFab({
-  isTemplate,
-  label,
-  onPress,
-}: {
-  readonly isTemplate: boolean;
-  readonly label: string;
-  readonly onPress: () => void;
-}): ReactNode {
-  return isTemplate ? null : <FloatingActionButton label={label} onPress={onPress} />;
-}
+import { TaskDetailsFlow } from '../../../src/components/TaskDetailsFlow.tsx';
 
 export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,59 +45,12 @@ export default function ListDetailScreen(): ReactNode {
 
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
 
   const invalidateTask = keysAffectedByTaskChange(id);
-
-  const completeCommand = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly completed: boolean;
-      },
-    ) => setTaskCompleted(client, requestId, input),
-    { invalidate: invalidateTask },
-  );
-
-  const saveTask = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string | null;
-        readonly notes: string | null;
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly assigneeId: string | null;
-        readonly dueAt: string | null;
-      },
-    ) =>
-      input.taskId === null
-        ? createTask(client, requestId, {
-            listId: id ?? '',
-            title: input.title,
-            notes: input.notes,
-            assigneeId: input.assigneeId,
-            dueAt: input.dueAt,
-          })
-        : updateTask(client, requestId, {
-            taskId: input.taskId,
-            expectedVersion: input.expectedVersion,
-            title: input.title,
-            notes: input.notes,
-            assigneeId: input.assigneeId,
-            dueAt: input.dueAt,
-          }),
-    {
-      invalidate: invalidateTask,
-      onSuccess: () => {
-        setEditingTask(null);
-        setAddingTask(false);
-      },
-    },
-  );
+  const rowActions = useTaskRowActions(client, id);
 
   const saveList = useCommand(
     (
@@ -175,7 +116,7 @@ export default function ListDetailScreen(): ReactNode {
   );
 
   if (list.isPending) return <LoadingState label={t('state.loading')} />;
-  if (list.isError || list.data === undefined) {
+  if (list.data === undefined) {
     return (
       <Screen title={t('list.not_found')}>
         <SecondaryButton label={t('list.back')} onPress={() => router.back()} />
@@ -186,10 +127,25 @@ export default function ListDetailScreen(): ReactNode {
   const page = list.data;
   const ordered = sortTasksInList(page.tasks);
   const isTemplate = page.list.kind === 'template';
-  const taskConflict = saveTask.state.error?.code === 'CONFLICT';
+  const memberList = members.data ?? [];
+  const closeTaskEditor = (): void => {
+    setEditingTask(null);
+    setAddingTask(false);
+  };
 
   return (
-    <Screen backLabel={t('list.back')} onBack={() => router.back()} title={page.list.title}>
+    <Screen
+      backLabel={t('list.back')}
+      headerActionLabel={
+        isTemplate ? undefined : t('list.template.save_named', { title: page.list.title })
+      }
+      onBack={() => router.back()}
+      onHeaderAction={() => {
+        setTemplateSaved(false);
+        void saveTemplate.run({ listId: page.list.id });
+      }}
+      title={page.list.title}
+    >
       <ScrollView
         contentContainerStyle={styles.content}
         onScroll={nav.onScroll}
@@ -219,10 +175,6 @@ export default function ListDetailScreen(): ReactNode {
             ])
           }
           onEdit={() => setEditingList(true)}
-          onSaveTemplate={() => {
-            setTemplateSaved(false);
-            void saveTemplate.run({ listId: page.list.id });
-          }}
           pending={anyPending([removeList.state, saveTemplate.state])}
           t={t}
         />
@@ -231,7 +183,7 @@ export default function ListDetailScreen(): ReactNode {
 
         <CommandErrors
           errors={[
-            { error: completeCommand.state.error, retry: () => void completeCommand.retry() },
+            ...rowActions.errors,
             { error: removeList.state.error, retry: () => void removeList.retry() },
             { error: removeTask.state.error, retry: () => void removeTask.retry() },
             { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
@@ -244,10 +196,10 @@ export default function ListDetailScreen(): ReactNode {
           <EmptyState label={t('list.empty')} />
         ) : (
           <ListTasks
-            busy={anyPending([completeCommand.state, removeTask.state, unassignTask.state])}
+            busy={rowActions.busy || anyPending([removeTask.state, unassignTask.state])}
             isTemplate={isTemplate}
             locale={locale}
-            members={members.data ?? []}
+            members={memberList}
             onDelete={(selected) =>
               Alert.alert(t('task.delete', { title: selected.title }), t('task.delete.confirm'), [
                 { text: t('list.back'), style: 'cancel' },
@@ -265,13 +217,10 @@ export default function ListDetailScreen(): ReactNode {
             onEdit={(selected) =>
               setEditingTask(ordered.find((task) => task.id === selected.id) ?? null)
             }
-            onToggleCompleted={(selected, completed) =>
-              void completeCommand.run({
-                taskId: selected.id,
-                expectedVersion: selected.version,
-                completed,
-              })
-            }
+            onMove={rowActions.move}
+            onOpen={(selected) => setDetailsTaskId(selected.id)}
+            onSetState={rowActions.setState}
+            onToggleCompleted={rowActions.toggleCompleted}
             onUnassign={(selected) =>
               Alert.alert(
                 t('task.unassign', { title: selected.title }),
@@ -299,45 +248,31 @@ export default function ListDetailScreen(): ReactNode {
         <NavSpacer />
       </ScrollView>
 
-      <AddTaskFab
-        isTemplate={isTemplate}
-        label={t('list.add_task')}
-        onPress={() => setAddingTask(true)}
-      />
+      {!isTemplate && (
+        <FloatingActionButton label={t('list.add_task')} onPress={() => setAddingTask(true)} />
+      )}
 
       {(addingTask || editingTask !== null) && (
-        <TaskEditor
-          conflict={taskConflict}
-          error={saveTask.state.error}
+        <ListTaskEditor
           key={editingTask?.id ?? 'new'}
-          locale={locale}
-          members={members.data ?? []}
-          onCancel={() => {
-            saveTask.reset();
-            setEditingTask(null);
-            setAddingTask(false);
-          }}
+          listId={page.list.id}
+          members={memberList}
+          onClose={closeTaskEditor}
           onReviewConflict={() => {
-            saveTask.reset();
-            setEditingTask(null);
-            setAddingTask(false);
+            closeTaskEditor();
             void list.refetch();
           }}
-          onSubmit={(input) =>
-            void saveTask.run({
-              taskId: editingTask?.id ?? null,
-              expectedVersion: editingTask?.version ?? 0,
-              title: input.title,
-              notes: input.notes,
-              assigneeId: input.assigneeId,
-              dueAt: input.dueAt,
-            })
-          }
-          pending={saveTask.state.pending}
-          t={t}
           task={editingTask}
         />
       )}
+
+      <TaskDetailsFlow
+        editable={!isTemplate}
+        key={detailsTaskId ?? 'closed'}
+        members={memberList}
+        onClose={() => setDetailsTaskId(null)}
+        taskId={detailsTaskId}
+      />
 
       {editingList && (
         <ListEditor
@@ -364,6 +299,5 @@ export default function ListDetailScreen(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', gap: 12 },
   content: { gap: 12, paddingBottom: 16 },
 });

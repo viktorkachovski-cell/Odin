@@ -1,12 +1,14 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { keysAffectedByTaskChange, setTaskCompleted, useCommand } from '@odin/data';
-import { taskRowFromCrossList } from '@odin/contracts';
+import { taskRowFromHouseholdTask } from '@odin/contracts';
+import { useTaskRowActions } from '@odin/data';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useMyTasksQuery } from '../app/queries.ts';
 import { ErrorBanner } from '../components/Banner.tsx';
+import { CommandErrors } from '../components/ListDetailParts.tsx';
+import { TaskDetailsFlow } from '../components/TaskDetailsFlow.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 
 /**
@@ -16,21 +18,11 @@ import { TaskRow } from '../components/TaskRow.tsx';
  */
 
 export function MyTasks(): ReactNode {
-  const { t, locale, client, user } = useOdin();
+  const { t, locale, client } = useOdin();
   const query = useMyTasksQuery(true);
   const members = useMembersQuery(true);
-
-  const complete = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly completed: boolean;
-      },
-    ) => setTaskCompleted(client, requestId, input),
-    { invalidate: keysAffectedByTaskChange() },
-  );
+  const actions = useTaskRowActions(client);
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
 
   if (query.isPending) return <p role="status">{t('state.loading')}</p>;
   if (query.isError) {
@@ -52,9 +44,7 @@ export function MyTasks(): ReactNode {
         <h1>{t('my_tasks.title')}</h1>
       </div>
 
-      {complete.state.error !== null && (
-        <ErrorBanner error={complete.state.error} onRetry={() => void complete.retry()} t={t} />
-      )}
+      <CommandErrors errors={actions.errors} t={t} />
 
       {tasks.length === 0 ? (
         <p className="empty">{t('my_tasks.empty')}</p>
@@ -62,19 +52,15 @@ export function MyTasks(): ReactNode {
         <ul className="task-list">
           {tasks.map((task) => (
             <TaskRow
-              busy={complete.state.pending}
-              key={task.task_id}
+              busy={actions.busy}
+              key={task.id}
               locale={locale}
               members={members.data ?? []}
-              onToggleCompleted={(selected, completed) =>
-                void complete.run({
-                  taskId: selected.id,
-                  expectedVersion: selected.version,
-                  completed,
-                })
-              }
+              onOpenDetails={(selected) => setDetailsTaskId(selected.id)}
+              onSetState={actions.setState}
+              onToggleCompleted={actions.toggleCompleted}
               t={t}
-              task={taskRowFromCrossList(task, user?.id ?? null)}
+              task={taskRowFromHouseholdTask(task)}
             />
           ))}
         </ul>
@@ -84,6 +70,15 @@ export function MyTasks(): ReactNode {
         <p className="card__subtitle">
           <Link to="/">{t('list.back')}</Link>
         </p>
+      )}
+
+      {detailsTaskId !== null && (
+        <TaskDetailsFlow
+          canEdit
+          members={members.data ?? []}
+          onClose={() => setDetailsTaskId(null)}
+          taskId={detailsTaskId}
+        />
       )}
     </>
   );

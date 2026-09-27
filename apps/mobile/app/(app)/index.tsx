@@ -9,9 +9,11 @@ import {
   deleteList,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
+  moveList,
   saveListTemplate,
   useCommand,
 } from '@odin/data';
+import { adjacentMoves } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
@@ -75,6 +77,18 @@ export default function HomeScreen(): ReactNode {
     { invalidate: keysAffectedByListChange() },
   );
 
+  const reorder = useCommand(
+    (
+      requestId,
+      input: {
+        readonly listId: string;
+        readonly expectedVersion: number;
+        readonly direction: 'up' | 'down';
+      },
+    ) => moveList(client, requestId, input),
+    { invalidate: keysAffectedByListChange() },
+  );
+
   if (home.isPending) return <LoadingState label={t('state.loading')} />;
 
   const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
@@ -93,39 +107,53 @@ export default function HomeScreen(): ReactNode {
       {items.length === 0 ? (
         <EmptyState label={emptyLabel} />
       ) : (
-        items.map((item) => (
-          <ListCard
-            copyPending={copy.state.pending}
-            key={item.id}
-            list={item}
-            onCopy={onCopy}
-            onDelete={(selected) => {
-              Alert.alert(t('list.delete'), t('list.delete.confirm'), [
-                { text: t('list.back'), style: 'cancel' },
-                {
-                  text: t('list.delete'),
-                  style: 'destructive',
-                  onPress: () =>
-                    void remove.run({
-                      listId: selected.id,
-                      expectedVersion: selected.version,
-                    }),
-                },
-              ]);
-            }}
-            deletePending={remove.state.pending}
-            onSaveTemplate={
-              item.kind === 'active'
-                ? (selected) => {
-                    setTemplateSaved(false);
-                    void saveTemplate.run({ listId: selected.id });
-                  }
-                : undefined
-            }
-            saveTemplatePending={saveTemplate.state.pending}
-            t={t}
-          />
-        ))
+        // The server returns each kind in shared household order.
+        items.map((item, index) => {
+          const moves = adjacentMoves(items, index, (list) => list.kind);
+          return (
+            <ListCard
+              copyPending={copy.state.pending}
+              key={item.id}
+              list={item}
+              movePending={reorder.state.pending}
+              moveDownDisabled={!moves.down}
+              moveUpDisabled={!moves.up}
+              onMove={(selected, direction) =>
+                void reorder.run({
+                  listId: selected.id,
+                  expectedVersion: selected.version,
+                  direction,
+                })
+              }
+              onCopy={onCopy}
+              onDelete={(selected) => {
+                Alert.alert(t('list.delete'), t('list.delete.confirm'), [
+                  { text: t('list.back'), style: 'cancel' },
+                  {
+                    text: t('list.delete'),
+                    style: 'destructive',
+                    onPress: () =>
+                      void remove.run({
+                        listId: selected.id,
+                        expectedVersion: selected.version,
+                      }),
+                  },
+                ]);
+              }}
+              onSaveTemplate={
+                item.kind === 'active'
+                  ? (selected) => {
+                      setTemplateSaved(false);
+                      void saveTemplate.run({ listId: selected.id });
+                    }
+                  : undefined
+              }
+              saveTemplatePending={saveTemplate.state.pending}
+              deletePending={remove.state.pending}
+              t={t}
+            />
+          );
+        })
       )}
     </View>
   );
@@ -146,6 +174,9 @@ export default function HomeScreen(): ReactNode {
         )}
         {copy.state.error !== null && <ErrorBanner error={copy.state.error} t={t} />}
         {remove.state.error !== null && <ErrorBanner error={remove.state.error} t={t} />}
+        {reorder.state.error !== null && (
+          <ErrorBanner error={reorder.state.error} onRetry={() => void reorder.retry()} t={t} />
+        )}
         {saveTemplate.state.error !== null && (
           <ErrorBanner error={saveTemplate.state.error} t={t} />
         )}

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import type { CrossListTaskDto } from '@odin/contracts';
+import type { HouseholdTaskDto } from '@odin/contracts';
 import {
   diffAssignedTasks,
   planDueReminders,
@@ -52,17 +52,17 @@ const DUE_TITLE_KEYS: Readonly<Record<DueReminderStage, TranslationKey>> = {
   imminent: 'notification.due.imminent.title',
 };
 
-function toCandidate(task: CrossListTaskDto): DueReminderCandidate {
+function toCandidate(task: HouseholdTaskDto): DueReminderCandidate {
   return {
-    id: task.task_id,
+    id: task.id,
     title: task.title,
     listTitle: task.list_title,
     dueAt: task.due_at,
   };
 }
 
-function toAssignedState(task: CrossListTaskDto): AssignedTaskState {
-  return { id: task.task_id, version: task.version };
+function toAssignedState(task: HouseholdTaskDto): AssignedTaskState {
+  return { id: task.id, version: task.version };
 }
 
 function reminderText(locale: Locale, plan: PlannedDueReminder): NotificationText {
@@ -101,7 +101,7 @@ async function reconcileReminders(
 function announce(
   locale: Locale,
   changed: readonly string[],
-  tasks: ReadonlyMap<string, CrossListTaskDto>,
+  tasks: ReadonlyMap<string, HouseholdTaskDto>,
   keys: {
     readonly one: TranslationKey;
     readonly manyTitle: TranslationKey;
@@ -175,7 +175,7 @@ export function useTaskNotifications(allowed: boolean): void {
     if (!allowed || foreground) return;
 
     const changes = diffAssignedTasks(previous, baseline.current);
-    const byId = new Map(myItems.map((task) => [task.task_id, task]));
+    const byId = new Map(myItems.map((task) => [task.id, task]));
     const texts = [
       ...announce(locale, changes.assigned, byId, {
         one: 'notification.assigned.title',

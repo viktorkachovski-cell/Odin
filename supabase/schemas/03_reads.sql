@@ -156,6 +156,110 @@ begin
 end;
 $$;
 
+-- Current clients read each household collection as one snapshot instead of
+-- paging through it: pages taken at different moments can drop or repeat rows
+-- that another member reorders in between. A collection larger than this
+-- ceiling fails with TOO_LARGE rather than being silently truncated.
+create or replace function private.collection_limit()
+returns integer
+language sql
+immutable
+set search_path = ''
+as $$ select 1000; $$;
+
+create or replace function private.get_home_v2()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_household uuid := private.active_household_id();
+  v_count integer;
+  v_items jsonb;
+begin
+  if auth.uid() is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
+
+  -- Templates first, then active lists, each in shared household order.
+  with summaries as (
+    select l.id, l.kind, l.title, l.subtitle, l.notes, l.status, l.sort_order, l.version,
+      count(t.id)::integer as total_tasks,
+      count(t.id) filter (where t.completed)::integer as completed_tasks
+    from public.lists l
+    left join public.tasks t on t.list_id = l.id
+    where l.household_id = v_household and l.status = 'open'
+    group by l.id
+    order by l.kind = 'active', l.sort_order, l.id
+    limit private.collection_limit() + 1
+  )
+  select count(*)::integer,
+    coalesce(jsonb_agg(to_jsonb(s) order by s.kind = 'active', s.sort_order, s.id), '[]'::jsonb)
+  into v_count, v_items
+  from summaries s;
+
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
+  return private.ok_response(jsonb_build_object('items', v_items));
+end;
+$$;
+
+create or replace function public.get_home_v2()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_home_v2(); $$;
+
+create or replace function private.get_list_v2(p_list_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_household uuid := private.active_household_id();
+  v_list jsonb;
+  v_count integer;
+  v_done integer;
+  v_tasks jsonb;
+begin
+  if auth.uid() is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
+
+  select to_jsonb(l) into v_list from public.lists l
+  where l.id = p_list_id and l.household_id = v_household and l.status = 'open';
+  if v_list is null then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+
+  -- Incomplete first, each group in its declared order.
+  with list_tasks as (
+    select t.* from public.tasks t
+    where t.list_id = p_list_id
+    order by t.completed, t.sort_order, t.id
+    limit private.collection_limit() + 1
+  )
+  select count(*)::integer, (count(*) filter (where lt.completed))::integer,
+    coalesce(jsonb_agg(to_jsonb(lt) order by lt.completed, lt.sort_order, lt.id), '[]'::jsonb)
+  into v_count, v_done, v_tasks
+  from list_tasks lt;
+
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
+  return private.ok_response(jsonb_build_object(
+    'list', v_list,
+    'total_tasks', v_count,
+    'completed_tasks', v_done,
+    'progress_percent', case when v_count = 0 then 0 else round(v_done * 100.0 / v_count)::integer end,
+    'tasks', v_tasks
+  ));
+end;
+$$;
+
+create or replace function public.get_list_v2(p_list_id uuid)
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_list_v2(p_list_id); $$;
+
 create or replace function public.get_list(
   p_list_id uuid,
   p_cursor text default null,
@@ -277,7 +381,7 @@ begin
   end if;
 
   with candidates as (
-    select t.id as task_id, t.title, t.due_at, t.version, t.list_id,
+    select t.id as task_id, t.title, t.due_at, t.version, t.list_id, t.blocked,
       l.title as list_title, (t.due_at is null) as has_no_due,
       coalesce(t.due_at, 'infinity'::timestamptz) as sort_due
     from public.tasks t
@@ -352,3 +456,87 @@ as $$ select private.get_cross_list_tasks('unassigned', p_cursor, p_limit); $$;
 create or replace function public.get_my_tasks(p_cursor text default null, p_limit integer default 50)
 returns jsonb language sql stable security invoker set search_path = ''
 as $$ select private.get_cross_list_tasks('mine', p_cursor, p_limit); $$;
+
+-- My Tasks, Unassigned and All Tasks are one reader with a scope: full task
+-- rows plus their list title, from open active lists in the caller's
+-- household. Date bounds are inclusive-exclusive and apply only to dated
+-- tasks; undated selects exactly the tasks without a deadline.
+create or replace function private.get_household_tasks(
+  p_scope text,
+  p_due_from timestamptz,
+  p_due_before timestamptz,
+  p_undated boolean,
+  p_incomplete_only boolean
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid := private.active_household_id();
+  v_count integer;
+  v_items jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
+  if p_scope is null or p_scope not in ('all', 'mine', 'unassigned')
+    or p_undated is null or p_incomplete_only is null
+    or (p_due_from is not null and p_due_before is not null and p_due_from >= p_due_before)
+    or (p_undated and (p_due_from is not null or p_due_before is not null)) then
+    return private.error_response('VALIDATION', 'error.task_filter_invalid');
+  end if;
+
+  -- Deadline ascending with undated last, then list and task id: the order
+  -- compareTasksByDue reproduces on the client.
+  with matches as (
+    select t.*, l.title as list_title
+    from public.tasks t
+    join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+    where t.household_id = v_household and l.kind = 'active' and l.status = 'open'
+      and (p_scope = 'all'
+        or (p_scope = 'mine' and t.assignee_id = v_actor)
+        or (p_scope = 'unassigned' and t.assignee_id is null))
+      and (not p_incomplete_only or not t.completed)
+      and case
+        when p_undated then t.due_at is null
+        when p_due_from is null and p_due_before is null then true
+        else t.due_at is not null
+          and (p_due_from is null or t.due_at >= p_due_from)
+          and (p_due_before is null or t.due_at < p_due_before)
+      end
+    order by t.due_at nulls last, t.list_id, t.id
+    limit private.collection_limit() + 1
+  )
+  select count(*)::integer,
+    coalesce(jsonb_agg(to_jsonb(m) order by m.due_at nulls last, m.list_id, m.id), '[]'::jsonb)
+  into v_count, v_items
+  from matches m;
+
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
+  return private.ok_response(jsonb_build_object('items', v_items));
+end;
+$$;
+
+create or replace function public.get_my_tasks_v2()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_household_tasks('mine', null, null, false, true); $$;
+
+create or replace function public.get_unassigned_v2()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_household_tasks('unassigned', null, null, false, true); $$;
+
+create or replace function public.get_all_tasks(
+  p_due_from timestamptz default null,
+  p_due_before timestamptz default null,
+  p_undated boolean default false,
+  p_incomplete_only boolean default false
+)
+returns jsonb language sql stable security invoker set search_path = ''
+as $$
+  select private.get_household_tasks('all', p_due_from, p_due_before, p_undated, p_incomplete_only);
+$$;

@@ -14,7 +14,7 @@ import { useTheme } from '../theme.ts';
  */
 
 interface NavItem {
-  readonly href: '/' | '/unassigned' | '/my-tasks' | '/settings';
+  readonly href: '/' | '/unassigned' | '/my-tasks' | '/all-tasks' | '/settings';
   readonly glyph: string;
   readonly labelKey: TranslationKey;
 }
@@ -23,6 +23,7 @@ const ITEMS: readonly NavItem[] = [
   { href: '/', glyph: '☰', labelKey: 'nav.home' },
   { href: '/unassigned', glyph: '?', labelKey: 'nav.unassigned' },
   { href: '/my-tasks', glyph: '☺', labelKey: 'nav.my_tasks' },
+  { href: '/all-tasks', glyph: '✓', labelKey: 'nav.all_tasks' },
   { href: '/settings', glyph: '⚙', labelKey: 'nav.settings' },
 ];
 

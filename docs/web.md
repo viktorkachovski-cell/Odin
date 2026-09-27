@@ -29,6 +29,15 @@ percentage. A task row carries completion, title, assignee, deadline and the
 edit action, wrapping metadata on narrow widths rather than scrolling
 horizontally.
 
+The task-workflow branch adds a dedicated All Tasks route with deadline presets
+and a local-date range. A task title opens full details, where an active task
+is edited in place (`TaskDetailsFlow`, the same flow as Android); status,
+completion and move controls remain separate and come from one shared hook,
+`useTaskRowActions`. List titles carry an inline save-template icon, and the
+up/down controls persist shared order, including a template's tasks. Each
+collection loads in one read. These views require both branch database
+migrations before test use.
+
 ### Interaction rules
 
 - Real buttons and links, labelled form fields. Clicking completion never opens

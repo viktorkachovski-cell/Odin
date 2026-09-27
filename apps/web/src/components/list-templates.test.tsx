@@ -131,17 +131,15 @@ describe('ListHeader', () => {
     expect(screen.getByText('Buy the good olive oil')).toBeInTheDocument();
   });
 
-  it('saves the list as a list template from the overflow, not as a task template', async () => {
+  it('saves the list as a template from the named inline icon', async () => {
     const user = userEvent.setup();
     const onSaveTemplate = vi.fn();
     renderHeader({ onSaveTemplate });
 
-    await user.click(screen.getByRole('button', { name: 'List actions' }));
     expect(
-      screen.queryByRole('menuitem', { name: 'Save as task template' }),
+      screen.queryByRole('menuitem', { name: 'Save as list template' }),
     ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('menuitem', { name: 'Save as list template' }));
+    await user.click(screen.getByRole('button', { name: 'Save Pantry as list template' }));
     expect(onSaveTemplate).toHaveBeenCalledTimes(1);
   });
 
@@ -184,9 +182,11 @@ describe('ListHeader', () => {
 
     await user.click(screen.getByRole('button', { name: 'List actions' }));
     const items = screen.getAllByRole('menuitem');
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(2);
     expect(screen.getByRole('menuitem', { name: 'Edit list' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Save as list template' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Save Pantry as list template' }),
+    ).toBeInTheDocument();
     // The overflow orders destructive entries last whatever the caller passed.
     expect(items.at(-1)).toHaveAccessibleName('Delete list');
   });

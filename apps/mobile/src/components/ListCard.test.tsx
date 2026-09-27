@@ -39,25 +39,25 @@ describe('ListCard', () => {
     expect(screen.getByText('Buy the good olive oil')).toBeTruthy();
   });
 
-  it('saves an active list as a list template from the overflow', async () => {
+  it('saves an active list as a template from the inline title icon', async () => {
     const onSaveTemplate = jest.fn();
     await render(
       <ListCard list={summary()} onDelete={jest.fn()} onSaveTemplate={onSaveTemplate} t={t} />,
     );
 
-    await fireEvent.press(screen.getByLabelText('List actions: Pantry'));
-    await fireEvent.press(screen.getByText('Save as list template'));
+    await fireEvent.press(screen.getByLabelText('Save Pantry as list template'));
 
     expect(onSaveTemplate).toHaveBeenCalledWith(expect.objectContaining({ id: 'l1' }));
   });
 
-  it('never offers the task-template action, which is a separate type', async () => {
+  it('keeps deletion in the overflow and never offers task-template actions', async () => {
     await render(<ListCard list={summary()} onDelete={jest.fn()} t={t} />);
 
     await fireEvent.press(screen.getByLabelText('List actions: Pantry'));
 
     expect(screen.queryByText('Save as task template')).toBeNull();
     expect(screen.getByText('Delete list')).toBeTruthy();
+    expect(screen.queryByText('Save as list template')).toBeNull();
   });
 
   it('lets a template be deleted but never saved as another template', async () => {
@@ -76,5 +76,26 @@ describe('ListCard', () => {
 
     await fireEvent.press(screen.getByText('Delete list'));
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ kind: 'template' }));
+  });
+
+  it('exposes ordered-list controls with the boundary disabled', async () => {
+    const onMove = jest.fn();
+    await render(
+      <ListCard list={summary()} moveUpDisabled onDelete={jest.fn()} onMove={onMove} t={t} />,
+    );
+
+    expect(screen.getByLabelText('Move Pantry up')).toBeDisabled();
+    await fireEvent.press(screen.getByLabelText('Move Pantry down'));
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ id: 'l1' }), 'down');
+  });
+
+  it('refuses a second move while one is in flight', async () => {
+    const onMove = jest.fn();
+    await render(<ListCard list={summary()} movePending onMove={onMove} t={t} />);
+
+    expect(screen.getByLabelText('Move Pantry up')).toBeDisabled();
+    expect(screen.getByLabelText('Move Pantry down')).toBeDisabled();
+    await fireEvent.press(screen.getByLabelText('Move Pantry down'));
+    expect(onMove).not.toHaveBeenCalled();
   });
 });

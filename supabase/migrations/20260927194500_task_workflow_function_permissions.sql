@@ -1,0 +1,30 @@
+-- Match the existing signed-in-only command boundary, including explicit
+-- grants inherited from hosted default privileges.
+revoke all on function public.set_task_state(uuid, uuid, bigint, text) from public, anon;
+revoke all on function public.move_task(uuid, uuid, bigint, text) from public, anon;
+revoke all on function public.move_list(uuid, uuid, bigint, text) from public, anon;
+revoke all on function public.get_home_v2() from public, anon;
+revoke all on function public.get_list_v2(uuid) from public, anon;
+revoke all on function public.get_my_tasks_v2() from public, anon;
+revoke all on function public.get_unassigned_v2() from public, anon;
+revoke all on function public.get_all_tasks(timestamptz, timestamptz, boolean, boolean) from public, anon;
+revoke all on function private.set_task_state(uuid, uuid, bigint, text) from public, anon;
+revoke all on function private.move_task(uuid, uuid, bigint, text) from public, anon;
+revoke all on function private.move_list(uuid, uuid, bigint, text) from public, anon;
+revoke all on function private.get_home_v2() from public, anon;
+revoke all on function private.get_list_v2(uuid) from public, anon;
+revoke all on function private.get_household_tasks(text, timestamptz, timestamptz, boolean, boolean) from public, anon;
+grant execute on function public.set_task_state(uuid, uuid, bigint, text) to authenticated;
+grant execute on function public.move_task(uuid, uuid, bigint, text) to authenticated;
+grant execute on function public.move_list(uuid, uuid, bigint, text) to authenticated;
+grant execute on function public.get_home_v2() to authenticated;
+grant execute on function public.get_list_v2(uuid) to authenticated;
+grant execute on function public.get_my_tasks_v2() to authenticated;
+grant execute on function public.get_unassigned_v2() to authenticated;
+grant execute on function public.get_all_tasks(timestamptz, timestamptz, boolean, boolean) to authenticated;
+grant execute on function private.set_task_state(uuid, uuid, bigint, text) to authenticated;
+grant execute on function private.move_task(uuid, uuid, bigint, text) to authenticated;
+grant execute on function private.move_list(uuid, uuid, bigint, text) to authenticated;
+grant execute on function private.get_home_v2() to authenticated;
+grant execute on function private.get_list_v2(uuid) to authenticated;
+grant execute on function private.get_household_tasks(text, timestamptz, timestamptz, boolean, boolean) to authenticated;
