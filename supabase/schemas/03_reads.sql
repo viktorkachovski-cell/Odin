@@ -471,7 +471,6 @@ declare
   v_task_id uuid;
   v_limit integer := least(greatest(coalesce(p_limit, 50), 1), 50);
   v_items jsonb;
-  v_last record;
   v_more boolean;
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
@@ -537,33 +536,13 @@ begin
   join public.tasks t on t.id = v.task_id
   join public.lists l on l.id = v.list_id and l.household_id = t.household_id;
 
-  with candidates as (
-    select t.id as task_id, t.due_at, t.list_id,
-      (t.due_at is null) as has_no_due,
-      coalesce(t.due_at, 'infinity'::timestamptz) as sort_due
-    from public.tasks t
-    join public.lists l on l.id = t.list_id and l.household_id = t.household_id
-    where t.household_id = v_household and l.kind = 'active' and l.status = 'open'
-      and (not p_incomplete_only or not t.completed)
-      and ((p_undated and t.due_at is null) or (not p_undated and (
-        (p_due_from is null and p_due_before is null)
-        or (t.due_at is not null and (p_due_from is null or t.due_at >= p_due_from)
-          and (p_due_before is null or t.due_at < p_due_before))))
-  )
-  select * into v_last from candidates c
-  where v_cursor is null or
-    (c.has_no_due, c.sort_due, c.list_id, c.task_id) >
-    (not v_has_due, v_due, v_list_id, v_task_id)
-  order by has_no_due, sort_due, list_id, task_id
-  offset greatest(v_limit - 1, 0) limit 1;
-
   return private.ok_response(jsonb_build_object(
     'items', v_items,
     'next_cursor', case when v_more then private.encode_cursor(jsonb_build_object(
-      'has_due', not v_last.has_no_due,
-      'sort_due', v_last.sort_due,
-      'list_id', v_last.list_id,
-      'task_id', v_last.task_id,
+      'has_due', v_items -> -1 ->> 'due_at' is not null,
+      'sort_due', coalesce((v_items -> -1 ->> 'due_at')::timestamptz, 'infinity'::timestamptz),
+      'list_id', v_items -> -1 ->> 'list_id',
+      'task_id', v_items -> -1 ->> 'id',
       'due_from', p_due_from,
       'due_before', p_due_before,
       'undated', p_undated,
