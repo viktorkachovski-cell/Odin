@@ -64,8 +64,9 @@ These are the rules a change must preserve.
   therefore contain that key — risk R6 in `known-risks.md`.
 - Realtime is an invalidation channel, not a source of truth. Protected tables
   keep RLS and managed Realtime schema objects are untouched.
-- Keyset cursors cap pages at 50 rows. Aggregate progress counts all tasks, not
-  only the loaded page.
+- Current Home, list and cross-list task readers return one snapshot and fail
+  with `TOO_LARGE` above 1,000 rows; installed clients retain 50-row keyset
+  readers. Aggregate progress counts all tasks, not only a displayed subset.
 
 Keep the function/grant matrix in `supabase/README.md` current: owner, security
 mode, callable roles, authorization checks and tests.
@@ -114,9 +115,14 @@ synthetic data before adding overlapping indexes. Progress is never stored.
   copy and reset, list templates and notes, template deletion, invitations,
   claim, completion, progress, stale versions, member projection and
   cross-household denial.
+- `supabase/tests/database/003_task_workflow.sql` — status transitions,
+  shared adjacent moves, completion-group boundaries, template task movement,
+  snapshot ordering, the 1,000-row ceiling and household isolation.
 - `supabase/tests/concurrency.mjs` — genuine parallel transactions proving
   duplicate creates produce one entity and receipt, competing claims produce
-  one winner, and simultaneous appends receive distinct consecutive positions.
+  one winner, simultaneous appends receive distinct consecutive positions,
+  a move racing neighbour deletion remains valid, and simultaneous adjacent
+  moves resolve with one winner and a version conflict.
 - `tooling/tests/database-static.test.mjs` — SQL boundary regressions that run
   without Docker, including that saving a list never writes a task template and
   that `delete_list` archives rather than drops.

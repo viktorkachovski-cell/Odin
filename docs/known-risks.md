@@ -117,16 +117,15 @@ handles an inactive membership, but nothing exercises what happens to that
 member's assigned tasks, and equal permissions mean no member has authority to
 expel another anyway.
 
-### R8 — Web bundle is one ~570 kB chunk
+### R8 — Web bundle is one ~595 kB chunk
 
 **Severity: low.**
 
 No code splitting; the whole app loads up front. Fine on a desktop connection,
-noticeable on a slow phone. Last measured at about 580 kB of JavaScript
-before gzip, 165 kB gzipped; Vite reports it as a non-blocking warning on
-every build. It grew by roughly 12 kB on 2026-09-22: the notification rules
-and strings are shared packages, so the web bundle carries them even though
-only Android notifies.
+noticeable on a slow phone. The task-workflow branch's Quality build at
+`69197cc` emitted 595.39 kB of JavaScript before gzip, 168.28 kB gzipped;
+Vite reports a non-blocking size warning. Shared notification rules and
+strings also enter the web bundle even though only Android notifies.
 
 ### R9 — Notification delivery is partial and unverified
 

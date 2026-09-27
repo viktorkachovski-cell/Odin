@@ -24,15 +24,20 @@ component tests and its production build all pass on 19.2.3.
 
 ## What is shared rather than reimplemented
 
-Three pieces moved into shared packages while building this client, because
-duplicating them would let the two clients drift apart on rules the server
-enforces:
+Cross-platform rules and actions live in shared packages so the clients use
+the same behaviour:
 
 - `useCommand` → `@odin/data`. It holds one request ID across an ambiguous
   `NETWORK` retry and mints a fresh one after any settled outcome. That is the
   client half of the idempotency contract, not presentation.
 - `resolveDueInput` and `dueDraftFromIso` → `@odin/domain`. Both-or-neither
   deadline entry and the DST-gap rejection.
+- `taskState`, `taskStatusOptions`, `adjacentMoves` and deadline presets →
+  `@odin/domain`. They keep status choices, move availability and All Tasks
+  filters consistent with web.
+- `useTaskRowActions` → `@odin/data`. It coordinates task commands and cache
+  invalidation across the task views.
+- `formatDueAt` → `@odin/i18n`. Both clients show deadlines consistently.
 - `task.claim.short` / `task.edit_action.short` → `@odin/i18n`. The existing
   keys are accessible labels ("Claim {title}"); a compact button needs its own
   short text in both languages.
@@ -134,25 +139,24 @@ permissions and task behaviour stay aligned with the web client.
 - Completion and Claim stay directly reachable: they are the primary action of
   their row.
 - Template cards keep their border; active cards do not.
-- A template's tasks are read-only — no completion, edit, delete or unassign
-  control is rendered on them.
+- A template's tasks can be reordered but have no completion, edit, delete or
+  unassign controls.
 - Touch targets stay at least 48 dp, every control carries a TalkBack label,
   and English/Bulgarian text is shared with web.
 
 ## Lists, templates and notes on Android
 
-| Action                     | Where it lives                                      | Command               |
-| -------------------------- | --------------------------------------------------- | --------------------- |
-| Save a list as a template  | Overflow on the Home card, and on list detail       | `save_list_template`  |
-| Delete a list or template  | Overflow on the Home card, and on list detail       | `delete_list`         |
-| Read a list's shared note  | Under the subtitle on the Home card and list detail | `get_home`/`get_list` |
-| Write a list's shared note | Note field under the subtitle field in the editor   | `update_list_v2`      |
+| Action                     | Where it lives                                      | Command                     |
+| -------------------------- | --------------------------------------------------- | --------------------------- |
+| Save a list as a template  | Icon beside the Home card title; list-detail header | `save_list_template`        |
+| Delete a list or template  | Overflow on the Home card, and on list detail       | `delete_list`               |
+| Read a list's shared note  | Under the subtitle on the Home card and list detail | `get_home_v2`/`get_list_v2` |
+| Write a list's shared note | Note field under the subtitle field in the editor   | `update_list_v2`            |
 
-- `Save as list template` sits in the same `ActionMenu` that carries
-  `Delete list`. It is not destructive, so it takes no confirmation alert — the
-  new template card appearing on Home is the confirmation, backed by a polite
-  live-region line. It invalidates Home only: the source list is unmodified and
-  keeps its version.
+- The save-template icon sits beside an active list's name on Home, and the
+  list-detail header exposes the same action. It takes no confirmation alert;
+  the new template card appearing on Home confirms the save. The source list
+  stays unchanged and keeps its version.
 - `Delete list` appears on template cards as well as active ones, with the same
   destructive alert and the same `expected_version` from the summary. The
   summary DTO already carries `version`, so deleting from Home needs no extra

@@ -22,62 +22,33 @@ Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment
 limitation, not a project finding; CI reports 21/21.
 
-## Task-workflow branch evidence — 2026-09-27
+## Task-workflow branch evidence — review-fix commit `69197cc`
 
-On `codex/task-workflow-polish`, the disposable `Database` workflow passed
-schema lint, all 104 pgTAP assertions across three files (including 25 new
-workflow assertions), and the concurrency suite at run `36320865335`.
-The new tests cover household isolation, status transitions, adjacent shared
-moves, deadline paging and invalid input. The reviewed migration backfills
-existing list positions before adding their unique constraint. Generated
-public schema types came from disposable CI run `36320865373`.
+The reviewed code commit `69197cc` on `codex/task-workflow-polish` passed GitHub [Quality](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210138)
+and [Database](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210226).
+Quality covers ESLint, Prettier, workspace typechecks, 12 tooling tests, 209
+Vitest tests in 25 files, 121 Android Jest tests, four build-environment tests,
+the web build, Expo Doctor (21/21) and Android JavaScript export. The web
+JavaScript output was 595.39 kB before gzip; see R8 in `known-risks.md`.
 
-Local Node 22 checks passed ESLint, Prettier, all workspace typechecks, 12
-tooling tests and 200 Vitest tests across 24 files. The first parallel Jest
-run timed out in three new UI cases under worker contention; a serial rerun
-passed all 119 mobile Jest tests and four build-environment tests, so the test
-script now runs Jest serially. The web production build and Android JavaScript
-export passed with non-secret placeholder public configuration; Expo Doctor
-passed 21/21 after the four required SDK patch updates. These checks validate
-code and bundles, not an installed device or a live hosted test session.
+Database CI replayed both branch migrations on a disposable Supabase stack.
+SQL lint found no schema errors; pgTAP passed 122 assertions across three
+files, including 43 task-workflow assertions. Five genuine parallel cases
+passed: duplicate create, competing claims, append order, moving while a
+neighbour is deleted, and competing adjacent moves. The review had reproduced
+the neighbour-delete race as a not-null `sort_order` failure before the fix.
+`20260927154349_task_workflow_review_fixes.sql` adds the list lock and changes
+the draft status and read RPCs; generated public types were refreshed from
+the disposable database.
 
-### Review fixes — 2026-09-27
-
-After the branch review, migration
-`20260927154349_task_workflow_review_fixes.sql` replaced the first-draft RPCs:
-`set_task_state` (open/blocked/done) instead of `set_task_status`, snapshot
-reads instead of paged ones, and one parent-list lock for every command that
-changes a task's position or completion group. It was generated with
-`npm run db:diff` from the declarative schema and replayed on a disposable
-local stack (Docker, `supabase start` without Realtime/Studio/Storage).
-
-On that stack, before the fix, a new concurrency case reproduced the reviewed
-race: `move_task` whose neighbour is deleted by another member mid-flight
-failed with `null value in column "sort_order" ... violates not-null
-constraint`. After the migration:
-
-- `npx supabase test db`: 122 assertions across three files pass, 43 of them in
-  `003_task_workflow.sql` -- state transitions, completion-group boundaries,
-  template task moves, snapshot ordering, the 1,000-row `TOO_LARGE` ceiling
-  and household isolation.
-- `npm run db:test:concurrency`: five cases pass, including the move-during-
-  neighbour-delete race and two members moving adjacent tasks at once (one
-  wins, the other gets `CONFLICT`, positions stay unique).
-- `npx supabase db lint --local --level warning --fail-on warning`: clean.
-- `packages/contracts/src/database.generated.ts` regenerated with
-  `supabase gen types typescript --local --schema public`.
-
-Local Node 22: `npm run check` passed -- ESLint, Prettier, every workspace
-typecheck, 12 tooling tests, 209 Vitest tests across 25 files and 121 mobile
-Jest tests plus four build-environment tests. The web production build and
-the Android JavaScript export passed with placeholder public configuration.
-None of this ran on a device or against the hosted project.
-
-Before merging, apply both migrations to the chosen test database, then check
-two-client movement/state synchronization, all deadline filters around local
+Local Node 22 `npm run check`, web build and Android export also passed after
+the review fixes using non-secret placeholder public configuration. No branch
+client was installed on a device or exercised against the hosted project.
+Before merge, apply both migrations to an approved test database, then check
+two-client movement/state synchronization, deadline filters around local
 midnight and DST, and phone/tablet visual fit against the supplied reference.
-The single hosted Odin project is production; this branch does not apply its
-migrations or deploy either client there.
+The single hosted Odin project is production; this branch has not deployed
+its migrations or clients there.
 
 ## Requirements traceability
 
@@ -100,7 +71,7 @@ migrations or deploy either client there.
 | FR 27                             | Both clients, optional   | Read-only preview with separate copy action; never blocks Must completion                                                                                                       |
 | Notification amendment 2026-09-22 | Android + `@odin/domain` | Assignment, update and 24h/4h/1h deadline notifications fire under both gates and only then; scheduled set matches current deadlines; **delivery itself is unproven — risk R9** |
 
-BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/10 to full-list aggregates and completion tests; BR 06/07/09 to cross-list filters; BR 08 to incomplete-only overdue display. User-facing removal is deferred; any later removal must recalculate progress.
+BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/10 to full-list aggregates and completion tests; BR 06/07/09 to cross-list filters; BR 08 to incomplete-only overdue display. Task deletion and list archival are implemented; restoration and purge remain open under R2.
 
 ## Mandatory adversarial and edge cases
 
@@ -112,7 +83,7 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 - [ ] Stale fetch after successful mutation cannot restore older state; Realtime loss, reconnect and Android foreground resynchronize.
 - [ ] Completed tasks disappear from cross-list views, remain in detail/totals, and never show overdue.
 - [ ] Progress 0/0 = 0, 1/3 = 33, 2/3 = 67, 1/8 = 13 and all complete = 100.
-- [ ] More than 50 tasks/lists paginate correctly; counts reflect all pages; no N+1 Home queries or silent row-limit truncation.
+- [ ] Current snapshot readers return complete lists through 1,000 rows and a visible `TOO_LARGE` above it; installed clients' 50-row paged readers remain correct; counts cover all tasks and Home has no N+1 reads.
 - [ ] Blank/whitespace-only title, max length, emoji/supplementary Unicode, Bulgarian, very long member/title labels, null subtitle/deadline/assignee.
 - [ ] Same UTC due instant renders correctly in Europe/Sofia and another zone; DST invalid/ambiguous input handled explicitly; locale switching doesn't mutate instants.
 - [ ] Invalid, expired, revoked and already-used invite; logged-out deep-link continuation; account already in another household; no token in logs/referrers.
