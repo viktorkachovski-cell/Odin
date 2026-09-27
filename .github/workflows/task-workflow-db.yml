@@ -1,0 +1,46 @@
+name: Task workflow database verification
+on:
+  push:
+    branches: ['codex/task-workflow-polish']
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/task-workflow-db.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Generate migration from the declarative schema
+        run: npm run db:diff -- -f task_workflow_polish
+      - name: Save generated migration for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-workflow-migrations
+          path: supabase/migrations/*.sql
+          if-no-files-found: error
+      - run: npx supabase start
+      - run: npm run db:lint
+      - run: npm run db:test
+      - name: Export local connection
+        run: |
+          eval "$(npx supabase status -o env)"
+          echo "ODIN_TEST_DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
+      - run: npm run db:test:concurrency
+      - name: Generate database types
+        run: npx supabase gen types typescript --local --schema public > database.generated.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: task-workflow-types
+          path: database.generated.ts
+          if-no-files-found: error
+      - if: always()
+        run: npx supabase stop --no-backup
