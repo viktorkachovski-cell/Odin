@@ -7,9 +7,10 @@ Vercel, over a Supabase Postgres backend, in English and Bulgarian.
 
 All three are implemented and in production. The web client is at
 `https://odin-ten-tau.vercel.app`.
-The task-workflow updates on `codex/task-workflow-polish` are branch work;
-their database migrations and updated clients are not deployed to production.
-See [the deployment log](docs/deployment-log.md) for the hosted baseline.
+The task workflow (task details, Open/Blocked/Done, shared ordering and All
+Tasks) reached production on 2026-09-27: its migrations are on the hosted
+database and the web client ships from `main`. No Android build containing it
+has been released yet. See [the deployment log](docs/deployment-log.md).
 
 ## Documentation
 

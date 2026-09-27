@@ -44,11 +44,13 @@ the disposable database.
 Local Node 22 `npm run check`, web build and Android export also passed after
 the review fixes using non-secret placeholder public configuration. No branch
 client was installed on a device or exercised against the hosted project.
-Before merge, apply both migrations to an approved test database, then check
-two-client movement/state synchronization, deadline filters around local
-midnight and DST, and phone/tablet visual fit against the supplied reference.
-The single hosted Odin project is production; this branch has not deployed
-its migrations or clients there.
+On 2026-09-27 the migrations were dry-run on the hosted project inside a
+transaction forced to roll back, then applied with a follow-up permissions
+migration, and `supabase/smoke/task-workflow-smoke.sql` passed there with
+identical row counts before and after (`deployment-log.md`). Nobody has yet
+checked two-client movement/state synchronization, deadline filters around
+local midnight and DST, or phone/tablet visual fit against the supplied
+reference, on a device or in a browser.
 
 ## Requirements traceability
 

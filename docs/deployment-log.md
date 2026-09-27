@@ -134,3 +134,69 @@ no new finding.
 Rollback is a reviewed forward migration restoring `kind = 'active'` to the
 `select` in `private.delete_list`. Templates archived in the meantime stay
 archived and would need an operator to set `status` back to `open`.
+
+## Task workflow — 2026-09-27
+
+Application change viktorkachovski-cell/Odin#12. The database was migrated
+before the web client merged, so production never ran a client against
+missing RPCs.
+
+| Repository migration                                    | Hosted version   |
+| ------------------------------------------------------- | ---------------- |
+| `20260927121823_task_workflow_polish.sql`               | `20260927193213` |
+| `20260927154349_task_workflow_review_fixes.sql`         | `20260927193328` |
+| `20260927194500_task_workflow_function_permissions.sql` | `20260927193412` |
+
+**Dry run.** Both reviewed migrations and the smoke assertions first ran on the
+hosted project in one transaction ended by a deliberate exception, so nothing
+committed. They applied cleanly to live data: all 18 lists were backfilled with
+no duplicate position within a household and kind, and every assertion passed.
+The dry run also showed that hosted default privileges would let `anon`
+execute the eight new public wrappers, which is why the third migration exists;
+it follows the `lifecycle_function_permissions` precedent.
+
+**After applying:**
+
+- An md5 over `pg_get_functiondef` for the 26 functions the migrations create
+  or replace matched a local stack built from the repository migrations
+  exactly. Hashes of public columns and of all 35 public function signatures
+  matched too, so `database.generated.ts` needed no regeneration.
+- `anon` can execute no function in `public` or `private`; `authenticated` can
+  execute all eight new public RPCs; no public function is `SECURITY DEFINER`;
+  every function pins `search_path`.
+- The deferrable `lists_household_kind_sort_order_key` and
+  `tasks_list_id_sort_order_key`, `lists_sort_order_nonnegative` and
+  `tasks_completed_blocked_exclusive` are present.
+- As accepted in R11, each existing list gained one version and an
+  `updated_at` equal to the migration time.
+
+`supabase/smoke/task-workflow-smoke.sql` then passed on production using
+randomly generated synthetic identities in a transaction ending in ROLLBACK. It
+covers the unauthenticated guard, list append order from legacy and v2
+commands, Open/Blocked/Done with display labels rejected, Blocked surviving a
+text edit and cleared by the legacy completion command, task and list moves
+with stale-version conflicts and boundary no-ops, template task moves with
+state refused, runtime state reset by save-as-template and copy, the snapshot
+reads and All Tasks filters, the legacy paged readers, and cross-household
+denial. Users, profiles, households, memberships, lists, tasks and command
+receipts counted the same before and after. One receipt had already been added
+earlier in the window by a member's successful command against the live
+database.
+
+Advisors: security reports leaked-password protection disabled and
+`task_templates` with RLS but no policies (intentional default-deny).
+Performance reports three unindexed foreign keys, no primary key on
+`private.invitation_attempts` and the unused `task_templates_created_by_idx`.
+All pre-date these migrations.
+
+The web client ships with the merge of viktorkachovski-cell/Odin#12 to `main`,
+which Vercel deploys to production. No Android build containing the workflow
+has been released; installed builds keep using the legacy RPCs, which the
+smoke run exercised.
+
+Rollback: the database changes are backward compatible with the previous web
+deployment, so the web client can roll back on Vercel alone. Reverting the
+database needs a reviewed forward migration that drops the new RPCs, the
+`lists_assign_order` trigger and the new constraints, and restores the
+previous command bodies; drop `tasks.blocked` and `lists.sort_order` only after
+confirming no blocked state or household order must be kept.

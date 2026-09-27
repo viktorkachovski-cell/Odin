@@ -23,8 +23,8 @@ Home keeps bordered template cards and unbordered active cards in separately lab
 
 The owner requested task details, up/down movement for tasks and lists, an
 inline save-template icon, deadline filtering across all tasks, four task
-statuses, and mobile visual polish that retains Odin's palette. Work is on a
-feature branch for testing before merge.
+statuses, and mobile visual polish that retains Odin's palette. It merged and
+reached production on 2026-09-27.
 
 The owner confirmed that Unassigned follows assignment automatically, order is
 shared across household members, and date filters refer to task deadlines.

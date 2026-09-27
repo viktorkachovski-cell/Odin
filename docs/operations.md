@@ -42,14 +42,14 @@ a read-only list call does not prove a mutating one will succeed.
 Hosted and local migration histories already diverge. Match applied names and
 contents rather than pushing the full local history.
 
-The task-workflow branch requires `20260927121823_task_workflow_polish.sql`
-followed by `20260927154349_task_workflow_review_fixes.sql`. Neither is hosted.
-The first backfills every existing list's order and advances its version and
-`updated_at` (accepted risk R11); schedule that change knowing open list editors may
-see a one-time conflict. Because there is no hosted staging project, use a
-disposable local database for branch testing or make a separately reviewed
-production migration decision. Do not point branch clients or previews at the
-unmigrated production API and treat a build as functional verification.
+The task workflow needed `20260927121823_task_workflow_polish.sql`,
+`20260927154349_task_workflow_review_fixes.sql` and
+`20260927194500_task_workflow_function_permissions.sql`, applied in that order
+on 2026-09-27 before its web client merged. The first backfilled every
+existing list's order and advanced its version and `updated_at` once (accepted
+risk R11). Because there is no hosted staging project, test unmerged database
+changes on a disposable local database, and never treat a preview build
+against an unmigrated production API as functional verification.
 
 ## Vercel configuration
 

@@ -1,6 +1,6 @@
 # Shared data and command contract
 
-This file is the integration authority for the branch clients and database schema. Both clients consume the same generated types and runtime validation. The task-workflow API is committed on `codex/task-workflow-polish` but has not been deployed; see the compatibility note below. Do not infer permissions from a client-supplied household ID.
+This file is the integration authority for both clients and the database schema. Both clients consume the same generated types and runtime validation. The task-workflow API has been on the hosted database since 2026-09-27; see the compatibility note below. Do not infer permissions from a client-supplied household ID.
 
 ## Stored model
 
@@ -106,12 +106,15 @@ Subscribe to RLS-protected list/task/membership changes for the active household
 
 Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. Provide a 3-second foreground fallback refetch while realtime is unhealthy, with backoff during actual network failure. Verify the normal connected update budget of 5 seconds; do not promise background delivery.
 
-## Task-workflow compatibility — 2026-09-27 feature branch
+## Task-workflow compatibility — 2026-09-27
 
-The current contract requires both `20260927121823_task_workflow_polish.sql`
-and `20260927154349_task_workflow_review_fixes.sql`. Neither has been applied
-to the hosted production database. The second migration replaces first-draft
-RPCs that existed only on this branch: `set_task_status` becomes
+The current contract requires `20260927121823_task_workflow_polish.sql`,
+`20260927154349_task_workflow_review_fixes.sql` and
+`20260927194500_task_workflow_function_permissions.sql`, in that order. All
+three were applied to the hosted database on 2026-09-27; the third removes the
+anonymous execute grants that hosted default privileges add to new functions.
+The second migration replaces first-draft
+RPCs that existed only on the feature branch: `set_task_status` becomes
 `set_task_state`, while the draft paged `get_home_v2` and `get_all_tasks` become
 snapshot reads. No installed client uses those draft signatures.
 
@@ -121,5 +124,5 @@ Installed clients keep their paged `get_home`, `get_list`, `get_my_tasks` and
 without `blocked` or `sort_order`, defaulting them to false or zero; the new
 clients still require the new RPCs.
 `TOO_LARGE` belongs only to the new snapshot reads and is localized in both
-updated clients. Apply both migrations before testing branch clients against
-a database; this document is not a production deployment record.
+updated clients. Any database the updated clients use needs all three
+migrations; `deployment-log.md` records what reached the host.

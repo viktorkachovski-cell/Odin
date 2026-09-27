@@ -45,11 +45,11 @@ at most one assignee, an optional deadline and an explicit completion state.
   due timestamp ascending, nulls last, with a stable list/task ID tie-breaker.
 - A completed task never shows as overdue.
 
-### Task workflow feature branch — 2026-09-27
+### Task workflow — 2026-09-27
 
-These additions are on `codex/task-workflow-polish`; both of its database
-migrations must be installed on the test database before either updated client
-is used. They are not a production deployment record.
+The three task-workflow migrations were applied to the hosted database on
+2026-09-27 (`deployment-log.md`) and the web client ships these additions from
+`main`. No Android build containing them has been released yet.
 
 - Tapping or clicking a task opens its complete details, including notes,
   assignee and deadline. Completion, status, move and overflow controls remain

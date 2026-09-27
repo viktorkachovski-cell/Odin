@@ -21,8 +21,7 @@ isolation, equal member task permissions and explicit completion state. Writes
 carry actor-scoped request IDs and expected versions. Assignment and claim use
 deterministic locks, and clients cannot bypass them with direct table writes.
 
-On the `codex/task-workflow-polish` branch, migration
-`20260927121823_task_workflow_polish.sql` adds task `blocked`, household list
+Migration `20260927121823_task_workflow_polish.sql` adds task `blocked`, household list
 positions, and versioned adjacent move commands, backfilling existing list
 positions in creation order before enforcing uniqueness.
 `20260927154349_task_workflow_review_fixes.sql` then replaces the status
@@ -32,7 +31,9 @@ changes a task's position or completion group lock the parent list through
 one-snapshot readers (`get_home_v2`, `get_list_v2` and
 `private.get_household_tasks` behind My Tasks, Unassigned and All Tasks) that
 return `TOO_LARGE` above 1,000 rows. Legacy paged reads stay for installed
-clients. Neither migration is installed on the hosted production database.
+clients. `20260927194500_task_workflow_function_permissions.sql` removes the
+anonymous execute grants hosted default privileges add to the new functions.
+All three are on the hosted database since 2026-09-27.
 
 ## Authorization design
 

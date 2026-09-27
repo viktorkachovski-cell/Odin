@@ -67,10 +67,10 @@ Invitation raw tokens are never stored. A private random HMAC key is generated i
 
 Odin has one hosted Supabase project, `mvltbhtsukorspmpyhpw` in
 `eu-central-1`, treated as production. It contains live household data; never
-reset it. The two task-workflow migrations on `codex/task-workflow-polish` are
-committed but **not applied** there. Local schema replay and CI do not change
-that hosted state. Vercel previews use the same production backend, so they
-cannot exercise these new RPCs until the migration is applied.
+reset it. The three task-workflow migrations were applied there on
+2026-09-27. Local schema replay and CI never change hosted state. Vercel
+previews use the same production backend, so a preview can only exercise RPCs
+that are already applied there.
 
 For the exact hosted migration history and smoke-test evidence, use
 `docs/deployment-log.md`. For deployment sequencing, build configuration and
