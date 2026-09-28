@@ -178,3 +178,47 @@ describe('a pending invitation', () => {
     expect(getPendingInvitation()).toBeNull();
   });
 });
+
+/**
+ * Every successful read calls `markSynced`, and a changed context value
+ * re-renders every consumer. The banner shows minutes, so only a new minute may
+ * change the value.
+ */
+it('re-renders consumers for a sync only when the displayed minute changes', async () => {
+  jest.useFakeTimers({ now: new Date('2026-09-28T10:00:05Z') });
+  try {
+    const queryClient = setUp(Promise.resolve({ id: 'u1', email: null }));
+    const seen: (number | null)[] = [];
+    let markSynced: () => void = () => undefined;
+    const translators = new Set<unknown>();
+    function SyncProbe(): ReactNode {
+      const value = useOdin();
+      seen.push(value.lastSyncedAt);
+      markSynced = value.markSynced;
+      translators.add(value.t);
+      return null;
+    }
+    await render(
+      <OdinProvider client={{} as never} queryClient={queryClient}>
+        <SyncProbe />
+      </OdinProvider>,
+    );
+    await flush(() => undefined);
+
+    await flush(() => markSynced());
+    const rendersAfterFirstSync = seen.length;
+    const first = seen.at(-1);
+    jest.setSystemTime(new Date('2026-09-28T10:00:50Z'));
+    await flush(() => markSynced());
+    await flush(() => markSynced());
+    expect(seen).toHaveLength(rendersAfterFirstSync);
+
+    jest.setSystemTime(new Date('2026-09-28T10:01:02Z'));
+    await flush(() => markSynced());
+    expect(seen.length).toBe(rendersAfterFirstSync + 1);
+    expect(seen.at(-1)).not.toBe(first);
+    expect(translators.size).toBe(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});

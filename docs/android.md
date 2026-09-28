@@ -62,10 +62,26 @@ The updated client requires both branch migrations on its test database.
   the value across numbered chunks behind a manifest. Chunk boundaries never
   split a surrogate pair, because a lone surrogate is replaced on the UTF-8
   round trip through the keystore and would corrupt the session. A partially
-  written session reads back as absent rather than corrupt.
+  written session reads back as absent rather than corrupt. The auth client
+  reads the session before every request and on every realtime heartbeat, so
+  the adapter keeps it in memory after the first read; the keystore is read once
+  per process and written on every change.
 - **Foreground reconciliation.** `AppState` drives an authoritative membership
-  refetch when Android returns the app to the foreground, so a revoked member
-  cannot keep acting on cached household data.
+  refetch when Android returns the app to the foreground or the network
+  returns, so a revoked member cannot keep acting on cached household data.
+  That is one reconcile per return. The realtime channel is joined once per
+  household and survives background and network changes, and a (re)join
+  reconciles only while the app is in use.
+- **Fallback polling backs off.** While the channel is down, the app reconciles
+  after 5, 10, 20 and 40 seconds and then once a minute, and not at all when
+  offline or in the background. Android pauses JavaScript timers in the
+  background anyway, which is also why realtime hints are coalesced on the
+  clock, not by a timer (`subscribeToHousehold` in `@odin/data`): the first
+  change after a quiet half-second is delivered at once, so a backgrounded but
+  running app still refetches and can announce it (risk R9).
+- **Sync time renders once a minute.** Every successful read reports a sync,
+  but the stored time only changes when the minute the stale banner shows
+  changes, so a refresh does not re-render every screen.
 - **Offline.** `@react-native-community/netinfo` drives the offline banner. A
   still-running reachability probe is not treated as offline.
 - **Bottom navigation** hides on downward scroll and reveals on upward scroll,

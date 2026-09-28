@@ -9,6 +9,15 @@ function backing(): Map<string, string> {
   return (SecureStore as unknown as { __store: Map<string, string> }).__store;
 }
 
+/**
+ * The adapter remembers what it wrote, so a read through the same instance
+ * never touches the keystore. What the keystore itself holds is what a fresh
+ * adapter -- the next app start -- reads back.
+ */
+function afterRestart(): ReturnType<typeof createSecureSessionStorage> {
+  return createSecureSessionStorage();
+}
+
 describe('secure session storage', () => {
   beforeEach(() => backing().clear());
 
@@ -17,7 +26,7 @@ describe('secure session storage', () => {
     await storage.setItem(KEY, 'short');
 
     expect(backing().get(KEY)).toBe('short');
-    await expect(storage.getItem(KEY)).resolves.toBe('short');
+    await expect(afterRestart().getItem(KEY)).resolves.toBe('short');
   });
 
   it('round-trips a session larger than the keystore value limit', async () => {
@@ -31,7 +40,7 @@ describe('secure session storage', () => {
     for (const [, value] of backing()) {
       expect(value.length).toBeLessThanOrEqual(512);
     }
-    await expect(storage.getItem(KEY)).resolves.toBe(session);
+    await expect(afterRestart().getItem(KEY)).resolves.toBe(session);
   });
 
   it('never splits a surrogate pair across two chunks', async () => {
@@ -46,7 +55,7 @@ describe('secure session storage', () => {
       const last = value.charCodeAt(value.length - 1);
       expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
     }
-    await expect(storage.getItem(KEY)).resolves.toBe(session);
+    await expect(afterRestart().getItem(KEY)).resolves.toBe(session);
   });
 
   it('reports a partially written session as absent rather than corrupt', async () => {
@@ -55,7 +64,7 @@ describe('secure session storage', () => {
 
     backing().delete(`${KEY}.1`);
 
-    await expect(storage.getItem(KEY)).resolves.toBeNull();
+    await expect(afterRestart().getItem(KEY)).resolves.toBeNull();
   });
 
   it('clears every chunk when the session is removed', async () => {
@@ -66,6 +75,7 @@ describe('secure session storage', () => {
 
     expect(backing().size).toBe(0);
     await expect(storage.getItem(KEY)).resolves.toBeNull();
+    await expect(afterRestart().getItem(KEY)).resolves.toBeNull();
   });
 
   it('does not leave stale chunks behind when a shorter session replaces a longer one', async () => {
@@ -75,6 +85,52 @@ describe('secure session storage', () => {
     await storage.setItem(KEY, 'tiny');
 
     expect(backing().size).toBe(1);
-    await expect(storage.getItem(KEY)).resolves.toBe('tiny');
+    await expect(afterRestart().getItem(KEY)).resolves.toBe('tiny');
+  });
+
+  it('reads the keystore once, then answers from memory', async () => {
+    await createSecureSessionStorage().setItem(KEY, 'e'.repeat(2000));
+    const storage = afterRestart();
+    const reads = jest.mocked(SecureStore.getItemAsync);
+    reads.mockClear();
+
+    await expect(storage.getItem(KEY)).resolves.toBe('e'.repeat(2000));
+    const firstLoad = reads.mock.calls.length;
+    for (let request = 0; request < 5; request += 1) await storage.getItem(KEY);
+
+    // A manifest and four chunks, decrypted once rather than before every request.
+    expect(firstLoad).toBe(5);
+    expect(reads).toHaveBeenCalledTimes(firstLoad);
+  });
+
+  it('serves the newest write and removal from memory', async () => {
+    const storage = createSecureSessionStorage();
+    await storage.getItem(KEY);
+
+    await storage.setItem(KEY, 'refreshed');
+    await expect(storage.getItem(KEY)).resolves.toBe('refreshed');
+
+    await storage.removeItem(KEY);
+    await expect(storage.getItem(KEY)).resolves.toBeNull();
+  });
+
+  it('does not let a slow first read overwrite a newer write', async () => {
+    backing().set(KEY, 'stale');
+    const storage = createSecureSessionStorage();
+
+    const read = storage.getItem(KEY);
+    await storage.setItem(KEY, 'fresh');
+
+    await expect(read).resolves.toBe('fresh');
+    await expect(storage.getItem(KEY)).resolves.toBe('fresh');
+  });
+
+  it('keeps a sign-out even when the keystore delete fails', async () => {
+    const storage = createSecureSessionStorage();
+    await storage.setItem(KEY, 'session');
+    jest.mocked(SecureStore.deleteItemAsync).mockRejectedValueOnce(new Error('keystore busy'));
+
+    await expect(storage.removeItem(KEY)).rejects.toThrow('keystore busy');
+    await expect(storage.getItem(KEY)).resolves.toBeNull();
   });
 });

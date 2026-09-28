@@ -159,6 +159,10 @@ owner decision of 2026-09-22 and tracked in the accepted section of
    app closed and after a reboot, the mute switch silencing both, and sign-out
    leaving no scheduled reminder behind. The suite mocks the native module
    entirely, so none of this has any non-device evidence — risk R9.
+10. Sync cost in Android Studio's network profiler: one refetch round on each
+    return to the app, one or two for a template copy by another member, and
+    the fallback poll slowing to once a minute while realtime is blocked but
+    the network is up — risk R12.
 
 ## Completion report template
 

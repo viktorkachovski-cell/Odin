@@ -64,6 +64,7 @@ export {
 } from './commands.ts';
 
 export {
+  keysAffectedByChanges,
   keysAffectedByListChange,
   keysAffectedByMembershipChange,
   keysAffectedByTaskChange,
@@ -71,7 +72,12 @@ export {
   queryKeys,
 } from './query-keys.ts';
 
-export type { ChangeKind, Subscription, SubscriptionHandlers } from './realtime.ts';
+export type {
+  ChangeKind,
+  Subscription,
+  SubscriptionHandlers,
+  SubscriptionOptions,
+} from './realtime.ts';
 export { subscribeToHousehold } from './realtime.ts';
 
 export type { CommandState, UseCommandResult } from './use-command.ts';

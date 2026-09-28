@@ -1,14 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import {
-  keysAffectedByListChange,
-  keysAffectedByMembershipChange,
-  keysAffectedByTaskChange,
-  queryKeys,
-  subscribeToHousehold,
-  type ChangeKind,
-} from '@odin/data';
+import { keysAffectedByChanges, queryKeys, subscribeToHousehold } from '@odin/data';
 
 import { useOdin } from './OdinContext.ts';
 
@@ -21,17 +14,6 @@ import { useOdin } from './OdinContext.ts';
 
 const UNHEALTHY_POLL_MS = 3000;
 
-function keysFor(kind: ChangeKind): readonly (readonly string[])[] {
-  switch (kind) {
-    case 'task':
-      return keysAffectedByTaskChange();
-    case 'list':
-      return keysAffectedByListChange();
-    case 'membership':
-      return keysAffectedByMembershipChange();
-  }
-}
-
 export function useHouseholdRealtime(householdId: string | null): void {
   const { client, setRealtimeHealthy, realtimeHealthy, online } = useOdin();
   const queryClient = useQueryClient();
@@ -40,12 +22,11 @@ export function useHouseholdRealtime(householdId: string | null): void {
     if (householdId === null) return;
 
     const subscription = subscribeToHousehold(client, householdId, {
-      onChange: (kind) => {
-        for (const key of keysFor(kind)) {
-          void queryClient.invalidateQueries({ queryKey: key });
+      onChange: (kinds) => {
+        // Includes the `['list']` prefix, so an open list detail refetches too.
+        for (const queryKey of keysAffectedByChanges(kinds)) {
+          void queryClient.invalidateQueries({ queryKey });
         }
-        // An open list detail is refetched by its own key prefix.
-        void queryClient.invalidateQueries({ queryKey: ['list'] });
       },
       onHealthChange: setRealtimeHealthy,
     });

@@ -55,7 +55,7 @@ npm workspaces with a single root lockfile. The Expo SDK dictates the React and 
 - Postgres owns authorization, version increments, idempotency and transactions. UI validation improves usability but does not enforce permissions.
 - Read household rows with the user JWT and RLS. Use command RPCs for all writes; revoke direct client table writes. Privileged implementation helpers live in an unexposed schema with narrowly granted execution (database brief defines the wrapper pattern).
 - Supabase Auth provides identity. An active membership row provides household authorization, checked on every request rather than trusting stale JWT household claims.
-- Supabase Realtime triggers query invalidation and refetch; events are not a durable source of truth. Reconcile after reconnect and app foregrounding. Never depend on receiving every event.
+- Supabase Realtime triggers query invalidation and refetch; events are not a durable source of truth. Reconcile after reconnect and app foregrounding. Never depend on receiving every event. One statement can change many rows, so hints are coalesced: the first after a quiet 500 ms window is delivered at once and the rest of the window together.
 - No service-role key in mobile, browser or Vercel client environment. No custom admin panel in the initial MVP; operational seed management remains a reviewed backend workflow.
 
 ## State and reliability

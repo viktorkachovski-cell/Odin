@@ -13,6 +13,8 @@ import { clearPendingInvitation } from './pending-invitation.ts';
 import { useSessionRefresh } from './useSessionRefresh.ts';
 import { useInvitationLinks } from './useInvitationLinks.ts';
 
+const MINUTE_MS = 60_000;
+
 /**
  * The language preference lives on the server profile rather than in device
  * storage, so it follows the account across devices. Before sign-in the device
@@ -134,7 +136,19 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
     };
   }, [client, applyUser]);
 
-  const markSynced = useCallback(() => setLastSyncedAt(Date.now()), []);
+  /**
+   * Every successful read reports here, and a new value re-renders everything
+   * that reads the context. The stale banner shows minutes, so a read within
+   * the minute already recorded changes nothing and renders nothing.
+   */
+  const markSynced = useCallback(() => {
+    const now = Date.now();
+    setLastSyncedAt((previous) =>
+      previous !== null && Math.floor(previous / MINUTE_MS) === Math.floor(now / MINUTE_MS)
+        ? previous
+        : now,
+    );
+  }, []);
 
   /** An explicit sign-out also drops any invitation captured before logging in. */
   const signOut = useCallback(async () => {
@@ -143,6 +157,8 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
     applyUser(null);
   }, [client, applyUser]);
 
+  const t = useMemo(() => createTranslator(locale), [locale]);
+
   const value = useMemo<OdinContextValue>(
     () => ({
       client,
@@ -150,7 +166,7 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
       authReady,
       locale,
       setLocale,
-      t: createTranslator(locale),
+      t,
       online,
       realtimeHealthy,
       setRealtimeHealthy,
@@ -158,7 +174,18 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
       markSynced,
       signOut,
     }),
-    [client, user, authReady, locale, online, realtimeHealthy, lastSyncedAt, markSynced, signOut],
+    [
+      client,
+      user,
+      authReady,
+      locale,
+      t,
+      online,
+      realtimeHealthy,
+      lastSyncedAt,
+      markSynced,
+      signOut,
+    ],
   );
 
   return (

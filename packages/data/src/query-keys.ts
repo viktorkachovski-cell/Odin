@@ -3,6 +3,8 @@
  * hint targets exactly the same caches everywhere.
  */
 
+import type { ChangeKind } from './realtime.ts';
+
 export const queryKeys = {
   session: ['session'] as const,
   profile: ['profile'] as const,
@@ -45,6 +47,24 @@ export function keysAffectedByListChange(listId?: string): readonly (readonly st
     queryKeys.unassigned,
     listId === undefined ? ['list'] : queryKeys.list(listId),
   ];
+}
+
+/**
+ * The keys a batch of realtime hints invalidates, each once. Invalidating the
+ * same key twice restarts a refetch that is already running.
+ */
+export function keysAffectedByChanges(kinds: Iterable<ChangeKind>): readonly (readonly string[])[] {
+  const byId = new Map<string, readonly string[]>();
+  for (const kind of kinds) {
+    const keys =
+      kind === 'task'
+        ? keysAffectedByTaskChange()
+        : kind === 'list'
+          ? keysAffectedByListChange()
+          : keysAffectedByMembershipChange();
+    for (const key of keys) byId.set(key.join('\u0000'), key);
+  }
+  return [...byId.values()];
 }
 
 export function keysAffectedByMembershipChange(): readonly (readonly string[])[] {
