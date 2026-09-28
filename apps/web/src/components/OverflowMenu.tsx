@@ -23,7 +23,7 @@ export interface OverflowItem {
   readonly onSelect: () => void;
 }
 
-export interface OverflowMenuProps {
+interface OverflowMenuProps {
   /** The full accessible name, already naming its subject. */
   readonly label: string;
   readonly items: readonly OverflowItem[];

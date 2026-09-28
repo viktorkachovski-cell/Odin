@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { taskRowFromHouseholdTask } from '@odin/contracts';
+import type { TaskRowModel } from '@odin/contracts';
 import { useTaskRowActions } from '@odin/data';
 import {
   resolveTaskDeadlineFilter,
@@ -13,7 +13,8 @@ import {
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useTheme } from '../../src/theme.ts';
-import { useAllTasksQuery, useMembersQuery } from '../../src/state/queries.ts';
+import { NO_MEMBERS, useAllTasksQuery, useMembersQuery } from '../../src/state/queries.ts';
+import { useEvent } from '../../src/state/useEvent.ts';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { ActionMenu } from '../../src/components/ActionMenu.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
@@ -22,22 +23,24 @@ import { Field } from '../../src/components/Field.tsx';
 import { SecondaryButton } from '../../src/components/Button.tsx';
 import { Screen, EmptyState, LoadingState } from '../../src/components/Screen.tsx';
 import { TaskDetailsFlow } from '../../src/components/TaskDetailsFlow.tsx';
-import { TaskRow } from '../../src/components/TaskRow.tsx';
+import { rowFromHouseholdTask, TaskRow } from '../../src/components/TaskRow.tsx';
 
 export default function AllTasksScreen(): ReactNode {
   const { t, locale, client } = useOdin();
   const theme = useTheme();
   const nav = useNavVisibility();
-  const members = useMembersQuery(true);
+  const members = useMembersQuery().data ?? NO_MEMBERS;
   const [filter, setFilter] = useState<TaskDeadlineFilter>({ preset: 'all' });
   const [rangeOpen, setRangeOpen] = useState(false);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [filterError, setFilterError] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const tasks = useAllTasksQuery(filter, true);
-
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const tasks = useAllTasksQuery(filter);
   const actions = useTaskRowActions(client);
+  const open = useEvent((task: TaskRowModel) => setSelectedId(task.id));
+  const setState = useEvent(actions.setState);
+  const toggle = useEvent(actions.toggleCompleted);
 
   const chooseFilter = (preset: TaskDeadlinePreset): void => {
     setFilterError(false);
@@ -59,9 +62,9 @@ export default function AllTasksScreen(): ReactNode {
     setFilter(next);
   };
 
-  if (tasks.isPending) return <LoadingState label={t('state.loading')} />;
+  if (tasks.isPending) return <LoadingState />;
   // The server already returns deadline ascending with undated last.
-  const rows = (tasks.data?.items ?? []).map(taskRowFromHouseholdTask);
+  const rows = (tasks.data?.items ?? []).map(rowFromHouseholdTask);
 
   return (
     <Screen title={t('tasks.all.title')}>
@@ -128,10 +131,10 @@ export default function AllTasksScreen(): ReactNode {
               busy={actions.busy}
               key={task.id}
               locale={locale}
-              members={members.data ?? []}
-              onPress={(selected) => setSelectedTaskId(selected.id)}
-              onSetState={actions.setState}
-              onToggleCompleted={actions.toggleCompleted}
+              members={members}
+              onPress={open}
+              onSetState={setState}
+              onToggleCompleted={toggle}
               t={t}
               task={task}
             />
@@ -141,10 +144,10 @@ export default function AllTasksScreen(): ReactNode {
       </ScrollView>
       <TaskDetailsFlow
         editable
-        key={selectedTaskId ?? 'closed'}
-        members={members.data ?? []}
-        onClose={() => setSelectedTaskId(null)}
-        taskId={selectedTaskId}
+        key={selectedId ?? 'closed'}
+        members={members}
+        onClose={() => setSelectedId(null)}
+        taskId={selectedId}
       />
     </Screen>
   );

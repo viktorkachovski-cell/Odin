@@ -15,18 +15,17 @@ import { useHouseholdRealtime } from './useHouseholdRealtime.ts';
  * reports only membership, and `create_household` requires a profile to exist.
  */
 export function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
-  const { user, authReady, t, setLocale } = useOdin();
+  const { user, authReady, setLocale } = useOdin();
   const profile = useProfileQuery();
   const household = useHouseholdQuery();
 
-  // Subscriptions are keyed on the active household and torn down when it changes.
   useHouseholdRealtime(household.data?.id ?? null);
 
   useEffect(() => {
     if (profile.data) setLocale(profile.data.locale);
   }, [profile.data, setLocale]);
 
-  if (!authReady) return <LoadingState label={t('state.loading')} />;
+  if (!authReady) return <LoadingState />;
   if (user === null) return <Redirect href="/sign-in" />;
   if (profile.isError || household.isError) {
     return (
@@ -39,7 +38,7 @@ export function AuthGate({ children }: { readonly children: ReactNode }): ReactN
       />
     );
   }
-  if (profile.isPending || household.isPending) return <LoadingState label={t('state.loading')} />;
+  if (profile.isPending || household.isPending) return <LoadingState />;
 
   if (profile.data === null || profile.data === undefined) return <Redirect href="/onboarding" />;
   if (household.data === null || household.data === undefined) {

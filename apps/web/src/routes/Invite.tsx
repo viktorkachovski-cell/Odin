@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { keysAffectedByMembershipChange, redeemInvitation, useCommand } from '@odin/data';
 
 import { useOdin } from '../app/OdinContext.ts';
-import { errorMessage } from '../components/Banner.tsx';
+import { ErrorBanner } from '../components/Banner.tsx';
 import { captureInviteToken } from '../routing.ts';
 import {
   clearPendingInvitation,
@@ -85,11 +85,7 @@ export function Invite(): ReactNode {
           </div>
         ) : (
           <>
-            {redeem.state.error !== null && (
-              <div className="banner banner--danger" role="alert">
-                {errorMessage(redeem.state.error, t)}
-              </div>
-            )}
+            {redeem.state.error !== null && <ErrorBanner error={redeem.state.error} t={t} />}
             <button
               className="button button--primary"
               disabled={redeem.state.pending}

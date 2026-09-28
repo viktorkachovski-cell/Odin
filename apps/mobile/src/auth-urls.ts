@@ -13,5 +13,6 @@
  * device.
  */
 
-export const CONFIRMATION_URL = 'https://odin-ten-tau.vercel.app/auth/confirmed';
-export const RECOVERY_URL = 'https://odin-ten-tau.vercel.app/reset-password';
+export const WEB_ORIGIN = 'https://odin-ten-tau.vercel.app';
+export const CONFIRMATION_URL = `${WEB_ORIGIN}/auth/confirmed`;
+export const RECOVERY_URL = `${WEB_ORIGIN}/reset-password`;

@@ -47,7 +47,7 @@ export default function InviteScreen(): ReactNode {
     },
   );
 
-  if (!authReady) return <LoadingState label={t('state.loading')} />;
+  if (!authReady) return <LoadingState />;
   if (user === null) return <LoadingState label={t('invite.sign_in_first')} />;
 
   if (token === null) {

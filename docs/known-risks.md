@@ -184,8 +184,10 @@ into one refetch per row (a twenty-task template copy cost 105 requests per
 device, now 8), a fixed 3-second fallback poll (now 5 s backing off to 60 s),
 a channel rejoin and up to two full reconciles on every return to the app (now
 one), five keystore reads of the session before every request (now once per
-process), and a context re-render on every successful read (now at most once a
-minute). What is left:
+process), a context re-render on every successful read (now at most once a
+minute), every list row rendering again on any change (now only the rows whose
+task changed, with one date formatter per locale), and reads that failed while
+offline (now they wait for the network). What is left:
 
 - **Nothing was measured on a phone.** The figures above are request and render
   counts from Jest, Vitest and a React Query simulation, not battery or radio
@@ -193,13 +195,11 @@ minute). What is left:
 - **The web client still polls every 3 seconds** while its channel is down
   (`apps/web/src/app/useHouseholdRealtime.ts`). It shares the coalesced hints
   but not the backoff; the owner scoped the fix to Android.
-- **Android lists render every row on every change.** Screens map rows inside a
-  `ScrollView`, `TaskRow` is not memoized, and `formatDueAt` builds a new
-  `Intl.DateTimeFormat` per call. Near the 1,000-row ceiling (R10) this is
-  noticeable CPU on each refresh.
-- **Queries go stale after 15 seconds**, so switching sections refetches even
-  while realtime keeps the cache current, and React Query is not told when the
-  device is offline, so an offline screen still sends requests that fail.
+- **Android lists are not virtualised.** Rows sit in a `ScrollView`, so opening
+  a list near the 1,000-row ceiling (R10) still lays out every row once; a
+  `FlatList` would only lay out what is on screen.
+- **Web rows are not memoized** and web reads still go stale after 15 seconds;
+  both matter less on a desktop and were left as they are.
 
 ## Accepted, not tracked
 

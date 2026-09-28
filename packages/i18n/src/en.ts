@@ -205,6 +205,7 @@ export const en = {
 
   'state.loading': 'Loading…',
   'state.offline': 'You are offline. Showing the last loaded data.',
+  'state.offline.waiting': 'You are offline. This will load when you reconnect.',
   'state.stale': 'Reconnecting… showing the last loaded data.',
   'state.retry': 'Try again',
   'state.saving': 'Saving…',

@@ -4,7 +4,7 @@ import { signInWithPassword, resendConfirmation } from '@odin/data';
 import { useOdin } from '../app/OdinContext.ts';
 import { AuthShell, EmailField, PasswordField, useAuthRequest } from '../components/AuthForm.tsx';
 import { safeAuthDestination } from '../routing.ts';
-import { setRecoveryUser } from '../auth-links.ts';
+import { confirmationUrl, setRecoveryUser } from '../auth-links.ts';
 
 export function SignIn(): ReactNode {
   const { client, t, user, authReady } = useOdin();
@@ -30,7 +30,7 @@ export function SignIn(): ReactNode {
   }
   async function resend(): Promise<void> {
     const result = await request.run(
-      () => resendConfirmation(client, email, `${window.location.origin}/auth/confirmed`),
+      () => resendConfirmation(client, email, confirmationUrl()),
       true,
     );
     if (result?.ok) setResent(true);

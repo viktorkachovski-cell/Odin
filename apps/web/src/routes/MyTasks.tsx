@@ -19,8 +19,8 @@ import { TaskRow } from '../components/TaskRow.tsx';
 
 export function MyTasks(): ReactNode {
   const { t, locale, client } = useOdin();
-  const query = useMyTasksQuery(true);
-  const members = useMembersQuery(true);
+  const query = useMyTasksQuery();
+  const members = useMembersQuery();
   const actions = useTaskRowActions(client);
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
 

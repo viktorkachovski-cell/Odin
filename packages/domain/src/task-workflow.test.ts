@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  taskDraft,
   adjacentMoves,
   resolveTaskDeadlineFilter,
   taskState,
   taskStatus,
   taskStatusOptions,
 } from './task-workflow.ts';
+import { dueIssueKey } from './dates.ts';
 
 describe('automatic task status', () => {
   it('follows assignment until explicitly blocked or completed', () => {
@@ -110,5 +112,37 @@ describe('deadline filter boundaries', () => {
       ok: true,
       bounds: { undated: false, dueFrom: null, dueBefore: null },
     });
+  });
+});
+
+describe('task editor drafts', () => {
+  it('starts a new task empty and an existing one from its fields', () => {
+    expect(taskDraft(null)).toEqual({
+      title: '',
+      notes: '',
+      assigneeId: null,
+      dueDate: '',
+      dueTime: '',
+    });
+    const draft = taskDraft({
+      id: 't1',
+      household_id: 'h1',
+      list_id: 'l1',
+      title: 'Pantry',
+      notes: null,
+      sort_order: 1,
+      completed: false,
+      assignee_id: 'u1',
+      due_at: null,
+      created_at: '2030-01-01T00:00:00Z',
+      updated_at: '2030-01-01T00:00:00Z',
+      version: 1,
+    });
+    expect(draft).toMatchObject({ title: 'Pantry', notes: '', assigneeId: 'u1', dueDate: '' });
+  });
+
+  it('names the message for each deadline problem', () => {
+    expect(dueIssueKey('invalid_format')).toBe('validation.due.invalid_format');
+    expect(dueIssueKey('nonexistent_local_time')).toBe('validation.due.nonexistent_local_time');
   });
 });

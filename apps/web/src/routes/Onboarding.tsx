@@ -8,10 +8,10 @@ import {
   useCommand,
 } from '@odin/data';
 import { validateDisplayName, validateHouseholdName } from '@odin/domain';
-import type { TranslationKey } from '@odin/i18n';
+import { issueText } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
-import { errorMessage } from '../components/Banner.tsx';
+import { ErrorBanner } from '../components/Banner.tsx';
 import { Field } from '../components/Field.tsx';
 
 /**
@@ -21,14 +21,12 @@ import { Field } from '../components/Field.tsx';
  */
 
 export function Onboarding({ needsProfile }: { readonly needsProfile: boolean }): ReactNode {
-  const { t, locale, setLocale } = useOdin();
+  const { t, locale, setLocale, client } = useOdin();
   const [displayName, setDisplayName] = useState('');
   const [householdName, setHouseholdName] = useState('');
   const [seedLocale, setSeedLocale] = useState<Locale>(locale);
   const [nameIssue, setNameIssue] = useState<string | undefined>(undefined);
   const [householdIssue, setHouseholdIssue] = useState<string | undefined>(undefined);
-
-  const { client } = useOdin();
 
   const profileCommand = useCommand(
     (requestId, input: { readonly displayName: string }) =>
@@ -45,7 +43,7 @@ export function Onboarding({ needsProfile }: { readonly needsProfile: boolean })
   if (needsProfile) {
     const submitProfile = (): void => {
       const issue = validateDisplayName(displayName);
-      setNameIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+      setNameIssue(issueText(issue, t));
       if (issue !== null) return;
       void profileCommand.run({ displayName: displayName.trim() });
     };
@@ -55,9 +53,7 @@ export function Onboarding({ needsProfile }: { readonly needsProfile: boolean })
         <div className="auth-card">
           <h1>{t('onboarding.name.title')}</h1>
           {profileCommand.state.error !== null && (
-            <div className="banner banner--danger" role="alert">
-              {errorMessage(profileCommand.state.error, t)}
-            </div>
+            <ErrorBanner error={profileCommand.state.error} t={t} />
           )}
           <form
             onSubmit={(event) => {
@@ -91,7 +87,7 @@ export function Onboarding({ needsProfile }: { readonly needsProfile: boolean })
 
   const submitHousehold = (): void => {
     const issue = validateHouseholdName(householdName);
-    setHouseholdIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setHouseholdIssue(issueText(issue, t));
     if (issue !== null) return;
     void householdCommand.run({ name: householdName.trim(), seedLocale });
   };
@@ -103,9 +99,7 @@ export function Onboarding({ needsProfile }: { readonly needsProfile: boolean })
         <p>{t('onboarding.choice.intro')}</p>
 
         {householdCommand.state.error !== null && (
-          <div className="banner banner--danger" role="alert">
-            {errorMessage(householdCommand.state.error, t)}
-          </div>
+          <ErrorBanner error={householdCommand.state.error} t={t} />
         )}
 
         <form

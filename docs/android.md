@@ -81,7 +81,16 @@ The updated client requires both branch migrations on its test database.
   running app still refetches and can announce it (risk R9).
 - **Sync time renders once a minute.** Every successful read reports a sync,
   but the stored time only changes when the minute the stale banner shows
-  changes, so a refresh does not re-render every screen.
+  changes, so a refresh does not re-render every screen. The stale banner only
+  shows once signed in; the auth forms say offline in their own words.
+- **Only changed rows render.** Task rows and list cards are memoized, row
+  models are cached per task object (a refetch keeps an unchanged task's
+  object), and row handlers keep one identity (`useEvent`). Deadline
+  formatters are built once per locale and time zone.
+- **Reads wait for the network.** NetInfo feeds React Query's online state, so
+  a read made offline pauses and resumes on reconnect instead of failing, and a
+  screen with nothing loaded says it is offline rather than spinning. Reads go
+  stale after five minutes; realtime hints and reconciles cover the rest.
 - **Offline.** `@react-native-community/netinfo` drives the offline banner. A
   still-running reachability probe is not treated as offline.
 - **Bottom navigation** hides on downward scroll and reveals on upward scroll,

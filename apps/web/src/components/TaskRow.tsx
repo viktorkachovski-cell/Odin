@@ -15,12 +15,11 @@ import { OverflowMenu, type OverflowItem } from './OverflowMenu.tsx';
  * It renders a `TaskRowModel`, so the full list-detail task and the narrower
  * My Tasks / Unassigned projection share one component.
  *
- * Claim and Edit stay visible; Unassign and Delete live in the row's overflow.
- * A row used to end in four equal-weight buttons, which put Delete at the same
- * visual weight as Edit on the densest surface in the product.
+ * Claim and Edit stay visible; Unassign and Delete live in the row's overflow,
+ * so Delete never carries the same weight as Edit.
  */
 
-export interface TaskRowProps {
+interface TaskRowProps {
   readonly task: TaskRowModel;
   readonly members: readonly MemberDto[];
   readonly locale: Locale;

@@ -13,12 +13,7 @@ import type { OdinSupabaseClient } from './client.ts';
 export type ChangeKind = 'list' | 'task' | 'membership';
 
 export interface SubscriptionHandlers {
-  /**
-   * Receives every kind of row that changed since the previous call. One
-   * statement can change many rows -- copying a template inserts one per task
-   * -- and each row arrives as its own event, so hints are coalesced rather
-   * than turned into one refetch per row.
-   */
+  /** Every kind of row that changed since the previous call. */
   onChange(kinds: ReadonlySet<ChangeKind>): void;
   /** Fired when the channel is not healthy, so the UI can show stale state. */
   onHealthChange?(healthy: boolean): void;
@@ -43,14 +38,13 @@ const DEFAULT_COALESCE_MS = 500;
 
 /**
  * Subscribes to the authenticated household's rows. RLS governs delivery, so a
- * revoked member simply stops receiving events -- which is a UI hint, not the
- * authorization boundary. Server authorization is immediate and independent.
+ * revoked member simply stops receiving events; server authorization is the
+ * real boundary.
  *
- * The first hint after a quiet window is delivered at once and the rest of the
- * window is delivered together when it ends. The window is measured on the
- * clock rather than trusted to a timer: Android pauses JavaScript timers while
- * the app is in the background, and a change arriving then must still reach
- * the caller immediately instead of waiting for the app to return.
+ * One statement can change many rows, each its own event, so hints are
+ * coalesced: the first after a quiet window goes out at once, the rest of the
+ * window together at its end. The window is measured on the clock, not trusted
+ * to a timer, because Android pauses JavaScript timers in the background.
  */
 export function subscribeToHousehold(
   client: OdinSupabaseClient,

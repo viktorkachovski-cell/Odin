@@ -12,7 +12,7 @@ import * as Notifications from 'expo-notifications';
  */
 
 /** Android 8+ requires a channel; a notification posted without one is dropped. */
-export const TASK_CHANNEL_ID = 'odin-tasks';
+const TASK_CHANNEL_ID = 'odin-tasks';
 
 /**
  * Namespaces the scheduled reminders this app owns. Reconciliation cancels
@@ -26,7 +26,7 @@ export interface NotificationText {
   readonly body: string;
 }
 
-export interface PermissionState {
+interface PermissionState {
   readonly granted: boolean;
   /** False once Android has been told "don't ask again"; only Settings can undo it. */
   readonly canAskAgain: boolean;

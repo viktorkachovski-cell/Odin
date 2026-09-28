@@ -206,7 +206,7 @@ export function AllTasks(): ReactNode {
     useDeadlineSelection();
   const resolution = resolveTaskDeadlineFilter(filter);
   const query = useAllTasksQuery(filter, resolution.ok);
-  const members = useMembersQuery(true);
+  const members = useMembersQuery();
   const actions = useTaskRowActions(client);
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
 

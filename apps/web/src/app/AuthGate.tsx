@@ -29,7 +29,6 @@ export function AuthGate({ children }: { readonly children: ReactNode }): ReactN
     void navigate(`/sign-in?next=${next}`, { replace: true });
   }, [authReady, user, location.pathname, location.search, navigate]);
 
-  // Subscriptions are keyed on the active household and torn down when it changes.
   useHouseholdRealtime(household.data?.id ?? null);
 
   if (!authReady) return <p role="status">{t('state.loading')}</p>;

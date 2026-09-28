@@ -1,4 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
+import NetInfo from '@react-native-community/netinfo';
+import { onlineManager, QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useState, type ReactNode } from 'react';
 import { Text, TextInput } from 'react-native';
@@ -24,6 +25,7 @@ const data = jest.requireMock<{
   signOut: jest.Mock;
 }>('@odin/data');
 
+import { LoadingState } from '../components/Screen.tsx';
 import { useOdin } from './OdinContext.ts';
 import { OdinProvider } from './OdinProvider.tsx';
 import {
@@ -220,5 +222,31 @@ it('re-renders consumers for a sync only when the displayed minute changes', asy
     expect(translators.size).toBe(1);
   } finally {
     jest.useRealTimers();
+  }
+});
+
+it('tells React Query and the loading screen when the device goes offline', async () => {
+  let report: (state: object) => void = () => undefined;
+  jest.mocked(NetInfo.addEventListener).mockImplementation((listener) => {
+    report = listener as (state: object) => void;
+    return jest.fn();
+  });
+  const queryClient = setUp(Promise.resolve({ id: 'u1', email: null }));
+  await render(
+    <OdinProvider client={{} as never} queryClient={queryClient}>
+      <LoadingState />
+    </OdinProvider>,
+  );
+  try {
+    await flush(() => report({ isConnected: false, isInternetReachable: false }));
+    expect(onlineManager.isOnline()).toBe(false);
+    expect(screen.getByText('You are offline. This will load when you reconnect.')).toBeTruthy();
+
+    // A reachability probe still running is not offline.
+    await flush(() => report({ isConnected: true, isInternetReachable: null }));
+    expect(onlineManager.isOnline()).toBe(true);
+    expect(screen.getByText('Loading…')).toBeTruthy();
+  } finally {
+    onlineManager.setOnline(true);
   }
 });

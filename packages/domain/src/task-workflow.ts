@@ -1,4 +1,6 @@
-import { TASK_STATES, type TaskState } from '@odin/contracts';
+import { TASK_STATES, type TaskDto, type TaskState } from '@odin/contracts';
+
+import { dueDraftFromIso, type TaskDueDraft } from './dates.ts';
 
 /**
  * What a member sees. The stored state is open, blocked or done; an open task
@@ -140,4 +142,20 @@ export function resolveTaskDeadlineFilter(
       };
     }
   }
+}
+
+/** A task's editable fields, as an editor form holds them. */
+export interface TaskDraft extends TaskDueDraft {
+  readonly title: string;
+  readonly notes: string;
+  readonly assigneeId: string | null;
+}
+
+export function taskDraft(task: TaskDto | null): TaskDraft {
+  return {
+    title: task?.title ?? '',
+    notes: task?.notes ?? '',
+    assigneeId: task?.assignee_id ?? null,
+    ...dueDraftFromIso(task?.due_at),
+  };
 }

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { ListSummaryDto } from '@odin/contracts';
+import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import {
   copyTemplate,
   createList,
@@ -18,6 +18,7 @@ import { adjacentMoves } from '@odin/domain';
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHomeQuery } from '../../src/state/queries.ts';
+import { useEvent } from '../../src/state/useEvent.ts';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
@@ -34,11 +35,10 @@ import { useTheme } from '../../src/theme.ts';
  */
 
 export default function HomeScreen(): ReactNode {
-  const { t } = useOdin();
+  const { t, client } = useOdin();
   const theme = useTheme();
   const nav = useNavVisibility();
-  const home = useHomeQuery(true);
-  const { client } = useOdin();
+  const home = useHomeQuery();
   const [creating, setCreating] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
 
@@ -63,8 +63,7 @@ export default function HomeScreen(): ReactNode {
     { invalidate: keysAffectedByListChange(), onSuccess: () => setCreating(false) },
   );
 
-  // Saving a list template writes a new list, so Home is the cache to refresh;
-  // the new template card appearing is itself most of the confirmation.
+  // A saved template is a new list, so Home is the only cache that changes.
   const saveTemplate = useCommand(
     (requestId, input: { readonly listId: string }) =>
       saveListTemplate(client, requestId, input.listId),
@@ -89,7 +88,27 @@ export default function HomeScreen(): ReactNode {
     { invalidate: keysAffectedByListChange() },
   );
 
-  if (home.isPending) return <LoadingState label={t('state.loading')} />;
+  const copyList = useEvent((list: ListSummaryDto) => void copy.run({ templateId: list.id }));
+  const move = useEvent(
+    (list: ListSummaryDto, direction: MoveDirection) =>
+      void reorder.run({ listId: list.id, expectedVersion: list.version, direction }),
+  );
+  const confirmDelete = useEvent((list: ListSummaryDto) =>
+    Alert.alert(t('list.delete'), t('list.delete.confirm'), [
+      { text: t('list.back'), style: 'cancel' },
+      {
+        text: t('list.delete'),
+        style: 'destructive',
+        onPress: () => void remove.run({ listId: list.id, expectedVersion: list.version }),
+      },
+    ]),
+  );
+  const saveAsTemplate = useEvent((list: ListSummaryDto) => {
+    setTemplateSaved(false);
+    void saveTemplate.run({ listId: list.id });
+  });
+
+  if (home.isPending) return <LoadingState />;
 
   const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
   const active = home.data?.items.filter((item) => item.kind === 'active') ?? [];
@@ -118,36 +137,10 @@ export default function HomeScreen(): ReactNode {
               movePending={reorder.state.pending}
               moveDownDisabled={!moves.down}
               moveUpDisabled={!moves.up}
-              onMove={(selected, direction) =>
-                void reorder.run({
-                  listId: selected.id,
-                  expectedVersion: selected.version,
-                  direction,
-                })
-              }
+              onMove={move}
               onCopy={onCopy}
-              onDelete={(selected) => {
-                Alert.alert(t('list.delete'), t('list.delete.confirm'), [
-                  { text: t('list.back'), style: 'cancel' },
-                  {
-                    text: t('list.delete'),
-                    style: 'destructive',
-                    onPress: () =>
-                      void remove.run({
-                        listId: selected.id,
-                        expectedVersion: selected.version,
-                      }),
-                  },
-                ]);
-              }}
-              onSaveTemplate={
-                item.kind === 'active'
-                  ? (selected) => {
-                      setTemplateSaved(false);
-                      void saveTemplate.run({ listId: selected.id });
-                    }
-                  : undefined
-              }
+              onDelete={confirmDelete}
+              onSaveTemplate={item.kind === 'active' ? saveAsTemplate : undefined}
               saveTemplatePending={saveTemplate.state.pending}
               deletePending={remove.state.pending}
               t={t}
@@ -186,12 +179,7 @@ export default function HomeScreen(): ReactNode {
           </Text>
         )}
 
-        {section(
-          t('home.templates.heading'),
-          templates,
-          t('home.templates.empty'),
-          (list) => void copy.run({ templateId: list.id }),
-        )}
+        {section(t('home.templates.heading'), templates, t('home.templates.empty'), copyList)}
         {section(t('home.active.heading'), active, t('home.active.empty'))}
 
         <NavSpacer />

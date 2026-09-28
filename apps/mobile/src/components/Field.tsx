@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
+import { useOdin } from '../state/OdinContext.ts';
 import { useTheme } from '../theme.ts';
 
 /**
@@ -51,6 +52,33 @@ export function Field({
         </Text>
       )}
     </View>
+  );
+}
+
+/** An email address, with the keyboard, autofill and casing email needs. */
+export function EmailField({
+  value,
+  onChangeText,
+  disabled = false,
+}: {
+  readonly value: string;
+  readonly onChangeText: (next: string) => void;
+  readonly disabled?: boolean;
+}): ReactNode {
+  const { t } = useOdin();
+  return (
+    <Field
+      autoCapitalize="none"
+      autoComplete="email"
+      autoCorrect={false}
+      editable={!disabled}
+      inputMode="email"
+      keyboardType="email-address"
+      label={t('auth.email.label')}
+      onChangeText={onChangeText}
+      textContentType="emailAddress"
+      value={value}
+    />
   );
 }
 

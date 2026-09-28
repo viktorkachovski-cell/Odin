@@ -1,3 +1,5 @@
+import { WEB_ORIGIN } from './auth-urls.ts';
+
 /**
  * A `next` destination arrives from a deep link, so it is attacker-influenced.
  * Only an in-app absolute path is ever used; anything protocol-relative,
@@ -5,7 +7,7 @@
  * Home rather than sending the person somewhere unexpected.
  */
 
-export type InternalPath = `/${string}`;
+type InternalPath = `/${string}`;
 
 function hasControlCharacter(value: string): boolean {
   for (const character of value) {
@@ -63,16 +65,17 @@ export function safeAuthDestination(candidate: string | undefined | null): Inter
  * A query parameter is deliberately not accepted: the contract keeps the token
  * out of request paths, and honouring both would quietly undo that.
  */
+const INVITE_ROUTES: readonly string[] = [
+  'odin://invite',
+  'odin://invite/',
+  `${WEB_ORIGIN}/invite`,
+];
+
 export function tokenFromDeepLink(url: string | null | undefined): string | null {
   if (url === null || url === undefined) return null;
   // Only the registered invitation routes may carry invitation credentials.
-  const base = url.split(/[?#]/)[0];
-  if (
-    base !== 'odin://invite' &&
-    base !== 'odin://invite/' &&
-    base !== 'https://odin-ten-tau.vercel.app/invite'
-  )
-    return null;
+  const base = url.split(/[?#]/)[0] ?? '';
+  if (!INVITE_ROUTES.includes(base)) return null;
   const hashIndex = url.indexOf('#');
   if (hashIndex < 0) return null;
 

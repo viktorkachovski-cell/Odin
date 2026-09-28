@@ -27,7 +27,7 @@ import { useTaskNotifications } from './useTaskNotifications.ts';
  * say yes, which is what "if app notifications are enabled" means here.
  */
 
-export type NotificationPermission =
+type NotificationPermission =
   | 'unknown'
   /** Granted, but never yet requested on this device. */
   | 'granted'
@@ -35,7 +35,7 @@ export type NotificationPermission =
   /** Refused with "don't ask again": only the Android settings screen can undo it. */
   | 'blocked';
 
-export interface NotificationSettingsValue {
+interface NotificationSettingsValue {
   readonly permission: NotificationPermission;
   readonly muted: boolean;
   /** True while a permission prompt or a stored preference write is in flight. */

@@ -1,22 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { CommandError } from '@odin/contracts';
-import type { Translator, TranslationKey } from '@odin/i18n';
-import { TRANSLATION_KEYS } from '@odin/i18n';
-
-/**
- * Renders a typed error as localized text. The server's `message_key` is used
- * when it is one we actually ship, otherwise we fall back to the generic message
- * for the code -- a raw key or SQL text must never reach the user.
- */
-
-export function errorMessage(error: CommandError, t: Translator): string {
-  const key = error.message_key;
-  if ((TRANSLATION_KEYS as readonly string[]).includes(key)) {
-    return t(key as TranslationKey);
-  }
-  return t(`error.${error.code.toLowerCase()}` as TranslationKey);
-}
+import { errorMessage, type Translator } from '@odin/i18n';
 
 export function ErrorBanner({
   error,

@@ -4,7 +4,7 @@
  * that prefix.
  */
 
-export interface WebEnv {
+interface WebEnv {
   readonly supabaseUrl: string;
   readonly supabasePublishableKey: string;
 }

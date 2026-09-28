@@ -1,18 +1,19 @@
 import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
-import { taskRowFromHouseholdTask } from '@odin/contracts';
+import type { TaskRowModel } from '@odin/contracts';
 import { claimTask, keysAffectedByTaskChange, useCommand, useTaskRowActions } from '@odin/data';
 import { sortTasksByDue } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
-import { useMembersQuery, useUnassignedQuery } from '../../src/state/queries.ts';
+import { NO_MEMBERS, useMembersQuery, useUnassignedQuery } from '../../src/state/queries.ts';
+import { useEvent } from '../../src/state/useEvent.ts';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { CommandErrors } from '../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
-import { TaskRow } from '../../src/components/TaskRow.tsx';
+import { rowFromHouseholdTask, TaskRow } from '../../src/components/TaskRow.tsx';
 import { TaskDetailsFlow } from '../../src/components/TaskDetailsFlow.tsx';
 
 /**
@@ -25,8 +26,8 @@ export default function UnassignedScreen(): ReactNode {
   const { t, locale, client } = useOdin();
   const nav = useNavVisibility();
   const tasks = useUnassignedQuery(true);
-  const members = useMembersQuery(true);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const members = useMembersQuery().data ?? NO_MEMBERS;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const claim = useCommand(
     (requestId, input: { readonly taskId: string; readonly expectedVersion: number }) =>
@@ -34,10 +35,15 @@ export default function UnassignedScreen(): ReactNode {
     { invalidate: keysAffectedByTaskChange() },
   );
   const actions = useTaskRowActions(client);
+  const open = useEvent((task: TaskRowModel) => setSelectedId(task.id));
+  const setState = useEvent(actions.setState);
+  const onClaim = useEvent(
+    (task: TaskRowModel) => void claim.run({ taskId: task.id, expectedVersion: task.version }),
+  );
 
-  if (tasks.isPending) return <LoadingState label={t('state.loading')} />;
+  if (tasks.isPending) return <LoadingState />;
 
-  const rows = sortTasksByDue((tasks.data?.items ?? []).map(taskRowFromHouseholdTask));
+  const rows = sortTasksByDue((tasks.data?.items ?? []).map(rowFromHouseholdTask));
 
   return (
     <Screen title={t('unassigned.title')}>
@@ -63,12 +69,10 @@ export default function UnassignedScreen(): ReactNode {
               busy={claim.state.pending || actions.busy}
               key={task.id}
               locale={locale}
-              members={members.data ?? []}
-              onPress={(selected) => setSelectedTaskId(selected.id)}
-              onSetState={actions.setState}
-              onClaim={(selected) =>
-                void claim.run({ taskId: selected.id, expectedVersion: selected.version })
-              }
+              members={members}
+              onClaim={onClaim}
+              onPress={open}
+              onSetState={setState}
               t={t}
               task={task}
             />
@@ -79,10 +83,10 @@ export default function UnassignedScreen(): ReactNode {
       </ScrollView>
       <TaskDetailsFlow
         editable
-        key={selectedTaskId ?? 'closed'}
-        members={members.data ?? []}
-        onClose={() => setSelectedTaskId(null)}
-        taskId={selectedTaskId}
+        key={selectedId ?? 'closed'}
+        members={members}
+        onClose={() => setSelectedId(null)}
+        taskId={selectedId}
       />
     </Screen>
   );

@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ERROR_CODES } from '@odin/contracts';
 
 import { bg } from './bg.ts';
 import { en } from './en.ts';
-import { createTranslator, resolveLocale, translate } from './index.ts';
+import { createTranslator, formatDueAt, resolveLocale, translate } from './index.ts';
 import { TRANSLATION_KEYS } from './keys.ts';
 
 const PLACEHOLDER = /\{(\w+)\}/g;
@@ -75,5 +75,31 @@ describe('resolveLocale', () => {
     expect(resolveLocale('en-GB')).toBe('en');
     expect(resolveLocale('de-DE')).toBe('en');
     expect(resolveLocale(null)).toBe('en');
+  });
+});
+
+describe('formatDueAt', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('builds one formatter per locale and style, however many rows it formats', () => {
+    const build = vi.spyOn(Intl, 'DateTimeFormat');
+    const dueAt = '2030-10-25T12:00:00Z';
+
+    const first = formatDueAt(dueAt, 'bg', 'full');
+    for (let row = 0; row < 50; row += 1) formatDueAt(dueAt, 'bg', 'full');
+
+    expect(formatDueAt(dueAt, 'bg', 'full')).toBe(first);
+    expect(build.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  it('builds a new formatter when the device changes time zone', () => {
+    const dueAt = '2030-10-25T12:00:00Z';
+    formatDueAt(dueAt, 'en');
+    const build = vi.spyOn(Intl, 'DateTimeFormat');
+    vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-600);
+
+    formatDueAt(dueAt, 'en');
+
+    expect(build).toHaveBeenCalledTimes(1);
   });
 });

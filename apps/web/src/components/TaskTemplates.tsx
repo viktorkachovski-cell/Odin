@@ -8,10 +8,9 @@ import {
   saveTaskTemplate,
   useCommand,
 } from '@odin/data';
-import type { Translator } from '@odin/i18n';
+import { errorMessage, type Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
-import { errorMessage } from './Banner.tsx';
 
 export function TaskTemplates({
   draft,

@@ -18,12 +18,6 @@ import { ConfirmDialog } from './ConfirmDialog.tsx';
 import { OverflowMenu } from './OverflowMenu.tsx';
 import { TaskRow } from './TaskRow.tsx';
 
-/**
- * The pieces of the list-detail screen: its task list, its sticky header and
- * its stack of command errors. They live here rather than beside the route so
- * the route is the data and command wiring and nothing else.
- */
-
 export function ListTasks({
   tasks,
   members,
@@ -164,11 +158,7 @@ export function ListHeader({
   );
 }
 
-/**
- * The confirmation after saving a list template. It lives here so the route
- * stays data and command wiring, and renders nothing while a command error is
- * already on screen.
- */
+/** Silent while a command error is already on screen. */
 export function TemplateSavedNotice({
   saved,
   error,
@@ -189,11 +179,9 @@ export function TemplateSavedNotice({
 export function CommandErrors({
   errors,
   t,
-  onRetry,
 }: {
   readonly errors: readonly { readonly error: CommandError | null; readonly retry?: () => void }[];
   readonly t: Translator;
-  readonly onRetry?: () => void;
 }): ReactNode {
   return (
     <>
@@ -204,7 +192,7 @@ export function CommandErrors({
               <ErrorBanner
                 error={error}
                 key={`${error.message_key}-${index}`}
-                onRetry={retry ?? onRetry}
+                onRetry={retry}
                 t={t}
               />,
             ],
@@ -225,7 +213,6 @@ export interface PendingConfirm {
   readonly run: () => void;
 }
 
-/** True while any of the given commands is in flight. */
 export function anyPending(states: readonly { readonly pending: boolean }[]): boolean {
   return states.some((state) => state.pending);
 }

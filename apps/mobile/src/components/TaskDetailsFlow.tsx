@@ -30,7 +30,7 @@ export function TaskDetailsFlow({
   readonly onClose: () => void;
 }): ReactNode {
   const { t, locale, client } = useOdin();
-  const task = useTaskQuery(taskId, taskId !== null);
+  const task = useTaskQuery(taskId);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
   const save = useCommand(
     (
@@ -65,7 +65,6 @@ export function TaskDetailsFlow({
         conflict={save.state.error?.code === 'CONFLICT'}
         error={save.state.error}
         key={editingTask.id}
-        locale={locale}
         members={members}
         onCancel={() => {
           save.reset();
@@ -78,14 +77,7 @@ export function TaskDetailsFlow({
           });
         }}
         onSubmit={(input) =>
-          void save.run({
-            taskId: editingTask.id,
-            expectedVersion: editingTask.version,
-            title: input.title,
-            notes: input.notes,
-            assigneeId: input.assigneeId,
-            dueAt: input.dueAt,
-          })
+          void save.run({ taskId: editingTask.id, expectedVersion: editingTask.version, ...input })
         }
         pending={save.state.pending}
         t={t}

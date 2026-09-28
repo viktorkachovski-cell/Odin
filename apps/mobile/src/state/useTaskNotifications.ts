@@ -25,22 +25,10 @@ import { useAppForeground } from './useAppForeground.ts';
 import { useMyTasksQuery, useUnassignedQuery } from './queries.ts';
 
 /**
- * Turns what the app already reads into the three notifications the owner
- * asked for: a task became yours, a task of yours changed, and a deadline is
- * approaching.
- *
- * Nothing new is fetched from the server for this. `getMyTasks` already
- * carries a per-task `version`, which the contract increments exactly once per
- * change, so "assigned" and "updated" are a comparison of two readings rather
- * than a new event stream. That is why this needed no schema, RPC or contract
- * change -- and why the web client is untouched.
- *
- * **A change is only announced while the app is not in the foreground.** A
- * member looking at Odin sees the row move on its own, and -- more
- * importantly -- this is what keeps the app from notifying you about your own
- * edit: you cannot be claiming a task in the foreground and be elsewhere at
- * the same time. It costs nothing to enforce and cannot be forgotten at a new
- * mutation call site the way an explicit suppression list could be.
+ * The three notifications: a task became yours, a task of yours changed, and a
+ * deadline is near. "Assigned" and "updated" compare two readings of My Tasks
+ * by version, and are only announced while the app is not in the foreground,
+ * which is also what keeps your own edits silent (docs/android.md).
  */
 
 /** At this many changes in one sync, one summary replaces the individual ones. */

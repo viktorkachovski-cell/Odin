@@ -74,14 +74,7 @@ export function TaskDetailsFlow({
         });
       }}
       onSubmit={(input) =>
-        void save.run({
-          taskId: editingTask.id,
-          expectedVersion: editingTask.version,
-          title: input.title,
-          notes: input.notes,
-          assigneeId: input.assigneeId,
-          dueAt: input.dueAt,
-        })
+        void save.run({ taskId: editingTask.id, expectedVersion: editingTask.version, ...input })
       }
       pending={save.state.pending}
       t={t}

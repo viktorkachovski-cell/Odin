@@ -5,6 +5,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import type { ChangeKind, SubscriptionHandlers } from '@odin/data';
 
+import { odinValue } from '../test-context.tsx';
 import { OdinContext, type OdinContextValue } from './OdinContext.ts';
 import { unhealthyPollDelay, useHouseholdRealtime } from './useHouseholdRealtime.ts';
 
@@ -37,20 +38,7 @@ function Probe({ householdId }: { readonly householdId: string | null }): ReactN
 
 function Harness({ online }: { readonly online: boolean }): ReactNode {
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
-  const value: OdinContextValue = {
-    client: CLIENT,
-    user: null,
-    authReady: true,
-    locale: 'en',
-    setLocale: noop,
-    t: (key: string) => key,
-    online,
-    realtimeHealthy,
-    setRealtimeHealthy,
-    lastSyncedAt: null,
-    markSynced: noop,
-    signOut: () => Promise.resolve(),
-  };
+  const value = odinValue({ client: CLIENT, online, realtimeHealthy, setRealtimeHealthy });
   return (
     <QueryClientProvider client={queryClient}>
       <OdinContext value={value}>

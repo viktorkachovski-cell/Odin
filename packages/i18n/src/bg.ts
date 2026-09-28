@@ -205,6 +205,7 @@ export const bg: Record<TranslationKey, string> = {
 
   'state.loading': 'Зареждане…',
   'state.offline': 'Няма връзка. Показваме последно заредените данни.',
+  'state.offline.waiting': 'Няма връзка. Ще се зареди, когато връзката се възстанови.',
   'state.stale': 'Повторно свързване… показваме последно заредените данни.',
   'state.retry': 'Опитай отново',
   'state.saving': 'Запазване…',

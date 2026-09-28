@@ -80,6 +80,9 @@ export type {
 } from './realtime.ts';
 export { subscribeToHousehold } from './realtime.ts';
 
+export type { AuthRequest } from './use-auth-request.ts';
+export { EMAIL_COOLDOWN_SECONDS, useAuthRequest } from './use-auth-request.ts';
+
 export type { CommandState, UseCommandResult } from './use-command.ts';
 export { useCommand } from './use-command.ts';
 

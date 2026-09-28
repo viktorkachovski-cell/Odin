@@ -5,17 +5,19 @@ import { StyleSheet, Text, View } from 'react-native';
 import {
   createHousehold,
   keysAffectedByMembershipChange,
+  queryKeys,
   updateProfile,
   useCommand,
 } from '@odin/data';
 import { validateDisplayName, validateHouseholdName } from '@odin/domain';
-import type { Locale, TranslationKey } from '@odin/i18n';
+import { issueText, type Locale } from '@odin/i18n';
 
 import { useOdin } from '../src/state/OdinContext.ts';
 import { useHouseholdQuery, useProfileQuery } from '../src/state/queries.ts';
 import { ErrorBanner } from '../src/components/Banner.tsx';
-import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
+import { PrimaryButton } from '../src/components/Button.tsx';
 import { Field } from '../src/components/Field.tsx';
+import { LanguageChoice } from '../src/components/LanguageChoice.tsx';
 import { LoadingState } from '../src/components/Screen.tsx';
 import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
 import { QueryFailure } from '../src/components/QueryFailure.tsx';
@@ -29,34 +31,6 @@ import { useTheme } from '../src/theme.ts';
  * one.
  */
 
-function LanguageChoice({
-  value,
-  onChange,
-  label,
-}: {
-  readonly value: Locale;
-  readonly onChange: (next: Locale) => void;
-  readonly label: string;
-}): ReactNode {
-  const theme = useTheme();
-  const { t } = useOdin();
-  return (
-    <View style={styles.group}>
-      <Text style={[styles.label, { color: theme.colors.textMuted }]}>{label}</Text>
-      <View accessibilityRole="radiogroup" style={styles.row}>
-        {(['en', 'bg'] as const).map((locale) => (
-          <SecondaryButton
-            accessibilityLabel={t(`locale.${locale}` as TranslationKey)}
-            key={locale}
-            label={`${value === locale ? '● ' : '○ '}${t(`locale.${locale}` as TranslationKey)}`}
-            onPress={() => onChange(locale)}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 export default function OnboardingScreen(): ReactNode {
   const { t, client, locale, setLocale, user, authReady, online } = useOdin();
   const theme = useTheme();
@@ -69,10 +43,11 @@ export default function OnboardingScreen(): ReactNode {
   const [nameIssue, setNameIssue] = useState<string | undefined>(undefined);
   const [householdIssue, setHouseholdIssue] = useState<string | undefined>(undefined);
 
+  // Invalidating the profile refetches it; that read is what moves onboarding on.
   const saveProfile = useCommand(
     (requestId, input: { readonly displayName: string; readonly locale: Locale }) =>
-      updateProfile(client, requestId, { displayName: input.displayName, locale: input.locale }),
-    { invalidate: [['profile']], onSuccess: () => void profile.refetch() },
+      updateProfile(client, requestId, input),
+    { invalidate: [queryKeys.profile] },
   );
 
   const startHousehold = useCommand(
@@ -84,7 +59,7 @@ export default function OnboardingScreen(): ReactNode {
     },
   );
 
-  if (!authReady) return <LoadingState label={t('state.loading')} />;
+  if (!authReady) return <LoadingState />;
   if (user === null) return <Redirect href="/sign-in" />;
   if (profile.isError || household.isError) {
     return (
@@ -97,7 +72,7 @@ export default function OnboardingScreen(): ReactNode {
       />
     );
   }
-  if (profile.isPending || household.isPending) return <LoadingState label={t('state.loading')} />;
+  if (profile.isPending || household.isPending) return <LoadingState />;
   // Invitation redemption may precede profile setup. Do not offer a second household.
   if (profile.data && household.data) return <Redirect href="/" />;
 
@@ -105,14 +80,14 @@ export default function OnboardingScreen(): ReactNode {
 
   const submitProfile = (): void => {
     const issue = validateDisplayName(displayName);
-    setNameIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setNameIssue(issueText(issue, t));
     if (issue !== null) return;
     void saveProfile.run({ displayName: displayName.trim(), locale });
   };
 
   const submitHousehold = (): void => {
     const issue = validateHouseholdName(householdName);
-    setHouseholdIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setHouseholdIssue(issueText(issue, t));
     if (issue !== null) return;
     void startHousehold.run({ name: householdName.trim(), seedLocale });
   };
@@ -177,7 +152,4 @@ export default function OnboardingScreen(): ReactNode {
 
 const styles = StyleSheet.create({
   form: { gap: 16 },
-  group: { gap: 6 },
-  label: { fontSize: 14, fontWeight: '500' },
-  row: { flexDirection: 'row', gap: 8 },
 });

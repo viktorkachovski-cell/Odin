@@ -6,7 +6,7 @@ import { useId, type ReactNode } from 'react';
  * input rather than as loose text.
  */
 
-export interface FieldProps {
+interface FieldProps {
   readonly label: string;
   readonly error?: string | undefined;
   readonly hint?: string | undefined;

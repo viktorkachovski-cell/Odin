@@ -1,10 +1,8 @@
 import { act, renderHook } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 
 import type { CommandResult } from '@odin/contracts';
-import { createTranslator } from '@odin/i18n';
 
-import { OdinContext, type OdinContextValue } from './OdinContext.ts';
+import { odinWrapper } from '../test-context.tsx';
 import { EMAIL_COOLDOWN_SECONDS, useAuthRequest } from './useAuthRequest.ts';
 
 /**
@@ -14,23 +12,7 @@ import { EMAIL_COOLDOWN_SECONDS, useAuthRequest } from './useAuthRequest.ts';
  */
 
 function wrapper(online: boolean) {
-  const value: OdinContextValue = {
-    client: {} as OdinContextValue['client'],
-    user: null,
-    authReady: true,
-    locale: 'en',
-    setLocale: jest.fn(),
-    t: createTranslator('en'),
-    online,
-    realtimeHealthy: true,
-    setRealtimeHealthy: jest.fn(),
-    lastSyncedAt: null,
-    markSynced: jest.fn(),
-    signOut: jest.fn(),
-  };
-  return function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return <OdinContext value={value}>{children}</OdinContext>;
-  };
+  return odinWrapper({ online });
 }
 
 function never(): Promise<CommandResult<null>> {

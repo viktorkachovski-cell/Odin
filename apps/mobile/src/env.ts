@@ -9,7 +9,7 @@
  * request.
  */
 
-export interface MobileEnv {
+interface MobileEnv {
   readonly supabaseUrl: string;
   readonly supabasePublishableKey: string;
 }
@@ -98,7 +98,7 @@ export function readEnv(source: MobileEnvSource = inlinedEnv()): MobileEnv {
  * own scheme is available and the link is useless to anyone who has not
  * installed the app -- see docs/android.md.
  */
-export function inviteLinkBase(): string {
+function inviteLinkBase(): string {
   const origin = (process.env.EXPO_PUBLIC_WEB_ORIGIN ?? '').trim();
   return origin.length === 0 ? 'odin://invite' : `${origin.replace(/\/+$/, '')}/invite`;
 }

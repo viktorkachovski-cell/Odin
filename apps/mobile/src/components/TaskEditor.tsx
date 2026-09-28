@@ -3,17 +3,18 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
 import {
-  dueDraftFromIso,
+  dueIssueKey,
   resolveDueInput,
-  validateTaskTitle,
+  taskDraft,
   validateNotes,
-  type TaskDueDraft,
+  validateTaskTitle,
+  type TaskDraft,
 } from '@odin/domain';
-import type { Locale, TranslationKey, Translator } from '@odin/i18n';
+import { issueText, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { AssigneePicker } from './AssigneePicker.tsx';
-import { errorMessage } from './Banner.tsx';
+import { InlineError } from './Banner.tsx';
 import { PrimaryButton, SecondaryButton } from './Button.tsx';
 import { DueField } from './DueField.tsx';
 import { Field } from './Field.tsx';
@@ -26,31 +27,9 @@ import { Sheet } from './Sheet.tsx';
  * their edit silently overwritten or discarded.
  */
 
-export interface TaskDraft extends TaskDueDraft {
-  readonly title: string;
-  readonly notes: string;
-  readonly assigneeId: string | null;
-}
-
-export function draftFromTask(task: TaskDto | null): TaskDraft {
-  return {
-    title: task?.title ?? '',
-    notes: task?.notes ?? '',
-    assigneeId: task?.assignee_id ?? null,
-    ...dueDraftFromIso(task?.due_at),
-  };
-}
-
-function dueIssueKey(reason: 'invalid_format' | 'nonexistent_local_time'): TranslationKey {
-  return reason === 'nonexistent_local_time'
-    ? 'validation.due.nonexistent_local_time'
-    : 'validation.due.invalid_format';
-}
-
-export interface TaskEditorProps {
+interface TaskEditorProps {
   readonly task: TaskDto | null;
   readonly members: readonly MemberDto[];
-  readonly locale: Locale;
   readonly t: Translator;
   readonly pending: boolean;
   readonly error: CommandError | null;
@@ -68,7 +47,6 @@ export interface TaskEditorProps {
 export function TaskEditor({
   task,
   members,
-  locale,
   t,
   pending,
   error,
@@ -78,19 +56,19 @@ export function TaskEditor({
   onSubmit,
 }: TaskEditorProps): ReactNode {
   const theme = useTheme();
-  const [draft, setDraft] = useState<TaskDraft>(() => draftFromTask(task));
+  const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
 
   const submit = (): void => {
-    const issue = validateTaskTitle(draft.title);
-    const notesError = validateNotes(draft.notes);
+    const titleCheck = validateTaskTitle(draft.title);
+    const notesCheck = validateNotes(draft.notes);
     const due = resolveDueInput(draft);
-    setTitleIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
-    setNotesIssue(notesError === null ? undefined : t(notesError.message_key as TranslationKey));
+    setTitleIssue(issueText(titleCheck, t));
+    setNotesIssue(issueText(notesCheck, t));
     setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
-    if (issue !== null || notesError !== null || !due.ok) return;
+    if (titleCheck !== null || notesCheck !== null || !due.ok) return;
     onSubmit({
       title: draft.title.trim(),
       notes: draft.notes.trim(),
@@ -127,11 +105,7 @@ export function TaskEditor({
         </View>
       )}
 
-      {error !== null && !conflict && (
-        <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
-          {errorMessage(error, t)}
-        </Text>
-      )}
+      <InlineError error={conflict ? null : error} t={t} />
 
       <TaskTemplates
         draft={draft}
@@ -173,7 +147,6 @@ export function TaskEditor({
       <DueField
         draft={draft}
         error={dueIssue}
-        locale={locale}
         onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
         t={t}
       />

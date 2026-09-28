@@ -6,10 +6,7 @@ import { useOdin } from '../state/OdinContext.ts';
 import { useTheme } from '../theme.ts';
 import { StaleBanner } from './Banner.tsx';
 
-/**
- * Common frame: safe-area insets, themed background and the offline/stale
- * banner every screen has to surface.
- */
+/** Common frame: safe-area insets, themed background and, once signed in, the stale banner. */
 export function Screen({
   children,
   title,
@@ -26,7 +23,7 @@ export function Screen({
   readonly onHeaderAction?: (() => void) | undefined;
 }): ReactNode {
   const theme = useTheme();
-  const { online, realtimeHealthy, lastSyncedAt, t, locale } = useOdin();
+  const { user, online, realtimeHealthy, lastSyncedAt, t, locale } = useOdin();
 
   return (
     <SafeAreaView
@@ -83,25 +80,31 @@ export function Screen({
             )}
           </View>
         )}
-        <StaleBanner
-          lastSyncedAt={lastSyncedAt}
-          locale={locale}
-          online={online}
-          realtimeHealthy={realtimeHealthy}
-          t={t}
-        />
+        {user !== null && (
+          <StaleBanner
+            lastSyncedAt={lastSyncedAt}
+            locale={locale}
+            online={online}
+            realtimeHealthy={realtimeHealthy}
+            t={t}
+          />
+        )}
         {children}
       </View>
     </SafeAreaView>
   );
 }
 
-export function LoadingState({ label }: { readonly label: string }): ReactNode {
+/** Offline, a read waits for the network rather than failing, so say so instead of spinning. */
+export function LoadingState({ label }: { readonly label?: string }): ReactNode {
   const theme = useTheme();
+  const { online, t } = useOdin();
   return (
     <View accessibilityLiveRegion="polite" accessibilityRole="text" style={styles.centered}>
-      <ActivityIndicator color={theme.colors.accent} />
-      <Text style={{ color: theme.colors.textMuted }}>{label}</Text>
+      {online && <ActivityIndicator color={theme.colors.accent} />}
+      <Text style={{ color: theme.colors.textMuted }}>
+        {online ? (label ?? t('state.loading')) : t('state.offline.waiting')}
+      </Text>
     </View>
   );
 }

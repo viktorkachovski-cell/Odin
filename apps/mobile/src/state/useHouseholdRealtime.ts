@@ -12,18 +12,15 @@ import { useOdin } from './OdinContext.ts';
 import { useAppForeground } from './useAppForeground.ts';
 
 /**
- * Realtime hints drive invalidation; they are never treated as the source of
- * truth. Because no event stream is guaranteed complete, the app also
- * reconciles when Android brings it back to the foreground or the network
- * returns, when the channel recovers, and by a backing-off poll while the
- * channel is unhealthy.
+ * Realtime hints drive invalidation and are never the source of truth, so the
+ * app also reconciles on returning to the foreground or the network, when the
+ * channel recovers, and by a poll that backs off while the channel is down.
  */
 
-/** Poll quickly at first, then settle: a long outage should not keep the radio awake. */
 const UNHEALTHY_POLL_DELAYS_MS = [5_000, 10_000, 20_000, 40_000, 60_000] as const;
 const UNHEALTHY_POLL_MAX_MS = 60_000;
 
-/** Delay before poll number `attempt` (zero-based) of one unhealthy spell. */
+/** Delay before zero-based poll `attempt` of one unhealthy spell. */
 export function unhealthyPollDelay(attempt: number): number {
   return UNHEALTHY_POLL_DELAYS_MS[attempt] ?? UNHEALTHY_POLL_MAX_MS;
 }
@@ -34,9 +31,7 @@ export function useHouseholdRealtime(householdId: string | null): void {
   const foreground = useAppForeground();
   const active = online && foreground;
 
-  // The channel outlives foreground and network changes -- rejoining on each
-  // one cost a round trip and a full refetch every time the app was opened --
-  // so its callbacks read the current answer instead of closing over it.
+  // The channel lives for the household, so its callbacks read this ref.
   const activeRef = useRef(active);
   useEffect(() => {
     activeRef.current = active;
@@ -67,8 +62,7 @@ export function useHouseholdRealtime(householdId: string | null): void {
       },
       onHealthChange: (next) => {
         setRealtimeHealthy(next);
-        // Only a (re)join can have missed events. A recovery while the app is
-        // away is covered by the reconcile on its return.
+        // Only a (re)join can have missed events; while away, the return reconciles.
         if (next && !healthy && activeRef.current) void reconcile();
         healthy = next;
       },
@@ -77,18 +71,15 @@ export function useHouseholdRealtime(householdId: string | null): void {
     return () => subscription.unsubscribe();
   }, [client, householdId, queryClient, setRealtimeHealthy, reconcile]);
 
-  /** Records the moment of the last authoritative read, for the stale banner. */
+  // Every successful read counts as a sync for the stale banner.
   useEffect(() => {
     return queryClient.getQueryCache().subscribe((event) => {
       if (event.type === 'updated' && event.action.type === 'success') markSynced();
     });
   }, [queryClient, markSynced]);
 
-  /**
-   * Fallback while realtime is down, backing off to one reconcile a minute. It
-   * stops entirely when offline or in the background, and each new unhealthy
-   * spell starts from the short delay again.
-   */
+  // Fallback while realtime is down: never offline or in the background, and
+  // each new unhealthy spell starts from the short delay.
   useEffect(() => {
     if (householdId === null || realtimeHealthy || !active) return;
 
@@ -106,12 +97,8 @@ export function useHouseholdRealtime(householdId: string | null): void {
     return () => clearTimeout(timer);
   }, [householdId, realtimeHealthy, active, reconcile]);
 
-  /**
-   * Authoritative membership is re-read first when the app returns to the
-   * foreground or the network returns, so a revoked member cannot keep acting
-   * on cached household data. Only the transition counts: at mount the reads
-   * are already loading, and the channel's first join reconciles after them.
-   */
+  // Membership is re-read first on each return, so a revoked member cannot act
+  // on cached data. Not at mount: the reads are loading and the first join reconciles.
   const wasActive = useRef(active);
   useEffect(() => {
     const resumed = active && !wasActive.current;

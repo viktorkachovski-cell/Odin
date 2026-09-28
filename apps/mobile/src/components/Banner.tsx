@@ -2,22 +2,26 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { CommandError } from '@odin/contracts';
-import { TRANSLATION_KEYS, type TranslationKey, type Translator } from '@odin/i18n';
+import { errorMessage, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { SecondaryButton } from './Button.tsx';
 
-/**
- * Renders a typed error as localized text. The server's `message_key` is used
- * when it is one we actually ship, otherwise we fall back to the generic message
- * for the code -- a raw key or SQL text must never reach the user.
- */
-export function errorMessage(error: CommandError, t: Translator): string {
-  const key = error.message_key;
-  if ((TRANSLATION_KEYS as readonly string[]).includes(key)) {
-    return t(key as TranslationKey);
-  }
-  return t(`error.${error.code.toLowerCase()}` as TranslationKey);
+/** A command error inside a form, where a full banner would crowd the fields. */
+export function InlineError({
+  error,
+  t,
+}: {
+  readonly error: CommandError | null;
+  readonly t: Translator;
+}): ReactNode {
+  const theme = useTheme();
+  if (error === null) return null;
+  return (
+    <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
+      {errorMessage(error, t)}
+    </Text>
+  );
 }
 
 export function ErrorBanner({

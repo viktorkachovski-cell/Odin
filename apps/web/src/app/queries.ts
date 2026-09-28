@@ -49,52 +49,33 @@ export function useHouseholdQuery(): UseQueryResult<HouseholdDto | null> {
   });
 }
 
-export function useMembersQuery(enabled: boolean): UseQueryResult<MemberDto[]> {
+export function useMembersQuery(): UseQueryResult<MemberDto[]> {
   const { client } = useOdin();
-  return useQuery({
-    queryKey: queryKeys.members,
-    queryFn: () => getMembers(client),
-    enabled,
-  });
+  return useQuery({ queryKey: queryKeys.members, queryFn: () => getMembers(client) });
 }
 
-export function useHomeQuery(enabled: boolean): UseQueryResult<HomeDto> {
+export function useHomeQuery(): UseQueryResult<HomeDto> {
   const { client } = useOdin();
-  return useQuery({
-    queryKey: queryKeys.home,
-    queryFn: () => getHome(client),
-    enabled,
-  });
+  return useQuery({ queryKey: queryKeys.home, queryFn: () => getHome(client) });
 }
 
-export function useListQuery(
-  listId: string | undefined,
-  enabled: boolean,
-): UseQueryResult<ListDetailDto> {
+export function useListQuery(listId: string | undefined): UseQueryResult<ListDetailDto> {
   const { client } = useOdin();
   return useQuery({
     queryKey: queryKeys.list(listId ?? ''),
     queryFn: () => getList(client, listId ?? ''),
-    enabled: enabled && listId !== undefined && listId.length > 0,
+    enabled: listId !== undefined && listId.length > 0,
   });
 }
 
-export function useMyTasksQuery(enabled: boolean): UseQueryResult<TaskCollectionDto> {
+export function useMyTasksQuery(): UseQueryResult<TaskCollectionDto> {
   const { client } = useOdin();
-  return useQuery({
-    queryKey: queryKeys.myTasks,
-    queryFn: () => getMyTasks(client),
-    enabled,
-  });
+  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasks(client) });
 }
 
-export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskCollectionDto> {
+export function useUnassignedQuery(): UseQueryResult<TaskCollectionDto> {
   const { client } = useOdin();
-  return useQuery({
-    queryKey: queryKeys.unassigned,
-    queryFn: () => getUnassigned(client),
-    enabled,
-  });
+  return useQuery({ queryKey: queryKeys.unassigned, queryFn: () => getUnassigned(client) });
 }
 
 export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {

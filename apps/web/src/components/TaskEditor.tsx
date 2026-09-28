@@ -1,13 +1,20 @@
 import { useState, type ReactNode } from 'react';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
-import { dueDraftFromIso, resolveDueInput, validateTaskTitle, validateNotes } from '@odin/domain';
-import type { Translator, TranslationKey } from '@odin/i18n';
+import {
+  dueIssueKey,
+  resolveDueInput,
+  taskDraft,
+  validateNotes,
+  validateTaskTitle,
+  type TaskDraft,
+} from '@odin/domain';
+import { issueText, type Translator } from '@odin/i18n';
 
+import { ErrorBanner } from './Banner.tsx';
 import { Dialog } from './Dialog.tsx';
 import { Field } from './Field.tsx';
 import { TaskTemplates } from './TaskTemplates.tsx';
-import { errorMessage } from './Banner.tsx';
 
 /**
  * Task editor. Drafts survive a failed save: on CONFLICT the typed text is kept
@@ -15,24 +22,7 @@ import { errorMessage } from './Banner.tsx';
  * their edit silently overwritten or discarded.
  */
 
-export interface TaskDraft {
-  readonly title: string;
-  readonly notes: string;
-  readonly assigneeId: string | null;
-  readonly dueDate: string;
-  readonly dueTime: string;
-}
-
-export function draftFromTask(task: TaskDto | null): TaskDraft {
-  return {
-    title: task?.title ?? '',
-    notes: task?.notes ?? '',
-    assigneeId: task?.assignee_id ?? null,
-    ...dueDraftFromIso(task?.due_at),
-  };
-}
-
-export interface TaskEditorProps {
+interface TaskEditorProps {
   readonly task: TaskDto | null;
   readonly members: readonly MemberDto[];
   readonly t: Translator;
@@ -49,12 +39,6 @@ export interface TaskEditorProps {
   }) => void;
 }
 
-function dueIssueKey(reason: 'invalid_format' | 'nonexistent_local_time'): TranslationKey {
-  return reason === 'nonexistent_local_time'
-    ? 'validation.due.nonexistent_local_time'
-    : 'validation.due.invalid_format';
-}
-
 export function TaskEditor({
   task,
   members,
@@ -66,19 +50,19 @@ export function TaskEditor({
   onReviewConflict,
   onSubmit,
 }: TaskEditorProps): ReactNode {
-  const [draft, setDraft] = useState<TaskDraft>(() => draftFromTask(task));
+  const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
 
   const submit = (): void => {
-    const issue = validateTaskTitle(draft.title);
-    const notesError = validateNotes(draft.notes);
+    const titleCheck = validateTaskTitle(draft.title);
+    const notesCheck = validateNotes(draft.notes);
     const due = resolveDueInput(draft);
-    setTitleIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
-    setNotesIssue(notesError === null ? undefined : t(notesError.message_key as TranslationKey));
+    setTitleIssue(issueText(titleCheck, t));
+    setNotesIssue(issueText(notesCheck, t));
     setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
-    if (issue !== null || notesError !== null || !due.ok) return;
+    if (titleCheck !== null || notesCheck !== null || !due.ok) return;
     onSubmit({
       title: draft.title.trim(),
       notes: draft.notes.trim(),
@@ -119,11 +103,7 @@ export function TaskEditor({
         </div>
       )}
 
-      {error !== null && !conflict && (
-        <div className="banner banner--danger" role="alert">
-          {errorMessage(error, t)}
-        </div>
-      )}
+      {error !== null && !conflict && <ErrorBanner error={error} t={t} />}
 
       <TaskTemplates
         draft={draft}

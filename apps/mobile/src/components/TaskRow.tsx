@@ -1,7 +1,16 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
+import {
+  taskRowFromHouseholdTask,
+  taskRowFromTask,
+  type HouseholdTaskDto,
+  type MemberDto,
+  type MoveDirection,
+  type TaskDto,
+  type TaskRowModel,
+  type TaskState,
+} from '@odin/contracts';
 import { isOverdue, taskState, taskStatus, taskStatusOptions } from '@odin/domain';
 import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
@@ -19,7 +28,27 @@ import { SecondaryButton } from './Button.tsx';
  * My Tasks / Unassigned projection share one component.
  */
 
-export interface TaskRowProps {
+/**
+ * Row models keyed by the task object the query cache hands out. A refetch
+ * keeps an unchanged task's object, so its model -- and its memoized row --
+ * survive, and only the rows that changed render again.
+ */
+function cached<T extends object>(toRow: (task: T) => TaskRowModel): (task: T) => TaskRowModel {
+  const rows = new WeakMap<T, TaskRowModel>();
+  return (task) => {
+    let row = rows.get(task);
+    if (row === undefined) {
+      row = toRow(task);
+      rows.set(task, row);
+    }
+    return row;
+  };
+}
+
+export const rowFromTask = cached<TaskDto>(taskRowFromTask);
+export const rowFromHouseholdTask = cached<HouseholdTaskDto>(taskRowFromHouseholdTask);
+
+interface TaskRowProps {
   readonly task: TaskRowModel;
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
@@ -127,7 +156,7 @@ function DueText({
   );
 }
 
-export function TaskRow({
+export const TaskRow = memo(function TaskRow({
   task,
   members,
   locale,
@@ -242,7 +271,7 @@ export function TaskRow({
       />
     </View>
   );
-}
+});
 
 function TaskMoveControls({
   task,

@@ -24,7 +24,7 @@ export function ListTaskEditor({
   readonly onClose: () => void;
   readonly onReviewConflict: () => void;
 }): ReactNode {
-  const { t, locale, client } = useOdin();
+  const { t, client } = useOdin();
   const save = useCommand(
     (
       requestId,
@@ -49,7 +49,6 @@ export function ListTaskEditor({
     <TaskEditor
       conflict={save.state.error?.code === 'CONFLICT'}
       error={save.state.error}
-      locale={locale}
       members={members}
       onCancel={() => {
         save.reset();

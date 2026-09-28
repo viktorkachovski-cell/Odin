@@ -3,9 +3,9 @@ import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { InvitationDto } from '@odin/contracts';
-import { createInvitation, updateProfile, useCommand } from '@odin/data';
+import { createInvitation, queryKeys, updateProfile, useCommand } from '@odin/data';
 import { validateDisplayName } from '@odin/domain';
-import type { Locale, TranslationKey } from '@odin/i18n';
+import { issueText, type Locale } from '@odin/i18n';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
@@ -16,6 +16,7 @@ import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { NotificationToggle } from '../../src/components/NotificationToggle.tsx';
 import { PrimaryButton, SecondaryButton } from '../../src/components/Button.tsx';
 import { Field } from '../../src/components/Field.tsx';
+import { LanguageChoice } from '../../src/components/LanguageChoice.tsx';
 import { LoadingState, Screen } from '../../src/components/Screen.tsx';
 import { inviteLink } from '../../src/env.ts';
 import { useTheme } from '../../src/theme.ts';
@@ -68,7 +69,7 @@ export default function SettingsScreen(): ReactNode {
   const nav = useNavVisibility();
   const profile = useProfileQuery();
   const household = useHouseholdQuery();
-  const members = useMembersQuery(true);
+  const members = useMembersQuery().data ?? [];
 
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [nameIssue, setNameIssue] = useState<string | undefined>(undefined);
@@ -77,7 +78,7 @@ export default function SettingsScreen(): ReactNode {
   const saveProfile = useCommand(
     (requestId, input: { readonly displayName: string; readonly locale: Locale }) =>
       updateProfile(client, requestId, input),
-    { invalidate: [['profile']] },
+    { invalidate: [queryKeys.profile, queryKeys.members] },
   );
 
   // create_invitation takes nothing beyond the envelope, so the input is void.
@@ -86,13 +87,13 @@ export default function SettingsScreen(): ReactNode {
     { onSuccess: setInvitation },
   );
 
-  if (profile.isPending) return <LoadingState label={t('state.loading')} />;
+  if (profile.isPending) return <LoadingState />;
 
   const currentName = displayName ?? profile.data?.display_name ?? '';
 
   const submitName = (): void => {
     const issue = validateDisplayName(currentName);
-    setNameIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setNameIssue(issueText(issue, t));
     if (issue !== null) return;
     void saveProfile.run({ displayName: currentName.trim(), locale });
   };
@@ -127,19 +128,11 @@ export default function SettingsScreen(): ReactNode {
           pending={saveProfile.state.pending}
         />
 
-        <Text style={[styles.label, { color: theme.colors.textMuted }]}>
-          {t('settings.language.label')}
-        </Text>
-        <View accessibilityRole="radiogroup" style={styles.row}>
-          {(['en', 'bg'] as const).map((option) => (
-            <SecondaryButton
-              accessibilityLabel={t(`locale.${option}` as TranslationKey)}
-              key={option}
-              label={`${locale === option ? '● ' : '○ '}${t(`locale.${option}` as TranslationKey)}`}
-              onPress={() => chooseLanguage(option)}
-            />
-          ))}
-        </View>
+        <LanguageChoice
+          label={t('settings.language.label')}
+          onChange={chooseLanguage}
+          value={locale}
+        />
         <Text style={[styles.note, { color: theme.colors.textMuted }]}>
           {t('settings.language.note')}
         </Text>
@@ -160,7 +153,7 @@ export default function SettingsScreen(): ReactNode {
         <Text accessibilityRole="header" style={[styles.heading, { color: theme.colors.text }]}>
           {t('settings.members.heading')}
         </Text>
-        {(members.data ?? []).map((member) => (
+        {members.map((member) => (
           <View key={member.user_id} style={styles.member}>
             <Avatar displayName={member.display_name} userId={member.user_id} />
             <Text style={{ color: theme.colors.text }}>{member.display_name}</Text>
@@ -199,9 +192,7 @@ export default function SettingsScreen(): ReactNode {
 const styles = StyleSheet.create({
   content: { gap: 12, paddingBottom: 16 },
   heading: { fontSize: 18, fontWeight: '700', marginTop: 8 },
-  label: { fontSize: 14, fontWeight: '500' },
   member: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   note: { fontSize: 13 },
   panel: { borderRadius: 10, borderWidth: 1, gap: 8, padding: 12 },
-  row: { flexDirection: 'row', gap: 8 },
 });

@@ -42,8 +42,8 @@ export function ListDetail(): ReactNode {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
   const { t, locale, client } = useOdin();
-  const list = useListQuery(listId, true);
-  const members = useMembersQuery(true);
+  const list = useListQuery(listId);
+  const members = useMembersQuery();
 
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
@@ -64,14 +64,7 @@ export function ListDetail(): ReactNode {
         readonly subtitle: string | null;
         readonly notes: string | null;
       },
-    ) =>
-      updateList(client, requestId, {
-        listId: listId ?? '',
-        expectedVersion: input.expectedVersion,
-        title: input.title,
-        subtitle: input.subtitle,
-        notes: input.notes,
-      }),
+    ) => updateList(client, requestId, { listId: listId ?? '', ...input }),
     {
       invalidate: keysAffectedByListChange(listId),
       onSuccess: () => setEditingList(false),
@@ -275,14 +268,7 @@ export function ListDetail(): ReactNode {
             saveList.reset();
             setEditingList(false);
           }}
-          onSubmit={(input) =>
-            void saveList.run({
-              expectedVersion: page.list.version,
-              title: input.title,
-              subtitle: input.subtitle,
-              notes: input.notes,
-            })
-          }
+          onSubmit={(input) => void saveList.run({ expectedVersion: page.list.version, ...input })}
           pending={saveList.state.pending}
           t={t}
         />

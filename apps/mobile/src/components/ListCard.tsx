@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
@@ -94,7 +94,7 @@ function ListMoveControls({
  * copying a template can never also open it. Both kinds expose Delete list;
  * only an active list can be saved as a template.
  */
-export function ListCard({
+export const ListCard = memo(function ListCard({
   list,
   t,
   onCopy,
@@ -196,7 +196,7 @@ export function ListCard({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { gap: 8, padding: 12 },

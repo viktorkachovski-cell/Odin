@@ -1,14 +1,9 @@
 import { useState, type ReactNode } from 'react';
 
 import type { InvitationDto, Locale } from '@odin/contracts';
-import {
-  createInvitation,
-  keysAffectedByMembershipChange,
-  updateProfile,
-  useCommand,
-} from '@odin/data';
+import { createInvitation, queryKeys, updateProfile, useCommand } from '@odin/data';
 import { validateDisplayName } from '@odin/domain';
-import type { TranslationKey } from '@odin/i18n';
+import { issueText } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useMembersQuery, useProfileQuery } from '../app/queries.ts';
@@ -59,7 +54,7 @@ function InvitationPanel({ invitation }: { readonly invitation: InvitationDto })
 export function Settings(): ReactNode {
   const { t, locale, setLocale, client, signOut } = useOdin();
   const profile = useProfileQuery();
-  const members = useMembersQuery(true);
+  const members = useMembersQuery().data ?? [];
 
   const [displayName, setDisplayName] = useState(() => profile.data?.display_name ?? '');
   const [nameIssue, setNameIssue] = useState<string | undefined>(undefined);
@@ -68,26 +63,20 @@ export function Settings(): ReactNode {
 
   const saveProfile = useCommand(
     (requestId, input: { readonly displayName: string; readonly locale: Locale }) =>
-      updateProfile(client, requestId, {
-        displayName: input.displayName,
-        locale: input.locale,
-      }),
-    {
-      invalidate: keysAffectedByMembershipChange(),
-      onSuccess: () => setSaved(true),
-    },
+      updateProfile(client, requestId, input),
+    // A new name shows in the member list as well as the profile.
+    { invalidate: [queryKeys.profile, queryKeys.members], onSuccess: () => setSaved(true) },
   );
 
-  // create_invitation takes nothing beyond the envelope, so the command's input
-  // type is void rather than an unused placeholder object.
+  // create_invitation takes nothing beyond the envelope, so the input is void.
   const invite = useCommand<void, InvitationDto>(
     (requestId) => createInvitation(client, requestId),
-    { onSuccess: (data) => setInvitation(data) },
+    { onSuccess: setInvitation },
   );
 
   const submitProfile = (): void => {
     const issue = validateDisplayName(displayName);
-    setNameIssue(issue === null ? undefined : t(issue.message_key as TranslationKey));
+    setNameIssue(issueText(issue, t));
     if (issue !== null) return;
     setSaved(false);
     void saveProfile.run({ displayName: displayName.trim(), locale });
@@ -151,7 +140,7 @@ export function Settings(): ReactNode {
       <section className="section">
         <h2 className="section__heading">{t('settings.members.heading')}</h2>
         <ul className="member-list">
-          {(members.data ?? []).map((member) => (
+          {members.map((member) => (
             <li className="chip" key={member.user_id}>
               <Avatar displayName={member.display_name} userId={member.user_id} />
               {member.display_name}

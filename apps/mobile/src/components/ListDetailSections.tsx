@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import {
-  taskRowFromTask,
-  type CommandError,
-  type MemberDto,
-  type MoveDirection,
-  type TaskDto,
-  type TaskRowModel,
-  type TaskState,
+import type {
+  CommandError,
+  MemberDto,
+  MoveDirection,
+  TaskDto,
+  TaskRowModel,
+  TaskState,
 } from '@odin/contracts';
 import { adjacentMoves } from '@odin/domain';
 import type { Locale, Translator } from '@odin/i18n';
@@ -17,7 +16,7 @@ import { useTheme } from '../theme.ts';
 import { ActionMenu } from './ActionMenu.tsx';
 import { ErrorBanner } from './Banner.tsx';
 import { Progress } from './Progress.tsx';
-import { TaskRow } from './TaskRow.tsx';
+import { rowFromTask, TaskRow } from './TaskRow.tsx';
 
 export function ListTasks({
   tasks,
@@ -70,7 +69,7 @@ export function ListTasks({
             onToggleCompleted={isTemplate ? undefined : onToggleCompleted}
             onUnassign={isTemplate ? undefined : onUnassign}
             t={t}
-            task={taskRowFromTask(task)}
+            task={rowFromTask(task)}
           />
         );
       })}
@@ -132,16 +131,11 @@ export function ListHeader({
   );
 }
 
-/** True while any of the given commands is in flight. */
 export function anyPending(states: readonly { readonly pending: boolean }[]): boolean {
   return states.some((state) => state.pending);
 }
 
-/**
- * The confirmation after saving a list template. It lives here so the screen
- * stays data and command wiring, and renders nothing while a command error is
- * already on screen.
- */
+/** Silent while a command error is already on screen. */
 export function TemplateSavedNotice({
   saved,
   error,
@@ -155,7 +149,7 @@ export function TemplateSavedNotice({
   return <Text accessibilityLiveRegion="polite">{t('list.template.saved')}</Text>;
 }
 
-export interface CommandErrorEntry {
+interface CommandErrorEntry {
   readonly error: CommandError | null;
   readonly retry?: () => void;
 }

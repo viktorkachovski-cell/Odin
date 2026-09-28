@@ -5,6 +5,7 @@ import { registerWithPassword, resendConfirmation } from '@odin/data';
 import { validateNewPassword } from '@odin/domain';
 import { useOdin } from '../app/OdinContext.ts';
 import { AuthShell, EmailField, PasswordField, useAuthRequest } from '../components/AuthForm.tsx';
+import { confirmationUrl } from '../auth-links.ts';
 import { safeAuthDestination } from '../routing.ts';
 
 export function Register(): ReactNode {
@@ -17,7 +18,7 @@ export function Register(): ReactNode {
   const [confirmation, setConfirmation] = useState('');
   const [sent, setSent] = useState(false);
   const request = useAuthRequest();
-  const redirectTo = `${window.location.origin}/auth/confirmed`;
+  const redirectTo = confirmationUrl();
   async function register(): Promise<void> {
     const issue = validateNewPassword(password, confirmation);
     if (issue !== null) {

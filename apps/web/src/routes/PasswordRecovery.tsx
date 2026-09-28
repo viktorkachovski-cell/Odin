@@ -4,7 +4,7 @@ import { commandError } from '@odin/contracts';
 import { requestPasswordReset, updatePassword } from '@odin/data';
 import { validateNewPassword } from '@odin/domain';
 import { useOdin } from '../app/OdinContext.ts';
-import { isRecoveryUser, setRecoveryUser } from '../auth-links.ts';
+import { isRecoveryUser, recoveryUrl, setRecoveryUser } from '../auth-links.ts';
 import { AuthShell, EmailField, PasswordField, useAuthRequest } from '../components/AuthForm.tsx';
 
 export function ForgotPassword(): ReactNode {
@@ -14,7 +14,7 @@ export function ForgotPassword(): ReactNode {
   const request = useAuthRequest();
   async function send(): Promise<void> {
     const result = await request.run(
-      () => requestPasswordReset(client, email, `${window.location.origin}/reset-password`),
+      () => requestPasswordReset(client, email, recoveryUrl()),
       true,
     );
     if (result?.ok) setSent(true);

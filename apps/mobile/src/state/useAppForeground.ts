@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
-/**
- * Whether Android currently has Odin in the foreground.
- *
- * Two unrelated rules depend on this answer -- authoritative membership is
- * re-read on return to the foreground, and a notification is only presented
- * while the member is *not* looking at the app -- so they share one reading
- * rather than each keeping their own listener.
- */
+/** Whether Android currently has Odin in the foreground (docs/android.md). */
 export function useAppForeground(): boolean {
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
 

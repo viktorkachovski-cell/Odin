@@ -8,9 +8,9 @@ import { validateNewPassword } from '@odin/domain';
 
 import { useOdin } from '../src/state/OdinContext.ts';
 import { useAuthRequest } from '../src/state/useAuthRequest.ts';
-import { errorMessage } from '../src/components/Banner.tsx';
+import { InlineError } from '../src/components/Banner.tsx';
 import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
-import { Field } from '../src/components/Field.tsx';
+import { EmailField } from '../src/components/Field.tsx';
 import { PasswordField } from '../src/components/PasswordField.tsx';
 import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
 import { CONFIRMATION_URL } from '../src/auth-urls.ts';
@@ -80,11 +80,7 @@ export default function RegisterScreen(): ReactNode {
   return (
     <Screen title={t('auth.password.register')}>
       <View style={styles.form}>
-        {request.error !== null && (
-          <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
-            {errorMessage(request.error, t)}
-          </Text>
-        )}
+        <InlineError error={request.error} t={t} />
 
         {sent ? (
           <>
@@ -119,18 +115,7 @@ export default function RegisterScreen(): ReactNode {
           </>
         ) : (
           <>
-            <Field
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              editable={!request.pending}
-              inputMode="email"
-              keyboardType="email-address"
-              label={t('auth.email.label')}
-              onChangeText={setEmail}
-              textContentType="emailAddress"
-              value={email}
-            />
+            <EmailField disabled={request.pending} onChangeText={setEmail} value={email} />
 
             <PasswordField
               disabled={request.pending}
@@ -170,7 +155,9 @@ export default function RegisterScreen(): ReactNode {
           </>
         )}
 
-        {!online && <Text style={{ color: theme.colors.textMuted }}>{t('state.offline')}</Text>}
+        {!online && (
+          <Text style={{ color: theme.colors.textMuted }}>{t('auth.password.offline')}</Text>
+        )}
       </View>
     </Screen>
   );

@@ -117,6 +117,13 @@ export function resolveDueInput(draft: TaskDueDraft): DueResolution {
   return parsed.ok ? { ok: true, dueAt: parsed.iso } : { ok: false, reason: parsed.reason };
 }
 
+/** The message for a deadline the editor could not resolve. */
+export function dueIssueKey(
+  reason: 'invalid_format' | 'nonexistent_local_time',
+): `validation.due.${typeof reason}` {
+  return `validation.due.${reason}`;
+}
+
 /** Splits a stored instant back into the editor's local date and time fields. */
 export function dueDraftFromIso(dueAt: string | null | undefined): TaskDueDraft {
   const local = dueAt === null || dueAt === undefined ? null : utcIsoToLocalInput(dueAt);

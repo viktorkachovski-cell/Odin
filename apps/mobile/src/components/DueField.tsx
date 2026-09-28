@@ -2,8 +2,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { dueDraftFromIso, type TaskDueDraft } from '@odin/domain';
-import type { Locale, Translator } from '@odin/i18n';
+import type { TaskDueDraft } from '@odin/domain';
+import type { Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { SecondaryButton } from './Button.tsx';
@@ -33,13 +33,11 @@ export function DueField({
   draft,
   onChange,
   error,
-  locale,
   t,
 }: {
   readonly draft: TaskDueDraft;
   readonly onChange: (next: TaskDueDraft) => void;
   readonly error?: string | undefined;
-  readonly locale: Locale;
   readonly t: Translator;
 }): ReactNode {
   const theme = useTheme();
@@ -50,8 +48,7 @@ export function DueField({
       ? t('task.due.none')
       : `${draft.dueDate} ${draft.dueTime}`.trim();
 
-  const timeZone = Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB').resolvedOptions()
-    .timeZone;
+  const { timeZone } = Intl.DateTimeFormat().resolvedOptions();
 
   return (
     <View style={styles.wrapper}>
@@ -106,8 +103,6 @@ export function DueField({
     </View>
   );
 }
-
-export { dueDraftFromIso };
 
 const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

@@ -1,22 +1,14 @@
 /**
  * Native session storage for the Supabase auth client.
  *
- * Android's SecureStore rejects values larger than 2048 bytes, and a Supabase
- * session carrying a refresh token plus user metadata routinely exceeds that.
- * Values are therefore split across numbered chunks with a small manifest under
- * the caller's key, so token growth cannot silently start failing writes.
+ * SecureStore rejects values over 2048 bytes and a session routinely exceeds
+ * that, so values are split into chunks behind a manifest. A chunk never ends
+ * on half a surrogate pair, which the keystore's UTF-8 round trip would corrupt.
  *
- * Chunk boundaries never split a surrogate pair: a lone surrogate would be
- * replaced on the UTF-8 round trip through the keystore and corrupt the
- * session.
- *
- * The auth client reads the session before every request and on every
- * realtime heartbeat, and each read here is several keystore decryptions. This
- * process is the only writer, so values are kept in memory after the first
- * read and every read after that is free. The memory holds what the caller
- * last asked for even when the keystore write fails: the error still reaches
- * the caller, and a sign-out must not be undone by reading back the session it
- * failed to delete.
+ * The auth client reads the session before every request, so values are kept
+ * in memory after the first read; this process is the only writer. Memory
+ * follows the latest write even if the keystore write fails, so a sign-out is
+ * never undone by reading back the session it failed to delete.
  */
 
 import * as SecureStore from 'expo-secure-store';

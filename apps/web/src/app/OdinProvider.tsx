@@ -39,7 +39,7 @@ function useOnlineStatus(): boolean {
   return online;
 }
 
-export interface OdinProviderProps {
+interface OdinProviderProps {
   readonly client: OdinSupabaseClient;
   readonly children: ReactNode;
   /** Tests inject their own client so no query is ever retried against a network. */
@@ -119,6 +119,8 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
     setUser(null);
   }, [client, activeQueryClient]);
 
+  const t = useMemo(() => createTranslator(locale), [locale]);
+
   const value = useMemo<OdinContextValue>(
     () => ({
       client,
@@ -126,13 +128,13 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
       authReady,
       locale,
       setLocale,
-      t: createTranslator(locale),
+      t,
       online,
       realtimeHealthy,
       setRealtimeHealthy,
       signOut,
     }),
-    [client, user, authReady, locale, setLocale, online, realtimeHealthy, signOut],
+    [client, user, authReady, locale, setLocale, t, online, realtimeHealthy, signOut],
   );
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 
-import type { TaskDto } from '@odin/contracts';
+import type { TaskDto, TaskRowModel } from '@odin/contracts';
 import {
   deleteList,
   deleteTask,
@@ -18,7 +18,8 @@ import { sortTasksInList } from '@odin/domain';
 
 import { useNavVisibility } from '../../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../../src/state/OdinContext.ts';
-import { useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
+import { NO_MEMBERS, useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
+import { useEvent } from '../../../src/state/useEvent.ts';
 import { NavSpacer } from '../../../src/components/BottomNav.tsx';
 import { SecondaryButton } from '../../../src/components/Button.tsx';
 import { FloatingActionButton } from '../../../src/components/FloatingActionButton.tsx';
@@ -40,12 +41,12 @@ export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, locale, client } = useOdin();
   const nav = useNavVisibility();
-  const list = useListQuery(id, true);
-  const members = useMembersQuery(true);
+  const list = useListQuery(id);
+  const members = useMembersQuery().data ?? NO_MEMBERS;
 
   const [editingList, setEditingList] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
-  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [addingTask, setAddingTask] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
 
@@ -61,14 +62,7 @@ export default function ListDetailScreen(): ReactNode {
         readonly subtitle: string | null;
         readonly notes: string | null;
       },
-    ) =>
-      updateList(client, requestId, {
-        listId: id ?? '',
-        expectedVersion: input.expectedVersion,
-        title: input.title,
-        subtitle: input.subtitle,
-        notes: input.notes,
-      }),
+    ) => updateList(client, requestId, { listId: id ?? '', ...input }),
     { invalidate: keysAffectedByListChange(id), onSuccess: () => setEditingList(false) },
   );
 
@@ -115,7 +109,41 @@ export default function ListDetailScreen(): ReactNode {
     { invalidate: invalidateTask },
   );
 
-  if (list.isPending) return <LoadingState label={t('state.loading')} />;
+  const move = useEvent(rowActions.move);
+  const setState = useEvent(rowActions.setState);
+  const toggle = useEvent(rowActions.toggleCompleted);
+  const open = useEvent((task: TaskRowModel) => setDetailsId(task.id));
+  // The editor gets the full task as it is now; its version is what the save checks.
+  const edit = useEvent((task: TaskRowModel) =>
+    setEditingTask(list.data?.tasks.find((item) => item.id === task.id) ?? null),
+  );
+  const confirmDelete = useEvent((task: TaskRowModel) =>
+    Alert.alert(t('task.delete', { title: task.title }), t('task.delete.confirm'), [
+      { text: t('list.back'), style: 'cancel' },
+      {
+        text: t('task.delete.short'),
+        style: 'destructive',
+        onPress: () => void removeTask.run({ taskId: task.id, expectedVersion: task.version }),
+      },
+    ]),
+  );
+  const confirmUnassign = useEvent((task: TaskRowModel) =>
+    Alert.alert(t('task.unassign', { title: task.title }), t('task.unassign.confirm'), [
+      { text: t('list.back'), style: 'cancel' },
+      {
+        text: t('task.unassign.short'),
+        onPress: () =>
+          void unassignTask.run({
+            taskId: task.id,
+            expectedVersion: task.version,
+            title: task.title,
+            dueAt: task.due_at,
+          }),
+      },
+    ]),
+  );
+
+  if (list.isPending) return <LoadingState />;
   if (list.data === undefined) {
     return (
       <Screen title={t('list.not_found')}>
@@ -127,7 +155,6 @@ export default function ListDetailScreen(): ReactNode {
   const page = list.data;
   const ordered = sortTasksInList(page.tasks);
   const isTemplate = page.list.kind === 'template';
-  const memberList = members.data ?? [];
   const closeTaskEditor = (): void => {
     setEditingTask(null);
     setAddingTask(false);
@@ -199,47 +226,14 @@ export default function ListDetailScreen(): ReactNode {
             busy={rowActions.busy || anyPending([removeTask.state, unassignTask.state])}
             isTemplate={isTemplate}
             locale={locale}
-            members={memberList}
-            onDelete={(selected) =>
-              Alert.alert(t('task.delete', { title: selected.title }), t('task.delete.confirm'), [
-                { text: t('list.back'), style: 'cancel' },
-                {
-                  text: t('task.delete.short'),
-                  style: 'destructive',
-                  onPress: () =>
-                    void removeTask.run({
-                      taskId: selected.id,
-                      expectedVersion: selected.version,
-                    }),
-                },
-              ])
-            }
-            onEdit={(selected) =>
-              setEditingTask(ordered.find((task) => task.id === selected.id) ?? null)
-            }
-            onMove={rowActions.move}
-            onOpen={(selected) => setDetailsTaskId(selected.id)}
-            onSetState={rowActions.setState}
-            onToggleCompleted={rowActions.toggleCompleted}
-            onUnassign={(selected) =>
-              Alert.alert(
-                t('task.unassign', { title: selected.title }),
-                t('task.unassign.confirm'),
-                [
-                  { text: t('list.back'), style: 'cancel' },
-                  {
-                    text: t('task.unassign.short'),
-                    onPress: () =>
-                      void unassignTask.run({
-                        taskId: selected.id,
-                        expectedVersion: selected.version,
-                        title: selected.title,
-                        dueAt: selected.due_at,
-                      }),
-                  },
-                ],
-              )
-            }
+            members={members}
+            onDelete={confirmDelete}
+            onEdit={edit}
+            onMove={move}
+            onOpen={open}
+            onSetState={setState}
+            onToggleCompleted={toggle}
+            onUnassign={confirmUnassign}
             t={t}
             tasks={ordered}
           />
@@ -256,7 +250,7 @@ export default function ListDetailScreen(): ReactNode {
         <ListTaskEditor
           key={editingTask?.id ?? 'new'}
           listId={page.list.id}
-          members={memberList}
+          members={members}
           onClose={closeTaskEditor}
           onReviewConflict={() => {
             closeTaskEditor();
@@ -268,10 +262,10 @@ export default function ListDetailScreen(): ReactNode {
 
       <TaskDetailsFlow
         editable={!isTemplate}
-        key={detailsTaskId ?? 'closed'}
-        members={memberList}
-        onClose={() => setDetailsTaskId(null)}
-        taskId={detailsTaskId}
+        key={detailsId ?? 'closed'}
+        members={members}
+        onClose={() => setDetailsId(null)}
+        taskId={detailsId}
       />
 
       {editingList && (
@@ -282,14 +276,7 @@ export default function ListDetailScreen(): ReactNode {
             saveList.reset();
             setEditingList(false);
           }}
-          onSubmit={(input) =>
-            void saveList.run({
-              expectedVersion: page.list.version,
-              title: input.title,
-              subtitle: input.subtitle,
-              notes: input.notes,
-            })
-          }
+          onSubmit={(input) => void saveList.run({ expectedVersion: page.list.version, ...input })}
           pending={saveList.state.pending}
           t={t}
         />

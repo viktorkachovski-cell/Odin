@@ -6,9 +6,9 @@ import { requestPasswordReset } from '@odin/data';
 
 import { useOdin } from '../src/state/OdinContext.ts';
 import { useAuthRequest } from '../src/state/useAuthRequest.ts';
-import { errorMessage } from '../src/components/Banner.tsx';
+import { InlineError } from '../src/components/Banner.tsx';
 import { PrimaryButton, SecondaryButton } from '../src/components/Button.tsx';
-import { Field } from '../src/components/Field.tsx';
+import { EmailField } from '../src/components/Field.tsx';
 import { FormScreen as Screen } from '../src/components/FormScreen.tsx';
 import { safeAuthDestination } from '../src/routing.ts';
 import { RECOVERY_URL } from '../src/auth-urls.ts';
@@ -52,11 +52,7 @@ export default function ForgotPasswordScreen(): ReactNode {
         <Text style={{ color: theme.colors.textMuted }}>{t('auth.password.recovery_intro')}</Text>
         <Text style={{ color: theme.colors.textMuted }}>{t('auth.password.browser_reset')}</Text>
 
-        {request.error !== null && (
-          <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
-            {errorMessage(request.error, t)}
-          </Text>
-        )}
+        <InlineError error={request.error} t={t} />
 
         {sent && (
           <Text accessibilityLiveRegion="polite" style={{ color: theme.colors.text }}>
@@ -64,18 +60,7 @@ export default function ForgotPasswordScreen(): ReactNode {
           </Text>
         )}
 
-        <Field
-          autoCapitalize="none"
-          autoComplete="email"
-          autoCorrect={false}
-          editable={!request.pending}
-          inputMode="email"
-          keyboardType="email-address"
-          label={t('auth.email.label')}
-          onChangeText={setEmail}
-          textContentType="emailAddress"
-          value={email}
-        />
+        <EmailField disabled={request.pending} onChangeText={setEmail} value={email} />
 
         <PrimaryButton
           disabled={request.disabled || request.cooldown > 0 || email.trim().length === 0}
@@ -96,7 +81,9 @@ export default function ForgotPasswordScreen(): ReactNode {
           onPress={() => router.replace({ pathname: '/sign-in', params: { next: destination } })}
         />
 
-        {!online && <Text style={{ color: theme.colors.textMuted }}>{t('state.offline')}</Text>}
+        {!online && (
+          <Text style={{ color: theme.colors.textMuted }}>{t('auth.password.offline')}</Text>
+        )}
       </View>
     </Screen>
   );

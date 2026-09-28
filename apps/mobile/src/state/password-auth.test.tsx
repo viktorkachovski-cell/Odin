@@ -1,10 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 
 import { commandError, type CommandResult } from '@odin/contracts';
-import { createTranslator } from '@odin/i18n';
 
-import { OdinContext, type OdinContextValue } from './OdinContext.ts';
+import { odinWrapper as wrapper } from '../test-context.tsx';
 
 /**
  * Behaviour of the three password screens. The data layer is mocked so nothing
@@ -29,6 +27,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@odin/data', () => ({
+  ...jest.requireActual<object>('@odin/data'),
   signInWithPassword: jest.fn(),
   registerWithPassword: jest.fn(),
   requestPasswordReset: jest.fn(),
@@ -45,27 +44,6 @@ const data = jest.requireMock<{
 import SignInScreen from '../../app/sign-in.tsx';
 import RegisterScreen from '../../app/register.tsx';
 import ForgotPasswordScreen from '../../app/forgot-password.tsx';
-
-function wrapper(overrides: Partial<OdinContextValue> = {}) {
-  const value: OdinContextValue = {
-    client: {} as OdinContextValue['client'],
-    user: null,
-    authReady: true,
-    locale: 'en',
-    setLocale: jest.fn(),
-    t: createTranslator('en'),
-    online: true,
-    realtimeHealthy: true,
-    setRealtimeHealthy: jest.fn(),
-    lastSyncedAt: null,
-    markSynced: jest.fn(),
-    signOut: jest.fn(),
-    ...overrides,
-  };
-  return function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return <OdinContext value={value}>{children}</OdinContext>;
-  };
-}
 
 function ok<T>(value: T): CommandResult<T> {
   return { ok: true, data: value };
@@ -132,7 +110,7 @@ describe('sign-in', () => {
     await type('Password', 'short');
     await fireEvent.press(screen.getByLabelText('Sign in'));
 
-    // Six characters reach the server: only it may judge an existing password.
+    // Five characters reach the server: only it may judge an existing password.
     expect(data.signInWithPassword).toHaveBeenCalledWith(
       expect.anything(),
       '  someone@example.test  ',

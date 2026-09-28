@@ -1,5 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getLocales } from 'expo-localization';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
@@ -32,15 +32,17 @@ function useOnlineStatus(): boolean {
     return NetInfo.addEventListener((state) => {
       // `isInternetReachable` is null while the probe is still running; only a
       // definite false means offline, so a slow probe never disables the UI.
-      const reachable = state.isInternetReachable;
-      setOnline(state.isConnected === true && reachable !== false);
+      const next = state.isConnected === true && state.isInternetReachable !== false;
+      setOnline(next);
+      // Reads then wait for the network instead of failing, and resume on their own.
+      onlineManager.setOnline(next);
     });
   }, []);
 
   return online;
 }
 
-export interface OdinProviderProps {
+interface OdinProviderProps {
   readonly client: OdinSupabaseClient;
   readonly children: ReactNode;
   /** Tests inject their own client so no query is ever retried against a network. */
@@ -65,7 +67,10 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
   queryClientRef.current ??= new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 15_000,
+        // Realtime hints and reconciles invalidate what changes, including on
+        // reconnect (useHouseholdRealtime).
+        staleTime: 5 * 60_000,
+        refetchOnReconnect: false,
         // Conflicts and authorization failures must not be retried blindly.
         retry: 1,
       },
@@ -136,11 +141,8 @@ export function OdinProvider({ client, children, queryClient }: OdinProviderProp
     };
   }, [client, applyUser]);
 
-  /**
-   * Every successful read reports here, and a new value re-renders everything
-   * that reads the context. The stale banner shows minutes, so a read within
-   * the minute already recorded changes nothing and renders nothing.
-   */
+  // Every successful read reports here. The banner shows minutes, so only a
+  // new minute changes the context and re-renders its readers.
   const markSynced = useCallback(() => {
     const now = Date.now();
     setLastSyncedAt((previous) =>

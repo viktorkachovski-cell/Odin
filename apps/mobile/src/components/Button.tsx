@@ -17,87 +17,51 @@ interface ButtonProps {
   readonly accessibilityLabel?: string;
 }
 
-function ButtonBody({
-  label,
-  pending,
-  color,
-}: {
-  readonly label: string;
-  readonly pending: boolean;
-  readonly color: string;
-}): ReactNode {
-  return (
-    <View style={styles.body}>
-      {pending && <ActivityIndicator color={color} size="small" />}
-      <Text style={[styles.label, { color }]}>{label}</Text>
-    </View>
-  );
-}
-
-export function PrimaryButton({
+function Button({
+  primary,
   label,
   onPress,
   disabled = false,
   pending = false,
   accessibilityLabel,
-}: ButtonProps): ReactNode {
+}: ButtonProps & { readonly primary: boolean }): ReactNode {
   const theme = useTheme();
   const blocked = disabled || pending;
+  const color = primary ? theme.colors.accentText : theme.colors.text;
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled: blocked, busy: pending }}
-      android_ripple={{ color: theme.colors.border }}
+      android_ripple={{ color: primary ? theme.colors.border : theme.colors.surfaceMuted }}
       disabled={blocked}
       onPress={onPress}
       style={[
         styles.base,
-        {
-          backgroundColor: theme.colors.accent,
-          borderRadius: theme.radius.md,
-          minHeight: theme.touchTarget,
-          opacity: blocked ? 0.6 : 1,
-        },
+        primary
+          ? { backgroundColor: theme.colors.accent }
+          : {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              borderWidth: 1,
+            },
+        { borderRadius: theme.radius.md, minHeight: theme.touchTarget, opacity: blocked ? 0.6 : 1 },
       ]}
     >
-      <ButtonBody color={theme.colors.accentText} label={label} pending={pending} />
+      <View style={styles.body}>
+        {pending && <ActivityIndicator color={color} size="small" />}
+        <Text style={[styles.label, { color }]}>{label}</Text>
+      </View>
     </Pressable>
   );
 }
 
-export function SecondaryButton({
-  label,
-  onPress,
-  disabled = false,
-  pending = false,
-  accessibilityLabel,
-}: ButtonProps): ReactNode {
-  const theme = useTheme();
-  const blocked = disabled || pending;
-  return (
-    <Pressable
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: blocked, busy: pending }}
-      android_ripple={{ color: theme.colors.surfaceMuted }}
-      disabled={blocked}
-      onPress={onPress}
-      style={[
-        styles.base,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
-          borderRadius: theme.radius.md,
-          borderWidth: 1,
-          minHeight: theme.touchTarget,
-          opacity: blocked ? 0.6 : 1,
-        },
-      ]}
-    >
-      <ButtonBody color={theme.colors.text} label={label} pending={pending} />
-    </Pressable>
-  );
+export function PrimaryButton(props: ButtonProps): ReactNode {
+  return <Button {...props} primary />;
+}
+
+export function SecondaryButton(props: ButtonProps): ReactNode {
+  return <Button {...props} primary={false} />;
 }
 
 const styles = StyleSheet.create({

@@ -1,17 +1,18 @@
 import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
-import { taskRowFromHouseholdTask } from '@odin/contracts';
+import type { TaskRowModel } from '@odin/contracts';
 import { useTaskRowActions } from '@odin/data';
 import { sortTasksByDue } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
-import { useMembersQuery, useMyTasksQuery } from '../../src/state/queries.ts';
+import { NO_MEMBERS, useMembersQuery, useMyTasksQuery } from '../../src/state/queries.ts';
+import { useEvent } from '../../src/state/useEvent.ts';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { CommandErrors } from '../../src/components/ListDetailSections.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
-import { TaskRow } from '../../src/components/TaskRow.tsx';
+import { rowFromHouseholdTask, TaskRow } from '../../src/components/TaskRow.tsx';
 import { TaskDetailsFlow } from '../../src/components/TaskDetailsFlow.tsx';
 
 /**
@@ -24,14 +25,16 @@ export default function MyTasksScreen(): ReactNode {
   const { t, locale, client } = useOdin();
   const nav = useNavVisibility();
   const tasks = useMyTasksQuery(true);
-  const members = useMembersQuery(true);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
+  const members = useMembersQuery().data ?? NO_MEMBERS;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const actions = useTaskRowActions(client);
+  const open = useEvent((task: TaskRowModel) => setSelectedId(task.id));
+  const setState = useEvent(actions.setState);
+  const toggle = useEvent(actions.toggleCompleted);
 
-  if (tasks.isPending) return <LoadingState label={t('state.loading')} />;
+  if (tasks.isPending) return <LoadingState />;
 
-  const rows = sortTasksByDue((tasks.data?.items ?? []).map(taskRowFromHouseholdTask));
+  const rows = sortTasksByDue((tasks.data?.items ?? []).map(rowFromHouseholdTask));
 
   return (
     <Screen title={t('my_tasks.title')}>
@@ -50,10 +53,10 @@ export default function MyTasksScreen(): ReactNode {
               busy={actions.busy}
               key={task.id}
               locale={locale}
-              members={members.data ?? []}
-              onPress={(selected) => setSelectedTaskId(selected.id)}
-              onSetState={actions.setState}
-              onToggleCompleted={actions.toggleCompleted}
+              members={members}
+              onPress={open}
+              onSetState={setState}
+              onToggleCompleted={toggle}
               t={t}
               task={task}
             />
@@ -64,10 +67,10 @@ export default function MyTasksScreen(): ReactNode {
       </ScrollView>
       <TaskDetailsFlow
         editable
-        key={selectedTaskId ?? 'closed'}
-        members={members.data ?? []}
-        onClose={() => setSelectedTaskId(null)}
-        taskId={selectedTaskId}
+        key={selectedId ?? 'closed'}
+        members={members}
+        onClose={() => setSelectedId(null)}
+        taskId={selectedId}
       />
     </Screen>
   );

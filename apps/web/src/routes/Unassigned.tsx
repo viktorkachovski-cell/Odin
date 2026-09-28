@@ -18,8 +18,8 @@ import { TaskRow } from '../components/TaskRow.tsx';
 
 export function Unassigned(): ReactNode {
   const { t, locale, client } = useOdin();
-  const query = useUnassignedQuery(true);
-  const members = useMembersQuery(true);
+  const query = useUnassignedQuery();
+  const members = useMembersQuery();
   const actions = useTaskRowActions(client);
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
 

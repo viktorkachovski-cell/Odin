@@ -51,6 +51,7 @@ jest.mock('expo-router', () => {
 jest.mock('@odin/data', () => ({
   OdinError: class extends Error {},
   keysAffectedByMembershipChange: () => [],
+  queryKeys: { profile: ['profile'] },
   useCommand: () => ({ state: { error: null, pending: false }, run: jest.fn() }),
 }));
 

@@ -6,41 +6,22 @@
 
 import { useColorScheme } from 'react-native';
 
-import {
-  darkColors,
-  lightColors,
-  MIN_TOUCH_TARGET,
-  radius,
-  spacing,
-  typography,
-} from '@odin/design-tokens';
+import { darkColors, lightColors, MIN_TOUCH_TARGET, radius } from '@odin/design-tokens';
 
 /** Token names are fixed; the values differ per theme, so they widen to string. */
-export type ThemeColors = { readonly [K in keyof typeof lightColors]: string };
+type ThemeColors = { readonly [K in keyof typeof lightColors]: string };
 
-export interface Theme {
+interface Theme {
   readonly colors: ThemeColors;
-  readonly dark: boolean;
-  readonly spacing: typeof spacing;
   readonly radius: typeof radius;
-  readonly typography: typeof typography;
   /** Android's own guidance is 48dp, above the source requirement's 44. */
   readonly touchTarget: number;
 }
 
-export const ANDROID_TOUCH_TARGET = Math.max(MIN_TOUCH_TARGET, 48);
-
-export function buildTheme(dark: boolean): Theme {
-  return {
-    colors: dark ? darkColors : lightColors,
-    dark,
-    spacing,
-    radius,
-    typography,
-    touchTarget: ANDROID_TOUCH_TARGET,
-  };
-}
+const touchTarget = Math.max(MIN_TOUCH_TARGET, 48);
+const LIGHT: Theme = { colors: lightColors, radius, touchTarget };
+const DARK: Theme = { colors: darkColors, radius, touchTarget };
 
 export function useTheme(): Theme {
-  return buildTheme(useColorScheme() === 'dark');
+  return useColorScheme() === 'dark' ? DARK : LIGHT;
 }

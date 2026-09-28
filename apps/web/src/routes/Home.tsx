@@ -25,48 +25,45 @@ import { OverflowMenu } from '../components/OverflowMenu.tsx';
 import { Progress } from '../components/Progress.tsx';
 
 /**
- * Home shows two clearly labelled sections. `get_home` returns both kinds in one
- * id-ordered page, so the split into List templates and Active lists happens
- * here. Task templates are a separate type and never appear on Home; they are
- * loaded from inside the task editor.
- *
- * Template cards keep their border and active list cards do not, matching the
- * source design; the copy control is a sibling of the card's link rather than a
- * button nested inside a button.
- *
- * Both kinds carry the same overflow menu, because a template a member saved
- * has to be removable the same way an active list is.
- *
- * The copy control is an outlined accent button rather than a solid primary:
- * one per template card meant Home previously had as many primary buttons as it
- * had templates. The card's green border carries the emphasis instead, and the
- * screen's single solid primary is Create list in the header.
+ * Home shows List templates and Active lists, split here from one `get_home`
+ * read. Template cards keep their border; the copy control sits beside the
+ * card's link rather than inside it. Create list in the header is the screen's
+ * one solid primary, so copy is an outlined accent button.
  */
 
-function TemplateCard({
+function ListCard({
   summary,
   t,
-  onCopy,
-  onDelete,
-  onMove,
+  busy,
   moveUpDisabled,
   moveDownDisabled,
-  busy,
+  onMove,
+  onDelete,
+  onCopy,
+  onSaveTemplate,
 }: {
   readonly summary: ListSummaryDto;
   readonly t: Translator;
-  readonly onCopy: (id: string) => void;
-  readonly onDelete: () => void;
-  readonly onMove: (direction: MoveDirection) => void;
+  readonly busy: boolean;
   readonly moveUpDisabled: boolean;
   readonly moveDownDisabled: boolean;
-  readonly busy: boolean;
+  readonly onMove: (direction: MoveDirection) => void;
+  readonly onDelete: () => void;
+  readonly onCopy?: (() => void) | undefined;
+  readonly onSaveTemplate?: (() => void) | undefined;
 }): ReactNode {
+  const template = summary.kind === 'template';
   return (
-    <li className="card card--template">
+    <li className={template ? 'card card--template' : 'card card--active'}>
       <div className="card__header">
         <div className="card__title-actions">
-          <span className="card__title">{summary.title}</span>
+          {template ? (
+            <span className="card__title">{summary.title}</span>
+          ) : (
+            <Link className="card__title" to={`/lists/${summary.id}`}>
+              {summary.title}
+            </Link>
+          )}
           <ListOrderButtons
             disabled={busy}
             moveDownDisabled={moveDownDisabled}
@@ -75,6 +72,18 @@ function TemplateCard({
             summary={summary}
             t={t}
           />
+          {onSaveTemplate !== undefined && (
+            <button
+              aria-label={t('list.template.save_named', { title: summary.title })}
+              className="button button--quiet template-save-icon"
+              disabled={busy}
+              onClick={onSaveTemplate}
+              title={t('list.template.save_named', { title: summary.title })}
+              type="button"
+            >
+              <span aria-hidden="true">⧉</span>
+            </button>
+          )}
         </div>
         <OverflowMenu
           disabled={busy}
@@ -92,82 +101,16 @@ function TemplateCard({
       </div>
       {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
       {summary.notes !== null && <p className="card__notes">{summary.notes}</p>}
-      <div className="card__actions">
-        <button
-          className="button button--accent"
-          disabled={busy}
-          onClick={() => onCopy(summary.id)}
-          type="button"
-        >
-          {t('home.copy_template', { title: summary.title })}
-        </button>
-      </div>
-    </li>
-  );
-}
-
-function ActiveCard({
-  summary,
-  t,
-  onDelete,
-  onSaveTemplate,
-  onMove,
-  moveUpDisabled,
-  moveDownDisabled,
-  busy,
-}: {
-  readonly summary: ListSummaryDto;
-  readonly t: Translator;
-  readonly onDelete: () => void;
-  readonly onSaveTemplate: () => void;
-  readonly onMove: (direction: MoveDirection) => void;
-  readonly moveUpDisabled: boolean;
-  readonly moveDownDisabled: boolean;
-  readonly busy: boolean;
-}): ReactNode {
-  return (
-    <li className="card card--active">
-      <div className="card__header">
-        <div className="card__title-actions">
-          <Link className="card__title" to={`/lists/${summary.id}`}>
-            {summary.title}
-          </Link>
-          <ListOrderButtons
-            disabled={busy}
-            moveDownDisabled={moveDownDisabled}
-            moveUpDisabled={moveUpDisabled}
-            onMove={onMove}
-            summary={summary}
-            t={t}
-          />
-          <button
-            aria-label={t('list.template.save_named', { title: summary.title })}
-            className="button button--quiet template-save-icon"
-            disabled={busy}
-            onClick={onSaveTemplate}
-            title={t('list.template.save_named', { title: summary.title })}
-            type="button"
-          >
-            <span aria-hidden="true">⧉</span>
+      {onCopy !== undefined && (
+        <div className="card__actions">
+          <button className="button button--accent" disabled={busy} onClick={onCopy} type="button">
+            {t('home.copy_template', { title: summary.title })}
           </button>
         </div>
-        <OverflowMenu
-          disabled={busy}
-          items={[
-            {
-              key: 'delete',
-              label: t('list.delete'),
-              glyph: '⌫',
-              danger: true,
-              onSelect: onDelete,
-            },
-          ]}
-          label={t('list.actions')}
-        />
-      </div>
-      {summary.subtitle !== null && <span className="card__subtitle">{summary.subtitle}</span>}
-      {summary.notes !== null && <p className="card__notes">{summary.notes}</p>}
-      <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
+      )}
+      {!template && (
+        <Progress completed={summary.completed_tasks} t={t} total={summary.total_tasks} />
+      )}
     </li>
   );
 }
@@ -217,7 +160,7 @@ const byKind = (list: ListSummaryDto): string => list.kind;
 export function Home(): ReactNode {
   const { t, client } = useOdin();
   const navigate = useNavigate();
-  const home = useHomeQuery(true);
+  const home = useHomeQuery();
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ListSummaryDto | null>(null);
   const [templateSaved, setTemplateSaved] = useState(false);
@@ -248,8 +191,7 @@ export function Home(): ReactNode {
     },
   );
 
-  // Saving a list template writes a new list, so Home is the cache to refresh;
-  // the new template card appearing is itself most of the confirmation.
+  // A saved template is a new list, so Home is the only cache that changes.
   const saveTemplate = useCommand(
     (requestId, input: { readonly listId: string }) =>
       saveListTemplate(client, requestId, input.listId),
@@ -292,6 +234,60 @@ export function Home(): ReactNode {
   const templates = home.data.items.filter((item) => item.kind === 'template');
   const active = home.data.items.filter((item) => item.kind === 'active');
 
+  const section = (
+    id: string,
+    heading: string,
+    empty: string,
+    lists: readonly ListSummaryDto[],
+    busy: boolean,
+  ): ReactNode => (
+    <section aria-labelledby={id} className="section">
+      <h2 className="section__heading" id={id}>
+        {heading}
+      </h2>
+      {lists.length === 0 ? (
+        <p className="empty">{empty}</p>
+      ) : (
+        <ul className="card-grid">
+          {lists.map((summary, index) => {
+            const moves = adjacentMoves(lists, index, byKind);
+            return (
+              <ListCard
+                busy={busy}
+                key={summary.id}
+                moveDownDisabled={!moves.down}
+                moveUpDisabled={!moves.up}
+                onCopy={
+                  summary.kind === 'template'
+                    ? () => void copy.run({ templateId: summary.id })
+                    : undefined
+                }
+                onDelete={() => setPendingDelete(summary)}
+                onMove={(direction) =>
+                  void reorderList.run({
+                    listId: summary.id,
+                    expectedVersion: summary.version,
+                    direction,
+                  })
+                }
+                onSaveTemplate={
+                  summary.kind === 'active'
+                    ? () => {
+                        setTemplateSaved(false);
+                        void saveTemplate.run({ listId: summary.id });
+                      }
+                    : undefined
+                }
+                summary={summary}
+                t={t}
+              />
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+
   return (
     <>
       <div className="page-header">
@@ -315,78 +311,20 @@ export function Home(): ReactNode {
         </p>
       )}
 
-      <section aria-labelledby="templates-heading" className="section">
-        <h2 className="section__heading" id="templates-heading">
-          {t('home.templates.heading')}
-        </h2>
-        {templates.length === 0 ? (
-          <p className="empty">{t('home.templates.empty')}</p>
-        ) : (
-          <ul className="card-grid">
-            {templates.map((summary, index) => {
-              const moves = adjacentMoves(templates, index, byKind);
-              return (
-                <TemplateCard
-                  busy={copy.state.pending || remove.state.pending || reorderList.state.pending}
-                  moveDownDisabled={!moves.down}
-                  moveUpDisabled={!moves.up}
-                  key={summary.id}
-                  onMove={(direction) =>
-                    void reorderList.run({
-                      listId: summary.id,
-                      expectedVersion: summary.version,
-                      direction,
-                    })
-                  }
-                  onCopy={(templateId) => void copy.run({ templateId })}
-                  onDelete={() => setPendingDelete(summary)}
-                  summary={summary}
-                  t={t}
-                />
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="active-heading" className="section">
-        <h2 className="section__heading" id="active-heading">
-          {t('home.active.heading')}
-        </h2>
-        {active.length === 0 ? (
-          <p className="empty">{t('home.active.empty')}</p>
-        ) : (
-          <ul className="card-grid">
-            {active.map((summary, index) => {
-              const moves = adjacentMoves(active, index, byKind);
-              return (
-                <ActiveCard
-                  busy={
-                    remove.state.pending || saveTemplate.state.pending || reorderList.state.pending
-                  }
-                  moveDownDisabled={!moves.down}
-                  moveUpDisabled={!moves.up}
-                  key={summary.id}
-                  onDelete={() => setPendingDelete(summary)}
-                  onMove={(direction) =>
-                    void reorderList.run({
-                      listId: summary.id,
-                      expectedVersion: summary.version,
-                      direction,
-                    })
-                  }
-                  onSaveTemplate={() => {
-                    setTemplateSaved(false);
-                    void saveTemplate.run({ listId: summary.id });
-                  }}
-                  summary={summary}
-                  t={t}
-                />
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      {section(
+        'templates-heading',
+        t('home.templates.heading'),
+        t('home.templates.empty'),
+        templates,
+        copy.state.pending || remove.state.pending || reorderList.state.pending,
+      )}
+      {section(
+        'active-heading',
+        t('home.active.heading'),
+        t('home.active.empty'),
+        active,
+        remove.state.pending || saveTemplate.state.pending || reorderList.state.pending,
+      )}
 
       <Fab label={t('home.create_list')} onClick={() => setCreating(true)} />
 

@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from 'react';
 
 import type { CommandError, ListDto } from '@odin/contracts';
-import { validateNotes, validateSubtitle, validateTitle } from '@odin/domain';
-import type { Translator, TranslationKey } from '@odin/i18n';
+import { normalizeText, validateNotes, validateSubtitle, validateTitle } from '@odin/domain';
+import { issueText, type Translator } from '@odin/i18n';
 
+import { ErrorBanner } from './Banner.tsx';
 import { Dialog } from './Dialog.tsx';
 import { Field } from './Field.tsx';
-import { errorMessage } from './Banner.tsx';
 
 /**
  * Lists carry no deadline anywhere in the UI, matching the schema and DTOs.
@@ -14,7 +14,7 @@ import { errorMessage } from './Banner.tsx';
  * is rendered in.
  */
 
-export interface ListEditorProps {
+interface ListEditorProps {
   readonly list: ListDto | null;
   readonly t: Translator;
   readonly pending: boolean;
@@ -43,26 +43,17 @@ export function ListEditor({
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
 
   const submit = (): void => {
-    const titleProblem = validateTitle(title);
-    const subtitleProblem = validateSubtitle(subtitle);
-    const notesProblem = validateNotes(notes);
-    setTitleIssue(
-      titleProblem === null ? undefined : t(titleProblem.message_key as TranslationKey),
-    );
-    setSubtitleIssue(
-      subtitleProblem === null ? undefined : t(subtitleProblem.message_key as TranslationKey),
-    );
-    setNotesIssue(
-      notesProblem === null ? undefined : t(notesProblem.message_key as TranslationKey),
-    );
-    if (titleProblem !== null || subtitleProblem !== null || notesProblem !== null) return;
+    const issues = [validateTitle(title), validateSubtitle(subtitle), validateNotes(notes)];
+    const [titleText, subtitleText, notesText] = issues.map((issue) => issueText(issue, t));
+    setTitleIssue(titleText);
+    setSubtitleIssue(subtitleText);
+    setNotesIssue(notesText);
+    if (issues.some((issue) => issue !== null)) return;
 
-    const trimmedSubtitle = subtitle.trim();
-    const trimmedNotes = notes.trim();
     onSubmit({
       title: title.trim(),
-      subtitle: trimmedSubtitle.length === 0 ? null : trimmedSubtitle,
-      notes: trimmedNotes.length === 0 ? null : trimmedNotes,
+      subtitle: normalizeText(subtitle),
+      notes: normalizeText(notes),
     });
   };
 
@@ -86,11 +77,7 @@ export function ListEditor({
       onClose={onCancel}
       title={list === null ? t('home.create_list') : t('list.edit')}
     >
-      {error !== null && (
-        <div className="banner banner--danger" role="alert">
-          {errorMessage(error, t)}
-        </div>
-      )}
+      {error !== null && <ErrorBanner error={error} t={t} />}
 
       <Field error={titleIssue} label={t('list.title.label')}>
         {(props) => (

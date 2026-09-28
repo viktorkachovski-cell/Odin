@@ -9,6 +9,16 @@ type EmailLink =
       readonly recovery: boolean;
     };
 const RECOVERY_KEY = 'odin.password-recovery';
+
+/** Where a confirmation email lands; Supabase Auth allowlists it. */
+export function confirmationUrl(): string {
+  return `${window.location.origin}/auth/confirmed`;
+}
+
+/** Where a recovery email lands; Supabase Auth allowlists it. */
+export function recoveryUrl(): string {
+  return `${window.location.origin}/reset-password`;
+}
 let recoveryUser: { id: string; expires: number } | null = null;
 let confirmed = false;
 
