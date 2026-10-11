@@ -219,3 +219,20 @@ had an entry.
 The Android commits only change installs built after them; no Android build
 was released from any of them. No browser or device check of the deployed
 overhaul is recorded beyond the Vercel READY state.
+
+## Dead-code removal and shared rules — 2026-10-11
+
+Client-only, merged as viktorkachovski-cell/Odin#15 (merge `70a2405`); no
+migration, RPC, DTO or Supabase setting changed. Vercel production deployment
+`dpl_EJviKnTd3LpGHivCvBSQQZfBWaf3` is READY on `odin-ten-tau.vercel.app`; its
+build log names `mvltbhtsukorspmpyhpw.supabase.co` and emitted 612.33 kB of
+JavaScript, 174.34 kB gzipped. Quality and Database passed on `main` at
+`70a2405`.
+
+After the deploy, `/lists/<uuid>` and the redirected `/my-tasks` returned the
+SPA with the checked-in security headers, serving the new bundle. Nobody has
+signed in to the deployed build in a browser or on a device since; the
+Android client is unreleased as before.
+
+Rollback is a Vercel promotion of `dpl_2KR9bFum7ecAKZckeDJ12UTuGCdy`
+(`109ca9b`); there is no database state to undo.
