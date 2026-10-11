@@ -17,9 +17,7 @@ jest.mock('./ActionMenu.tsx', () => ({
 const t = createTranslator('en');
 const handlers = {
   onDelete: jest.fn(),
-  onEdit: jest.fn(),
-  onMove: jest.fn(),
-  onOpen: jest.fn(),
+  onPress: jest.fn(),
   onSetState: jest.fn(),
   onToggleCompleted: jest.fn(),
   onUnassign: jest.fn(),
@@ -49,10 +47,11 @@ function view(tasks: readonly TaskDto[]) {
       busy={false}
       isTemplate={false}
       locale="en"
+      handlers={handlers}
       members={members}
+      onMove={jest.fn()}
       t={t}
       tasks={tasks}
-      {...handlers}
     />
   );
 }

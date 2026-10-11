@@ -23,14 +23,14 @@ function row(overrides: Partial<TaskRowModel> = {}): TaskRowModel {
 }
 
 describe('TaskRow', () => {
-  it('keeps completion and editing as separate controls', async () => {
+  it('keeps completion and opening the task as separate controls', async () => {
     const onToggleCompleted = jest.fn();
-    const onEdit = jest.fn();
+    const onPress = jest.fn();
     await render(
       <TaskRow
         locale="en"
         members={members}
-        onEdit={onEdit}
+        onPress={onPress}
         onToggleCompleted={onToggleCompleted}
         t={t}
         task={row()}
@@ -41,7 +41,7 @@ describe('TaskRow', () => {
 
     expect(onToggleCompleted).toHaveBeenCalledTimes(1);
     // Completing a task must never also open its editor.
-    expect(onEdit).not.toHaveBeenCalled();
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it('opens task details from the task body while keeping row actions independent', async () => {
@@ -112,13 +112,29 @@ describe('TaskRow', () => {
     );
 
     await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
-    await fireEvent.press(screen.getByText('Status: Blocked'));
+    await fireEvent.press(screen.getByText('Mark blocked'));
 
     expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'blocked');
     expect(onPress).not.toHaveBeenCalled();
   });
 
-  it('offers a blocked task back as open, labelled from its assignee', async () => {
+  it('shows a status label only when the task is blocked', async () => {
+    const view = await render(<TaskRow locale="en" members={members} t={t} task={row()} />);
+    expect(screen.queryByText('Blocked')).toBeNull();
+    await view.rerender(
+      <TaskRow locale="en" members={members} t={t} task={row({ blocked: true })} />,
+    );
+    expect(screen.getByText('Blocked')).toBeTruthy();
+  });
+
+  it('offers Claim on an unclaimed task, named after the task', async () => {
+    const onClaim = jest.fn();
+    await render(<TaskRow locale="en" members={members} onClaim={onClaim} t={t} task={row()} />);
+    await fireEvent.press(screen.getByLabelText('Claim Bathroom'));
+    expect(onClaim).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+  });
+
+  it('offers Unblock on a blocked task, which reopens it', async () => {
     const onSetState = jest.fn();
     await render(
       <TaskRow
@@ -131,13 +147,13 @@ describe('TaskRow', () => {
     );
 
     await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
-    expect(screen.queryByText('Status: Blocked')).toBeNull();
-    await fireEvent.press(screen.getByText('Status: Unassigned'));
+    expect(screen.queryByText('Mark blocked')).toBeNull();
+    await fireEvent.press(screen.getByText('Unblock'));
 
     expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'open');
   });
 
-  it('disables move controls at the visible ordering boundaries', async () => {
+  it('disables move controls at the visible ordering boundaries in reorder mode', async () => {
     const onMove = jest.fn();
     await render(
       <TaskRow
@@ -188,10 +204,11 @@ describe('TaskRow', () => {
     expect(screen.getByText('Ana')).toBeTruthy();
   });
 
-  it('marks an unassigned task explicitly', async () => {
+  it('tells TalkBack an unclaimed task is unassigned without a visible label', async () => {
     await render(<TaskRow locale="en" members={members} t={t} task={row()} />);
 
     expect(screen.getByText('Unassigned')).toBeTruthy();
+    expect(screen.queryByText('No deadline')).toBeNull();
   });
 
   it('offers no completion or edit control on a read-only template row', async () => {
@@ -202,24 +219,21 @@ describe('TaskRow', () => {
   });
 
   it('keeps secondary task actions in an Android overflow menu', async () => {
-    const onEdit = jest.fn();
     const onUnassign = jest.fn();
     await render(
       <TaskRow
         locale="en"
         members={members}
-        onEdit={onEdit}
         onUnassign={onUnassign}
         t={t}
         task={row({ assignee_id: 'u1' })}
       />,
     );
 
-    expect(screen.queryByText('Edit')).toBeNull();
+    expect(screen.queryByText('Unassign')).toBeNull();
     await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
     await fireEvent.press(screen.getByText('Unassign'));
 
     expect(onUnassign).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
-    expect(onEdit).not.toHaveBeenCalled();
   });
 });

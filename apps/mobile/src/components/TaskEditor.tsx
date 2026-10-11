@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
 import {
@@ -36,6 +36,10 @@ interface TaskEditorProps {
   readonly conflict: boolean;
   readonly onCancel: () => void;
   readonly onReviewConflict: () => void;
+  /** Rendered above the title, for the New task editor's list picker. */
+  readonly listField?: ReactNode;
+  /** A quiet destructive action at the start of the footer. */
+  readonly onDelete?: (() => void) | undefined;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
@@ -54,6 +58,8 @@ export function TaskEditor({
   onCancel,
   onReviewConflict,
   onSubmit,
+  listField,
+  onDelete,
 }: TaskEditorProps): ReactNode {
   const theme = useTheme();
   const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
@@ -77,10 +83,42 @@ export function TaskEditor({
     });
   };
 
+  // A new task can start from a template, so the chooser leads; an existing
+  // task's "save as template" is secondary and sits below the fields.
+  const templates = (
+    <TaskTemplates
+      draft={draft}
+      allowChoose={task === null}
+      disabled={pending}
+      onChoose={(template) =>
+        setDraft({
+          title: template.title,
+          notes: template.notes ?? '',
+          assigneeId: null,
+          dueDate: '',
+          dueTime: '',
+        })
+      }
+      t={t}
+    />
+  );
+
   return (
     <Sheet
       footer={
         <>
+          {onDelete !== undefined && (
+            <Pressable
+              accessibilityRole="button"
+              disabled={pending}
+              onPress={onDelete}
+              style={[styles.delete, { minHeight: theme.touchTarget }]}
+            >
+              <Text style={[styles.deleteText, { color: theme.colors.danger }]}>
+                {t('task.delete.short')}
+              </Text>
+            </Pressable>
+          )}
           <SecondaryButton label={t('task.cancel')} onPress={onCancel} />
           <PrimaryButton
             label={pending ? t('state.saving') : t('task.save')}
@@ -107,21 +145,8 @@ export function TaskEditor({
 
       <InlineError error={conflict ? null : error} t={t} />
 
-      <TaskTemplates
-        draft={draft}
-        allowChoose={task === null}
-        disabled={pending}
-        onChoose={(template) =>
-          setDraft({
-            title: template.title,
-            notes: template.notes ?? '',
-            assigneeId: null,
-            dueDate: '',
-            dueTime: '',
-          })
-        }
-        t={t}
-      />
+      {listField}
+      {task === null && templates}
       <Field
         error={titleIssue}
         label={t('task.title.label')}
@@ -150,6 +175,7 @@ export function TaskEditor({
         onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
         t={t}
       />
+      {task !== null && templates}
     </Sheet>
   );
 }
@@ -157,4 +183,6 @@ export function TaskEditor({
 const styles = StyleSheet.create({
   conflict: { borderRadius: 10, borderWidth: 1, gap: 8, padding: 12 },
   conflictTitle: { fontSize: 16, fontWeight: '700' },
+  delete: { justifyContent: 'center', marginRight: 'auto', paddingHorizontal: 8 },
+  deleteText: { fontSize: 16, fontWeight: '500' },
 });

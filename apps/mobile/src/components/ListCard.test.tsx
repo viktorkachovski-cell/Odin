@@ -39,15 +39,24 @@ describe('ListCard', () => {
     expect(screen.getByText('Buy the good olive oil')).toBeTruthy();
   });
 
-  it('saves an active list as a template from the inline title icon', async () => {
+  it('saves an active list as a template from its menu', async () => {
     const onSaveTemplate = jest.fn();
     await render(
       <ListCard list={summary()} onDelete={jest.fn()} onSaveTemplate={onSaveTemplate} t={t} />,
     );
 
-    await fireEvent.press(screen.getByLabelText('Save Pantry as list template'));
+    await fireEvent.press(screen.getByLabelText('List actions: Pantry'));
+    await fireEvent.press(screen.getByText('Save as list template'));
 
     expect(onSaveTemplate).toHaveBeenCalledWith(expect.objectContaining({ id: 'l1' }));
+  });
+
+  it('offers Use template on a template row', async () => {
+    const onCopy = jest.fn();
+    await render(<ListCard list={summary({ kind: 'template' })} onCopy={onCopy} t={t} />);
+
+    await fireEvent.press(screen.getByLabelText('Create list from Pantry'));
+    expect(onCopy).toHaveBeenCalledWith(expect.objectContaining({ id: 'l1' }));
   });
 
   it('keeps deletion in the overflow and never offers task-template actions', async () => {
@@ -78,10 +87,17 @@ describe('ListCard', () => {
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ kind: 'template' }));
   });
 
-  it('exposes ordered-list controls with the boundary disabled', async () => {
+  it('exposes ordered-list controls in reorder mode with the boundary disabled', async () => {
     const onMove = jest.fn();
     await render(
-      <ListCard list={summary()} moveUpDisabled onDelete={jest.fn()} onMove={onMove} t={t} />,
+      <ListCard
+        list={summary()}
+        moveUpDisabled
+        onDelete={jest.fn()}
+        onMove={onMove}
+        reorder
+        t={t}
+      />,
     );
 
     expect(screen.getByLabelText('Move Pantry up')).toBeDisabled();
@@ -91,7 +107,7 @@ describe('ListCard', () => {
 
   it('refuses a second move while one is in flight', async () => {
     const onMove = jest.fn();
-    await render(<ListCard list={summary()} movePending onMove={onMove} t={t} />);
+    await render(<ListCard list={summary()} movePending onMove={onMove} reorder t={t} />);
 
     expect(screen.getByLabelText('Move Pantry up')).toBeDisabled();
     expect(screen.getByLabelText('Move Pantry down')).toBeDisabled();

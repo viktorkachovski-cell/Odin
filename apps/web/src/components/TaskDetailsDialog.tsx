@@ -16,6 +16,7 @@ export function TaskDetailsDialog({
   canEdit,
   onClose,
   onEdit,
+  variant = 'center',
 }: {
   readonly taskId: string;
   readonly members: readonly MemberDto[];
@@ -24,6 +25,7 @@ export function TaskDetailsDialog({
   readonly canEdit: boolean;
   readonly onClose: () => void;
   readonly onEdit: (task: TaskDto) => void;
+  readonly variant?: 'center' | 'side';
 }): ReactNode {
   const query = useTaskQuery(taskId);
   const task = query.isError ? undefined : query.data;
@@ -47,6 +49,7 @@ export function TaskDetailsDialog({
         </>
       }
       onClose={onClose}
+      variant={variant}
       title={task?.title ?? t('task.details.title')}
     >
       {query.isPending && <p role="status">{t('task.details.loading')}</p>}

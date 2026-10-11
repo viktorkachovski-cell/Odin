@@ -14,9 +14,20 @@ interface DialogProps {
   readonly onClose: () => void;
   readonly children: ReactNode;
   readonly footer?: ReactNode;
+  /**
+   * `side` docks the panel to the right edge at full height -- the task panel,
+   * where the list behind stays visible for context. It is still modal.
+   */
+  readonly variant?: 'center' | 'side';
 }
 
-export function Dialog({ title, onClose, children, footer }: DialogProps): ReactNode {
+export function Dialog({
+  title,
+  onClose,
+  children,
+  footer,
+  variant = 'center',
+}: DialogProps): ReactNode {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -65,11 +76,13 @@ export function Dialog({ title, onClose, children, footer }: DialogProps): React
   }, [onClose]);
 
   return (
-    <div className="dialog-backdrop">
+    <div
+      className={variant === 'side' ? 'dialog-backdrop dialog-backdrop--side' : 'dialog-backdrop'}
+    >
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="dialog"
+        className={variant === 'side' ? 'dialog dialog--side' : 'dialog'}
         ref={panelRef}
         role="dialog"
         tabIndex={-1}

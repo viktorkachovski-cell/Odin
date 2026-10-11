@@ -4,7 +4,13 @@ import { ERROR_CODES } from '@odin/contracts';
 
 import { bg } from './bg.ts';
 import { en } from './en.ts';
-import { createTranslator, formatDueAt, resolveLocale, translate } from './index.ts';
+import {
+  createTranslator,
+  formatDueAt,
+  formatDueShort,
+  resolveLocale,
+  translate,
+} from './index.ts';
 import { TRANSLATION_KEYS } from './keys.ts';
 
 const PLACEHOLDER = /\{(\w+)\}/g;
@@ -101,5 +107,27 @@ describe('formatDueAt', () => {
     formatDueAt(dueAt, 'en');
 
     expect(build).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('formatDueShort', () => {
+  const now = new Date(2026, 9, 11, 14, 0);
+  it('shows only the time for today, and nothing for an end-of-day deadline', () => {
+    expect(formatDueShort(new Date(2026, 9, 11, 16, 30).toISOString(), 'en', now)).toBe(
+      'Today 16:30',
+    );
+    expect(formatDueShort(new Date(2026, 9, 11, 23, 59, 59, 999).toISOString(), 'en', now)).toBe(
+      'Today',
+    );
+    expect(formatDueShort(new Date(2026, 9, 11, 23, 59, 59, 999).toISOString(), 'bg', now)).toBe(
+      'Днес',
+    );
+  });
+
+  it('shows a short weekday and date on other days, with the year only when it differs', () => {
+    const friday = formatDueShort(new Date(2026, 9, 16, 23, 59, 59, 999).toISOString(), 'en', now);
+    expect(friday).toContain('16');
+    expect(friday).not.toContain('2026');
+    expect(formatDueShort(new Date(2027, 0, 2, 9, 0).toISOString(), 'en', now)).toContain('2027');
   });
 });

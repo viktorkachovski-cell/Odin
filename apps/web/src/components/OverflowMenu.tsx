@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { Icon } from './Icon.tsx';
+
 /**
  * The menu that holds a row's or a card's secondary and destructive actions, so
  * neither competes with the action a person actually came for.
@@ -17,6 +19,8 @@ export interface OverflowItem {
   readonly key: string;
   readonly label: string;
   readonly glyph?: string | undefined;
+  /** A quieter second line, such as a template's task count. */
+  readonly description?: string | undefined;
   /** Destructive items are grouped last, behind a rule. */
   readonly danger?: boolean | undefined;
   readonly disabled?: boolean | undefined;
@@ -28,9 +32,21 @@ interface OverflowMenuProps {
   readonly label: string;
   readonly items: readonly OverflowItem[];
   readonly disabled?: boolean | undefined;
+  /** Visible trigger content; the default is the ⋯ icon. */
+  readonly trigger?: ReactNode;
+  readonly triggerClassName?: string | undefined;
+  /** A small caption above the items. */
+  readonly heading?: string | undefined;
 }
 
-export function OverflowMenu({ label, items, disabled = false }: OverflowMenuProps): ReactNode {
+export function OverflowMenu({
+  label,
+  items,
+  disabled = false,
+  trigger,
+  triggerClassName,
+  heading,
+}: OverflowMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   const [focusIndex, setFocusIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -124,24 +140,32 @@ export function OverflowMenu({ label, items, disabled = false }: OverflowMenuPro
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={label}
-        className="button button--quiet overflow__trigger"
+        className={triggerClassName ?? 'button button--quiet overflow__trigger'}
         disabled={disabled}
         onClick={() => (open ? close(false) : openAt(0))}
         onKeyDown={onTriggerKeyDown}
         ref={triggerRef}
         type="button"
       >
-        <span aria-hidden="true">⋯</span>
+        {trigger ?? <Icon name="more" />}
       </button>
 
       {open && (
         <ul aria-label={label} className="overflow__menu" onKeyDown={onMenuKeyDown} role="menu">
+          {heading !== undefined && (
+            <li aria-hidden="true" className="overflow__heading" role="presentation">
+              {heading}
+            </li>
+          )}
           {ordered.map((item, index) => (
             <li key={item.key}>
               {index === firstDanger && index > 0 && (
                 <div aria-hidden="true" className="overflow__separator" />
               )}
               <button
+                aria-label={
+                  item.description === undefined ? undefined : `${item.label}, ${item.description}`
+                }
                 className={
                   item.danger === true ? 'overflow__item overflow__item--danger' : 'overflow__item'
                 }
@@ -159,7 +183,14 @@ export function OverflowMenu({ label, items, disabled = false }: OverflowMenuPro
                     {item.glyph}
                   </span>
                 )}
-                {item.label}
+                {item.description === undefined ? (
+                  item.label
+                ) : (
+                  <span className="overflow__item-text">
+                    <span>{item.label}</span>
+                    <span className="overflow__item-description">{item.description}</span>
+                  </span>
+                )}
               </button>
             </li>
           ))}

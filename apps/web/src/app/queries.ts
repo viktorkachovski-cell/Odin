@@ -98,3 +98,14 @@ export function useAllTasksQuery(
     enabled,
   });
 }
+
+const EVERY_TASK: TaskDeadlineFilter = { preset: 'all' };
+
+/**
+ * Every task in the household's open active lists, done ones included, in one
+ * read. Today, Tasks and the navigation badge all derive from this single
+ * cache entry, so they always agree and share one refetch.
+ */
+export function useHouseholdTasksQuery(): UseQueryResult<TaskCollectionDto> {
+  return useAllTasksQuery(EVERY_TASK, true);
+}

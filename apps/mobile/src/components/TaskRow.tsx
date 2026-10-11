@@ -11,21 +11,23 @@ import {
   type TaskRowModel,
   type TaskState,
 } from '@odin/contracts';
-import { isOverdue, taskState, taskStatus, taskStatusOptions } from '@odin/domain';
-import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
+import { isOverdue } from '@odin/domain';
+import { formatDueShort, type Locale, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
 import { Avatar } from './Avatar.tsx';
-import { SecondaryButton } from './Button.tsx';
 
 /**
- * A task row is a flat set of sibling controls, never a pressable card with
- * buttons inside it. Completing a task and opening its editor are separate
- * targets, so completion can never open the editor by accident.
+ * A task row: completion, the task, who has it, and one overflow menu. It
+ * shows exceptions rather than defaults -- a status label only when Blocked, no
+ * "No deadline" text, and Claim instead of an "Unassigned" label wherever
+ * claiming is offered. Completing a task and opening it are separate targets,
+ * so completion can never open the task by accident. Move controls appear only
+ * in reorder mode.
  *
- * It renders a `TaskRowModel`, so the full list-detail task and the narrower
- * My Tasks / Unassigned projection share one component.
+ * It renders a `TaskRowModel`, so the full list-detail task and the household
+ * projection share one component.
  */
 
 /**
@@ -53,79 +55,50 @@ interface TaskRowProps {
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
-  readonly busy?: boolean;
+  readonly busy?: boolean | undefined;
+  /** Off on Today's My tasks, where every row is the member's own. */
+  readonly showAssignee?: boolean;
   readonly onPress?: ((task: TaskRowModel) => void) | undefined;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
-  readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
   readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
   readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
+  /** Offered as Mark blocked / Unblock in the overflow. */
   readonly onSetState?: ((task: TaskRowModel, state: TaskState) => void) | undefined;
   readonly onMove?: ((task: TaskRowModel, direction: MoveDirection) => void) | undefined;
-  readonly moveUpDisabled?: boolean;
-  readonly moveDownDisabled?: boolean;
+  readonly moveUpDisabled?: boolean | undefined;
+  readonly moveDownDisabled?: boolean | undefined;
 }
 
-function TaskActions({
+function menuActions({
   task,
-  busy = false,
   t,
-  onClaim,
-  onEdit,
+  onSetState,
   onUnassign,
   onDelete,
-  onSetState,
-}: Pick<
-  TaskRowProps,
-  'task' | 'busy' | 't' | 'onClaim' | 'onEdit' | 'onUnassign' | 'onDelete' | 'onSetState'
->): ReactNode {
-  const currentState = taskState(task);
-  const actions: ActionMenuItem[] = [
-    ...(onEdit === undefined
-      ? []
-      : [{ label: t('task.edit_action.short'), onPress: () => onEdit(task) }]),
-    ...(onUnassign === undefined || task.assignee_id === null
-      ? []
-      : [{ label: t('task.unassign.short'), onPress: () => onUnassign(task) }]),
-    ...(onSetState === undefined
-      ? []
-      : taskStatusOptions(task)
-          .filter((option) => option.state !== currentState)
-          .map((option) => ({
-            label: `${t('task.status.label')}: ${t(`task.status.${option.status}`)}`,
-            onPress: () => onSetState(task, option.state),
-          }))),
-    ...(onDelete === undefined
-      ? []
-      : [
-          {
-            label: t('task.delete.short'),
-            onPress: () => onDelete(task),
-            destructive: true,
-          },
-        ]),
-  ];
-
-  return (
-    <View style={styles.actions}>
-      {onClaim !== undefined && (
-        <SecondaryButton
-          accessibilityLabel={t('task.claim', { title: task.title })}
-          disabled={busy}
-          label={t('task.claim.short')}
-          onPress={() => onClaim(task)}
-        />
-      )}
-      <ActionMenu
-        accessibilityLabel={t('task.actions', { title: task.title })}
-        actions={actions}
-        disabled={busy}
-      />
-    </View>
-  );
+}: Pick<TaskRowProps, 'task' | 't' | 'onSetState' | 'onUnassign' | 'onDelete'>): ActionMenuItem[] {
+  const actions: ActionMenuItem[] = [];
+  if (onSetState !== undefined && !task.completed) {
+    actions.push(
+      task.blocked === true
+        ? { label: t('task.unblock'), onPress: () => onSetState(task, 'open') }
+        : { label: t('task.block'), onPress: () => onSetState(task, 'blocked') },
+    );
+  }
+  if (onUnassign !== undefined && task.assignee_id !== null) {
+    actions.push({ label: t('task.unassign.short'), onPress: () => onUnassign(task) });
+  }
+  if (onDelete !== undefined) {
+    actions.push({
+      label: t('task.delete.short'),
+      onPress: () => onDelete(task),
+      destructive: true,
+    });
+  }
+  return actions;
 }
 
-function DueText({
+function MetaLine({
   task,
   locale,
   t,
@@ -135,211 +108,267 @@ function DueText({
   readonly t: Translator;
 }): ReactNode {
   const theme = useTheme();
-  if (task.due_at === null) {
-    return (
-      <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{t('task.due.none')}</Text>
-    );
-  }
   const overdue = isOverdue(task);
+  const due = task.due_at === null ? null : formatDueShort(task.due_at, locale);
+  if (task.list_title === undefined && due === null) return null;
   return (
-    <Text
-      style={[
-        styles.meta,
-        { color: overdue ? theme.colors.danger : theme.colors.textMuted },
-        overdue && styles.metaStrong,
-      ]}
-    >
-      {/* Overdue is spelled out; colour alone would not be enough. */}
-      {overdue ? `${t('task.overdue')} · ` : ''}
-      {formatDueAt(task.due_at, locale)}
+    <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
+      {task.list_title}
+      {task.list_title !== undefined && due !== null ? ' · ' : ''}
+      {due !== null && (
+        // Overdue is spelled out; colour alone would not be enough.
+        <Text style={overdue ? [styles.metaStrong, { color: theme.colors.danger }] : undefined}>
+          {overdue ? t('task.overdue_on', { date: due }) : due}
+        </Text>
+      )}
     </Text>
   );
 }
 
-export const TaskRow = memo(function TaskRow({
+function Who({
   task,
   members,
-  locale,
   t,
-  busy = false,
-  onPress,
-  onToggleCompleted,
-  onEdit,
+  busy,
   onClaim,
-  onUnassign,
-  onDelete,
-  onSetState,
-  onMove,
-  moveUpDisabled = false,
-  moveDownDisabled = false,
-}: TaskRowProps): ReactNode {
+}: Pick<TaskRowProps, 'task' | 'members' | 't' | 'busy' | 'onClaim'>): ReactNode {
   const theme = useTheme();
   const assignee = members.find((member) => member.user_id === task.assignee_id);
-
-  return (
-    <View
-      style={[
-        styles.row,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-      ]}
-    >
-      {onToggleCompleted !== undefined && (
-        <Pressable
-          accessibilityLabel={
-            task.completed
-              ? t('task.incomplete', { title: task.title })
-              : t('task.complete', { title: task.title })
-          }
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: task.completed, disabled: busy }}
-          disabled={busy}
-          hitSlop={8}
-          onPress={() => onToggleCompleted(task, !task.completed)}
-          style={[styles.toggle, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
-        >
-          <Text style={[styles.box, { color: theme.colors.text }]}>
-            {task.completed ? '☑' : '☐'}
-          </Text>
-        </Pressable>
-      )}
-
+  if (assignee !== undefined) {
+    return (
+      <View style={styles.who}>
+        <Avatar displayName={assignee.display_name} size={28} userId={assignee.user_id} />
+        {/* The avatar is decorative; TalkBack reads the name. */}
+        <Text style={styles.srOnly}>{assignee.display_name}</Text>
+      </View>
+    );
+  }
+  if (task.assignee_id === null && onClaim !== undefined && !task.completed) {
+    return (
       <Pressable
-        accessibilityLabel={task.title}
-        accessibilityRole={onPress === undefined ? undefined : 'button'}
-        disabled={onPress === undefined}
-        onPress={() => onPress?.(task)}
-        style={styles.body}
+        accessibilityLabel={t('task.claim', { title: task.title })}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy === true }}
+        android_ripple={{ color: theme.colors.accentSoft }}
+        disabled={busy}
+        onPress={() => onClaim(task)}
+        style={[
+          styles.claim,
+          {
+            borderColor: theme.colors.accent,
+            borderRadius: theme.radius.md,
+            minHeight: theme.touchTarget,
+            opacity: busy === true ? 0.6 : 1,
+          },
+        ]}
       >
+        <Text style={[styles.claimText, { color: theme.colors.accent }]}>
+          {t('task.claim.short')}
+        </Text>
+      </Pressable>
+    );
+  }
+  // Read by TalkBack only: the row says nobody has it without a visible label.
+  return task.assignee_id === null ? (
+    <Text style={styles.srOnly}>{t('task.assignee.unassigned')}</Text>
+  ) : null;
+}
+
+function Toggle({
+  task,
+  t,
+  busy,
+  onToggleCompleted,
+}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'onToggleCompleted'>): ReactNode {
+  const theme = useTheme();
+  if (onToggleCompleted === undefined) return <View style={{ width: 4 }} />;
+  const blocked = busy === true;
+  return (
+    <Pressable
+      accessibilityLabel={
+        task.completed
+          ? t('task.incomplete', { title: task.title })
+          : t('task.complete', { title: task.title })
+      }
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: task.completed, disabled: blocked }}
+      disabled={blocked}
+      hitSlop={4}
+      onPress={() => onToggleCompleted(task, !task.completed)}
+      style={[styles.toggle, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+    >
+      <View
+        style={[
+          styles.box,
+          {
+            backgroundColor: task.completed ? theme.colors.accentSoft : theme.colors.surface,
+            borderColor: task.completed ? theme.colors.accent : theme.colors.borderStrong,
+          },
+        ]}
+      >
+        {task.completed && <Text style={[styles.check, { color: theme.colors.accent }]}>✓</Text>}
+      </View>
+    </Pressable>
+  );
+}
+
+function Body({
+  task,
+  locale,
+  t,
+  onPress,
+}: Pick<TaskRowProps, 'task' | 'locale' | 't' | 'onPress'>): ReactNode {
+  const theme = useTheme();
+  const hasNotes = task.notes !== undefined && task.notes !== null && task.notes.length > 0;
+  return (
+    <Pressable
+      accessibilityLabel={task.title}
+      accessibilityRole={onPress === undefined ? undefined : 'button'}
+      disabled={onPress === undefined}
+      onPress={() => onPress?.(task)}
+      style={styles.body}
+    >
+      <View style={styles.headline}>
         <Text
-          style={[styles.title, { color: theme.colors.text }, task.completed && styles.titleDone]}
+          style={[
+            styles.title,
+            { color: task.completed ? theme.colors.textMuted : theme.colors.text },
+            task.completed && styles.titleDone,
+          ]}
         >
           {task.title}
         </Text>
-        {task.notes !== undefined && task.notes !== null && (
-          <Text numberOfLines={2} style={[styles.meta, { color: theme.colors.textMuted }]}>
-            {task.notes}
-          </Text>
+        {task.blocked === true && !task.completed && (
+          <View
+            style={[
+              styles.pill,
+              { backgroundColor: theme.colors.warningSoft, borderRadius: theme.radius.pill },
+            ]}
+          >
+            <Text style={[styles.pillText, { color: theme.colors.warning }]}>
+              {t('task.status.blocked')}
+            </Text>
+          </View>
         )}
+      </View>
+      {hasNotes && (
+        <Text numberOfLines={1} style={[styles.meta, { color: theme.colors.textMuted }]}>
+          {task.notes}
+        </Text>
+      )}
+      <MetaLine locale={locale} t={t} task={task} />
+    </Pressable>
+  );
+}
 
-        <View style={styles.metaRow}>
-          {task.list_title !== undefined && (
-            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-              {t('task.in_list', { list: task.list_title })}
-            </Text>
-          )}
+export const TaskRow = memo(function TaskRow(props: TaskRowProps): ReactNode {
+  const { task, members, locale, t, busy = false, showAssignee = true, onMove } = props;
+  const theme = useTheme();
 
-          {onSetState !== undefined && (
-            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-              {t(`task.status.${taskStatus(task)}`)}
-            </Text>
-          )}
-
-          {assignee === undefined ? (
-            <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-              {t('task.assignee.unassigned')}
-            </Text>
-          ) : (
-            <View style={styles.chip}>
-              <Avatar displayName={assignee.display_name} size={22} userId={assignee.user_id} />
-              <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-                {assignee.display_name}
-              </Text>
-            </View>
-          )}
-
-          <DueText locale={locale} t={t} task={task} />
-        </View>
-      </Pressable>
-
-      <TaskActions
-        busy={busy}
-        onClaim={onClaim}
-        onDelete={onDelete}
-        onEdit={onEdit}
-        onSetState={onSetState}
-        onUnassign={onUnassign}
-        t={t}
-        task={task}
-      />
-      <TaskMoveControls
-        busy={busy}
-        moveDownDisabled={moveDownDisabled}
-        moveUpDisabled={moveUpDisabled}
-        onMove={onMove}
-        t={t}
-        task={task}
-      />
+  return (
+    <View style={[styles.row, { borderTopColor: theme.colors.border }]}>
+      <Toggle busy={busy} onToggleCompleted={props.onToggleCompleted} t={t} task={task} />
+      <Body locale={locale} onPress={props.onPress} t={t} task={task} />
+      {showAssignee && (
+        <Who busy={busy} members={members} onClaim={props.onClaim} t={t} task={task} />
+      )}
+      {onMove === undefined ? (
+        <ActionMenu
+          accessibilityLabel={t('task.actions', { title: task.title })}
+          actions={menuActions(props)}
+          disabled={busy}
+        />
+      ) : (
+        <MoveControls
+          busy={busy}
+          moveDownDisabled={props.moveDownDisabled}
+          moveUpDisabled={props.moveUpDisabled}
+          onMove={onMove}
+          t={t}
+          task={task}
+        />
+      )}
     </View>
   );
 });
 
-function TaskMoveControls({
+function MoveControls({
   task,
   t,
   busy,
   onMove,
   moveUpDisabled,
   moveDownDisabled,
-}: Pick<
-  TaskRowProps,
-  'task' | 't' | 'busy' | 'onMove' | 'moveUpDisabled' | 'moveDownDisabled'
->): ReactNode {
+}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'moveUpDisabled' | 'moveDownDisabled'> & {
+  readonly onMove: (task: TaskRowModel, direction: MoveDirection) => void;
+}): ReactNode {
   const theme = useTheme();
-  if (onMove === undefined) return null;
+  const button = (direction: MoveDirection, disabled: boolean): ReactNode => (
+    <Pressable
+      accessibilityLabel={t(direction === 'up' ? 'task.move.up' : 'task.move.down', {
+        title: task.title,
+      })}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || busy === true }}
+      disabled={disabled || busy}
+      hitSlop={4}
+      onPress={() => onMove(task, direction)}
+      style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+    >
+      <Text
+        style={[
+          styles.moveGlyph,
+          { color: disabled ? theme.colors.disabledText : theme.colors.text },
+        ]}
+      >
+        {direction === 'up' ? '↑' : '↓'}
+      </Text>
+    </Pressable>
+  );
   return (
     <View style={styles.moveActions}>
-      <Pressable
-        accessibilityLabel={t('task.move.up', { title: task.title })}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: moveUpDisabled || busy }}
-        disabled={moveUpDisabled || busy}
-        hitSlop={4}
-        onPress={() => onMove(task, 'up')}
-        style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
-      >
-        <Text style={[styles.moveGlyph, { color: theme.colors.textMuted }]}>↑</Text>
-      </Pressable>
-      <Pressable
-        accessibilityLabel={t('task.move.down', { title: task.title })}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: moveDownDisabled || busy }}
-        disabled={moveDownDisabled || busy}
-        hitSlop={4}
-        onPress={() => onMove(task, 'down')}
-        style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
-      >
-        <Text style={[styles.moveGlyph, { color: theme.colors.textMuted }]}>↓</Text>
-      </Pressable>
+      {button('up', moveUpDisabled === true)}
+      {button('down', moveDownDisabled === true)}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: { alignItems: 'center', flexDirection: 'row', gap: 4 },
-  body: { flexShrink: 1, gap: 4, minWidth: 0 },
-  box: { fontSize: 22 },
-  chip: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  meta: { fontSize: 13 },
-  metaRow: {
+  body: { flex: 1, gap: 2, minWidth: 0, paddingVertical: 10 },
+  box: {
     alignItems: 'center',
-    columnGap: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: 4,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    height: 22,
+    justifyContent: 'center',
+    width: 22,
   },
+  check: { fontSize: 14, fontWeight: '700', lineHeight: 16 },
+  claim: {
+    alignItems: 'center',
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  claimText: { fontSize: 14, fontWeight: '700' },
+  headline: { alignItems: 'center', columnGap: 6, flexDirection: 'row', flexWrap: 'wrap' },
+  meta: { fontSize: 13 },
   metaStrong: { fontWeight: '700' },
-  moveActions: { flexDirection: 'column' },
+  moveActions: { flexDirection: 'row' },
   moveButton: { alignItems: 'center', justifyContent: 'center' },
   moveGlyph: { fontSize: 18, fontWeight: '700' },
+  pill: { paddingHorizontal: 7, paddingVertical: 1 },
+  pillText: { fontSize: 12, fontWeight: '700' },
   row: {
-    alignItems: 'flex-start',
-    borderRadius: 10,
-    borderWidth: 1,
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    gap: 12,
-    padding: 12,
+    gap: 4,
+    paddingRight: 4,
   },
+  srOnly: { height: 1, opacity: 0, position: 'absolute', width: 1 },
   title: { flexShrink: 1, fontSize: 16, fontWeight: '500' },
   titleDone: { textDecorationLine: 'line-through' },
   toggle: { alignItems: 'center', justifyContent: 'center' },
+  who: { alignItems: 'center', justifyContent: 'center', minWidth: 36 },
 });

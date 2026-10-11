@@ -54,22 +54,24 @@ const tasks: TaskDto[] = [
   },
 ];
 
-function renderList(isTemplate: boolean) {
+function renderList(isTemplate: boolean, reorder = true) {
   const onMoveTask = vi.fn();
   const onSetState = vi.fn();
   render(
     <ListTasks
       busy={false}
+      handlers={{
+        onOpenDetails: vi.fn(),
+        onSetState,
+        onToggleCompleted: vi.fn(),
+        onDelete: vi.fn(),
+        onUnassign: vi.fn(),
+      }}
       isTemplate={isTemplate}
       locale="en"
       members={members}
-      onDelete={vi.fn()}
-      onEdit={vi.fn()}
       onMoveTask={onMoveTask}
-      onOpenDetails={vi.fn()}
-      onSetState={onSetState}
-      onToggleCompleted={vi.fn()}
-      onUnassign={vi.fn()}
+      reorder={reorder}
       t={t}
       tasks={isTemplate ? tasks.filter((task) => !task.completed) : tasks}
     />,
@@ -78,7 +80,7 @@ function renderList(isTemplate: boolean) {
 }
 
 describe('ListTasks', () => {
-  it('keeps moves inside completion groups and submits the chosen task state', async () => {
+  it('keeps moves inside completion groups and sets state from the row menu', async () => {
     const user = userEvent.setup();
     const { onMoveTask, onSetState } = renderList(false);
 
@@ -88,22 +90,28 @@ describe('ListTasks', () => {
 
     await user.click(screen.getByRole('button', { name: 'Move Second up' }));
     expect(onMoveTask).toHaveBeenCalledWith(expect.objectContaining({ id: 't2' }), 'up');
-    const status = screen.getByRole('combobox', { name: 'Change status for Second' });
-    // An assigned open task reads To-do; the option sends the stored state.
-    expect(status).toHaveDisplayValue('To-do');
-    await user.selectOptions(status, 'Blocked');
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Second' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Mark blocked' }));
     expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't2' }), 'blocked');
-    expect(screen.getByRole('combobox', { name: 'Change status for First' })).toHaveDisplayValue(
-      'Unassigned',
-    );
+  });
+
+  it('hides move controls outside reorder mode and collapses completed tasks', async () => {
+    const user = userEvent.setup();
+    renderList(false, false);
+
+    expect(screen.queryByRole('button', { name: /^Move / })).not.toBeInTheDocument();
+    expect(screen.queryByText('Finished')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Done · 1' }));
+    expect(screen.getByText('Finished')).toBeInTheDocument();
   });
 
   it('lets a template reorder its tasks without offering any runtime state', async () => {
     const user = userEvent.setup();
     const { onMoveTask } = renderList(true);
 
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Complete|Mark/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /complete/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Move First down' }));
     expect(onMoveTask).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'down');
   });

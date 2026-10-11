@@ -87,22 +87,69 @@ Mobile presentation uses Odin's existing palette with clearer spacing,
 task hierarchy, restrained surfaces and separate accessible touch targets.
 English and Bulgarian labels cover the new controls.
 
+## Navigation and task views — 2026-10-11
+
+Both clients have four destinations: **Today**, **Tasks**, **Lists** and
+**Settings**. My Tasks, Unassigned and All Tasks were three readings of the same
+tasks and are now one Tasks screen; their old routes (`/my-tasks`,
+`/unassigned`, `/all-tasks`) redirect to it with the matching view, so links,
+bookmarks and notification taps still land. Nothing in the API changed.
+
+- **One household read.** Today, Tasks and the Tasks badge all derive from the
+  All Tasks read with no deadline filter (`get_all_tasks`), filtered on the
+  client by the shared `@odin/domain` functions `filterTasks`,
+  `groupTasksByDeadline` and `summarizeTasks`. The deadline presets apply the
+  bounds `resolveTaskDeadlineFilter` already gave the server, so a filter moved
+  client-side returns the same tasks. Mine and Unassigned keep their rules:
+  open tasks only, the member's own or nobody's.
+- **Today** shows four counts that open the matching Tasks filter (Overdue and
+  Due today across the household, Unassigned, Blocked), the member's open tasks
+  grouped Overdue / Today / Upcoming with undated ones summarised by a link, up
+  to three unclaimed tasks with Claim, and active-list progress.
+- **Tasks** has Mine / Unassigned / Everyone with counts, the deadline presets
+  and date range as chips, a Blocked-only chip, search over title, notes and
+  list name, and Show done (Everyone only). Rows are grouped by deadline:
+  Overdue, Today, Upcoming, No deadline, Done. On web the filters live in the
+  URL.
+- **Lists** has Active and Templates tabs. A template is used from its row or,
+  on web, from the New list menu. Saving a list as a template moved from an
+  icon beside the title into the list's menu; a short toast confirms it.
+- **Reordering is a mode.** Up/down controls appear only after choosing
+  Reorder, on Lists and on list detail; the persisted shared order and its
+  version checks are unchanged.
+- **Task rows show exceptions, not defaults.** A status label appears only for
+  Blocked; Mark blocked / Unblock, Unassign and Delete sit in the row menu.
+  Completion stays a checkbox. An empty deadline is an empty cell and an
+  unclaimed task offers Claim (assistive technology still hears
+  "Unassigned"). Overdue is still spelled out.
+- **Opening a task opens its editor** (a side panel on web, the editor sheet on
+  Android) instead of a read-only view followed by a second form. The draft is
+  pinned to the version it was opened at, so a refetch while editing cannot
+  move the save onto a newer version; a conflict still keeps the draft and
+  offers a review. Delete is available from the editor, behind the same
+  confirmation. Template tasks stay read-only.
+- **New task** on Today and Tasks opens the task editor with a list picker. The
+  task still belongs to exactly one active list.
+- **List detail** adds a quick add (title only; details from the editor), keeps
+  completed tasks collapsed behind a count, and puts Edit, Save as template,
+  Reorder (Android) and Delete in one menu.
+
 ## Templates
 
 Templates are **two separate types that never mix**.
 
-| Type              | Stored as                            | Contains                                                     | Loaded from               |
-| ----------------- | ------------------------------------ | ------------------------------------------------------------ | ------------------------- |
-| **List template** | `lists` row with `kind = 'template'` | Title, subtitle, notes and a copy of every task in the list  | Home, via `copy_template` |
-| **Task template** | `task_templates` row                 | One task title and its notes; no assignment, deadline, state | The task editor           |
+| Type              | Stored as                            | Contains                                                     | Loaded from                |
+| ----------------- | ------------------------------------ | ------------------------------------------------------------ | -------------------------- |
+| **List template** | `lists` row with `kind = 'template'` | Title, subtitle, notes and a copy of every task in the list  | Lists, via `copy_template` |
+| **Task template** | `task_templates` row                 | One task title and its notes; no assignment, deadline, state | The task editor            |
 
 - Saving a list as a template creates **one** list template. It never writes a
   task template, so loading a task template stays a task-sized action that
   cannot replace the open list.
 - Saving a task as a template creates **one** task template. It never touches a
   list.
-- Home's Templates section shows list templates only, and its heading says
-  "List templates". The task editor's actions say "task template".
+- The Lists screen's Templates tab shows list templates only. The task
+  editor's actions say "task template".
 
 ### Saving a list as a template
 

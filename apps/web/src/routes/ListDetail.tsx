@@ -1,60 +1,42 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { TaskDto } from '@odin/contracts';
 import {
+  createTask,
   deleteList,
-  deleteTask,
   keysAffectedByListChange,
   keysAffectedByTaskChange,
   saveListTemplate,
   updateList,
-  updateTask,
   useCommand,
-  useTaskRowActions,
 } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../app/queries.ts';
-import { Fab } from '../components/Fab.tsx';
 import {
   anyPending,
   CommandErrors,
   DestructiveConfirm,
   ListHeader,
   ListTasks,
-  TemplateSavedNotice,
+  QuickAdd,
   type PendingConfirm,
 } from '../components/ListDetailParts.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
-import { ListTaskEditor } from '../components/ListTaskEditor.tsx';
-import { Progress } from '../components/Progress.tsx';
-import { TaskDetailsFlow } from '../components/TaskDetailsFlow.tsx';
+import { Toast } from '../components/Toast.tsx';
+import { useTaskWiring } from '../components/useTaskWiring.tsx';
+import { ProgressBar } from './ListsParts.tsx';
 
 /**
- * List detail. Tasks render incomplete-first with their declared order
- * preserved inside each group; totals always come from the server's whole-list
- * counts rather than the loaded page.
+ * List detail: header, progress, the shared note, then the tasks with a quick
+ * add on top. Totals come from the server's whole-list counts. Editing a task
+ * happens in the task panel opened from its title.
  */
 
-export function ListDetail(): ReactNode {
-  const { listId } = useParams<{ listId: string }>();
+function useListCommands(listId: string | undefined, onTemplateSaved: () => void) {
+  const { client } = useOdin();
   const navigate = useNavigate();
-  const { t, locale, client } = useOdin();
-  const list = useListQuery(listId);
-  const members = useMembersQuery();
-
-  const [editingList, setEditingList] = useState(false);
-  const [editingTask, setEditingTask] = useState<TaskDto | null>(null);
-  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
-  const [addingTask, setAddingTask] = useState(false);
-  const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
-  const [templateSaved, setTemplateSaved] = useState(false);
-
-  const invalidateTask = keysAffectedByTaskChange(listId);
-  const rowActions = useTaskRowActions(client, listId);
-
   const saveList = useCommand(
     (
       requestId,
@@ -65,56 +47,41 @@ export function ListDetail(): ReactNode {
         readonly notes: string | null;
       },
     ) => updateList(client, requestId, { listId: listId ?? '', ...input }),
-    {
-      invalidate: keysAffectedByListChange(listId),
-      onSuccess: () => setEditingList(false),
-    },
+    { invalidate: keysAffectedByListChange(listId) },
   );
-
-  // A saved list template is a new list, so only Home's cache changes; this
-  // list is untouched and keeps its version.
   const saveTemplate = useCommand(
     (requestId, input: { readonly listId: string }) =>
       saveListTemplate(client, requestId, input.listId),
-    {
-      invalidate: keysAffectedByListChange(),
-      onSuccess: () => setTemplateSaved(true),
-    },
+    { invalidate: keysAffectedByListChange(), onSuccess: onTemplateSaved },
   );
-
   const removeList = useCommand(
     (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
       deleteList(client, requestId, input),
-    {
-      invalidate: keysAffectedByListChange(listId),
-      onSuccess: () => void navigate('/'),
-    },
+    { invalidate: keysAffectedByListChange(listId), onSuccess: () => void navigate('/lists') },
   );
-
-  const removeTask = useCommand(
-    (requestId, input: { readonly taskId: string; readonly expectedVersion: number }) =>
-      deleteTask(client, requestId, input),
-    { invalidate: invalidateTask },
+  const addTask = useCommand(
+    (requestId, input: { readonly title: string }) =>
+      createTask(client, requestId, { listId: listId ?? '', title: input.title, notes: '' }),
+    { invalidate: keysAffectedByTaskChange(listId) },
   );
+  return { saveList, saveTemplate, removeList, addTask };
+}
 
-  const unassignTask = useCommand(
-    (
-      requestId,
-      input: {
-        readonly taskId: string;
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly dueAt: string | null;
-      },
-    ) =>
-      updateTask(client, requestId, {
-        taskId: input.taskId,
-        expectedVersion: input.expectedVersion,
-        title: input.title,
-        assigneeId: null,
-        dueAt: input.dueAt,
-      }),
-    { invalidate: invalidateTask },
+export function ListDetail(): ReactNode {
+  const { listId } = useParams<{ listId: string }>();
+  const { t, locale } = useOdin();
+  const list = useListQuery(listId);
+  const members = useMembersQuery();
+  const memberList = members.data ?? [];
+  const isTemplate = list.data?.list.kind === 'template';
+  const wiring = useTaskWiring({ members: memberList, listId, canEdit: !isTemplate });
+
+  const [editingList, setEditingList] = useState(false);
+  const [reorder, setReorder] = useState(false);
+  const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
+  const [toast, setToast] = useState(false);
+  const { saveList, saveTemplate, removeList, addTask } = useListCommands(listId, () =>
+    setToast(true),
   );
 
   if (list.isPending) return <p role="status">{t('state.loading')}</p>;
@@ -122,8 +89,8 @@ export function ListDetail(): ReactNode {
     return (
       <>
         <p className="empty">{t('list.not_found')}</p>
-        <Link className="button" to="/">
-          {t('list.back')}
+        <Link className="button" to="/lists">
+          {t('lists.title')}
         </Link>
       </>
     );
@@ -131,132 +98,96 @@ export function ListDetail(): ReactNode {
 
   const page = list.data;
   const ordered = sortTasksInList(page.tasks);
-  const isTemplate = page.list.kind === 'template';
-  const memberList = members.data ?? [];
-  const closeTaskEditor = (): void => {
-    setEditingTask(null);
-    setAddingTask(false);
-  };
 
   return (
     <>
       <ListHeader
+        canReorder={ordered.length > 1}
         isTemplate={isTemplate}
-        onAddTask={() => setAddingTask(true)}
+        notes={page.list.notes}
         onDelete={() =>
           setConfirming({
             titleKey: 'list.delete.title',
             bodyKey: 'list.delete.confirm',
             confirmKey: 'list.delete',
             run: () =>
-              void removeList.run({
-                listId: page.list.id,
-                expectedVersion: page.list.version,
-              }),
+              void removeList.run({ listId: page.list.id, expectedVersion: page.list.version }),
           })
         }
         onEdit={() => setEditingList(true)}
-        onSaveTemplate={() => {
-          setTemplateSaved(false);
-          void saveTemplate.run({ listId: page.list.id });
-        }}
-        notes={page.list.notes}
+        onSaveTemplate={() => void saveTemplate.run({ listId: page.list.id })}
+        onToggleReorder={() => setReorder((current) => !current)}
         pending={anyPending([removeList.state, saveTemplate.state])}
+        reorder={reorder}
         subtitle={page.list.subtitle}
         t={t}
         title={page.list.title}
-      />
+      >
+        {!isTemplate && (
+          <div className="list-progress-line">
+            <ProgressBar completed={page.completed_tasks} total={page.total_tasks} />
+            <span className="list-progress-line__label">
+              {page.total_tasks === 0
+                ? t('home.progress.empty')
+                : t('home.progress', {
+                    completed: page.completed_tasks,
+                    total: page.total_tasks,
+                    percent: page.progress_percent,
+                  })}
+            </span>
+          </div>
+        )}
+      </ListHeader>
 
-      <TemplateSavedNotice error={saveTemplate.state.error} saved={templateSaved} t={t} />
-
-      {!isTemplate && <Progress completed={page.completed_tasks} t={t} total={page.total_tasks} />}
-
+      {wiring.errors}
       <CommandErrors
         errors={[
-          ...rowActions.errors,
           { error: removeList.state.error, retry: () => void removeList.retry() },
-          { error: removeTask.state.error, retry: () => void removeTask.retry() },
-          { error: unassignTask.state.error, retry: () => void unassignTask.retry() },
           { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
         ]}
         t={t}
       />
 
-      {ordered.length === 0 ? (
-        <p className="empty">{t('list.empty')}</p>
-      ) : (
-        <ListTasks
-          busy={rowActions.busy || anyPending([removeTask.state, unassignTask.state])}
-          isTemplate={isTemplate}
-          locale={locale}
-          members={memberList}
-          onDelete={(selected) =>
-            setConfirming({
-              titleKey: 'task.delete.title',
-              bodyKey: 'task.delete.confirm',
-              confirmKey: 'task.delete.short',
-              run: () =>
-                void removeTask.run({
-                  taskId: selected.id,
-                  expectedVersion: selected.version,
-                }),
-            })
-          }
-          onEdit={(selected) =>
-            setEditingTask(ordered.find((entry) => entry.id === selected.id) ?? null)
-          }
-          onMoveTask={rowActions.move}
-          onOpenDetails={(selected) => setDetailsTaskId(selected.id)}
-          onSetState={rowActions.setState}
-          onToggleCompleted={rowActions.toggleCompleted}
-          onUnassign={(selected) =>
-            setConfirming({
-              titleKey: 'task.unassign.title',
-              bodyKey: 'task.unassign.confirm',
-              confirmKey: 'task.unassign.short',
-              run: () =>
-                void unassignTask.run({
-                  taskId: selected.id,
-                  expectedVersion: selected.version,
-                  title: selected.title,
-                  dueAt: selected.due_at,
-                }),
-            })
-          }
-          t={t}
-          tasks={ordered}
-        />
-      )}
-
-      {!isTemplate && <Fab label={t('list.add_task')} onClick={() => setAddingTask(true)} />}
+      <ListTasks
+        before={
+          isTemplate ? undefined : (
+            <QuickAdd
+              error={addTask.state.error}
+              onAdd={(title, done) =>
+                void addTask.run({ title }).then((result) => {
+                  if (result.ok) done();
+                })
+              }
+              pending={addTask.state.pending}
+              t={t}
+            />
+          )
+        }
+        busy={wiring.actions.busy}
+        handlers={wiring.handlers}
+        isTemplate={isTemplate}
+        locale={locale}
+        members={memberList}
+        onMoveTask={wiring.actions.move}
+        reorder={reorder}
+        t={t}
+        tasks={ordered}
+      />
+      {ordered.length === 0 && <p className="empty">{t('list.empty')}</p>}
 
       <DestructiveConfirm
         confirm={confirming}
         onClose={() => setConfirming(null)}
-        pending={anyPending([removeList.state, removeTask.state, unassignTask.state])}
+        pending={removeList.state.pending}
         t={t}
       />
+      {wiring.overlays}
 
-      {detailsTaskId !== null && (
-        <TaskDetailsFlow
-          canEdit={!isTemplate}
-          members={memberList}
-          onClose={() => setDetailsTaskId(null)}
-          taskId={detailsTaskId}
-        />
-      )}
-
-      {(addingTask || editingTask !== null) && (
-        <ListTaskEditor
-          key={editingTask?.id ?? 'new'}
-          listId={page.list.id}
-          members={memberList}
-          onClose={closeTaskEditor}
-          onReviewConflict={() => {
-            closeTaskEditor();
-            void list.refetch();
-          }}
-          task={editingTask}
+      {toast && (
+        <Toast
+          action={{ label: t('toast.view'), to: '/lists?tab=templates' }}
+          message={t('toast.template_saved')}
+          onDismiss={() => setToast(false)}
         />
       )}
 
@@ -268,7 +199,11 @@ export function ListDetail(): ReactNode {
             saveList.reset();
             setEditingList(false);
           }}
-          onSubmit={(input) => void saveList.run({ expectedVersion: page.list.version, ...input })}
+          onSubmit={(input) =>
+            void saveList.run({ expectedVersion: page.list.version, ...input }).then((result) => {
+              if (result.ok) setEditingList(false);
+            })
+          }
           pending={saveList.state.pending}
           t={t}
         />

@@ -86,3 +86,55 @@ export function resolveLocale(candidate: string | null | undefined): Locale {
   if (candidate === null || candidate === undefined) return 'en';
   return candidate.toLowerCase().startsWith('bg') ? 'bg' : 'en';
 }
+
+const shortFormats = new Map<string, Intl.DateTimeFormat>();
+
+function shortFormat(locale: Locale, options: Intl.DateTimeFormatOptions, id: string) {
+  const key = `${locale}:${id}:${String(new Date().getTimezoneOffset())}`;
+  let format = shortFormats.get(key);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(INTL_LOCALES[locale], options);
+    shortFormats.set(key, format);
+  }
+  return format;
+}
+
+/** A date-only deadline is stored as 23:59:59.999 local; it has no time worth showing. */
+function isEndOfDay(date: Date): boolean {
+  return (
+    date.getHours() === 23 &&
+    date.getMinutes() === 59 &&
+    date.getSeconds() === 59 &&
+    date.getMilliseconds() === 999
+  );
+}
+
+/**
+ * A compact deadline for dense rows: "Today 16:30", "Today", "Fri 16 Oct",
+ * "Fri 16 Oct 09:00", with the year only when it is not the current one.
+ */
+export function formatDueShort(dueAt: string, locale: Locale, now: Date = new Date()): string {
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return '';
+  const time = isEndOfDay(due)
+    ? null
+    : shortFormat(locale, { hour: '2-digit', minute: '2-digit' }, 'time').format(due);
+  const sameDay =
+    due.getFullYear() === now.getFullYear() &&
+    due.getMonth() === now.getMonth() &&
+    due.getDate() === now.getDate();
+  if (sameDay) {
+    return time === null
+      ? translate(locale, 'task.due.today')
+      : translate(locale, 'task.due.today_at', { time });
+  }
+  const sameYear = due.getFullYear() === now.getFullYear();
+  const date = shortFormat(
+    locale,
+    sameYear
+      ? { weekday: 'short', day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' },
+    sameYear ? 'day' : 'year',
+  ).format(due);
+  return time === null ? date : `${date} ${time}`;
+}

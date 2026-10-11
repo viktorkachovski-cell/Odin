@@ -29,15 +29,15 @@ function makeTask(overrides: Partial<TaskRowModel> = {}): TaskRowModel {
 }
 
 describe('TaskRow', () => {
-  it('toggles completion without ever opening the editor', async () => {
+  it('toggles completion without ever opening the task', async () => {
     const onToggleCompleted = vi.fn();
-    const onEdit = vi.fn();
+    const onOpenDetails = vi.fn();
     render(
       <ul>
         <TaskRow
           locale="en"
           members={members}
-          onEdit={onEdit}
+          onOpenDetails={onOpenDetails}
           onToggleCompleted={onToggleCompleted}
           t={t}
           task={makeTask()}
@@ -48,7 +48,7 @@ describe('TaskRow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Mark Empty the bins complete' }));
 
     expect(onToggleCompleted).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), true);
-    expect(onEdit).not.toHaveBeenCalled();
+    expect(onOpenDetails).not.toHaveBeenCalled();
   });
 
   it('sends the explicit desired state rather than a toggle', async () => {
@@ -124,13 +124,37 @@ describe('TaskRow', () => {
     expect(screen.getByText('Ana Petrova')).toBeDefined();
   });
 
-  it('labels an unclaimed task as unassigned', () => {
+  it('names an unclaimed task as unassigned for assistive technology only', () => {
     render(
       <ul>
         <TaskRow locale="en" members={members} t={t} task={makeTask()} />
       </ul>,
     );
-    expect(screen.getByText('Unassigned')).toBeDefined();
+    expect(screen.getByText('Unassigned')).toHaveClass('visually-hidden');
+  });
+
+  it('shows a status label only when the task is blocked', () => {
+    const { rerender } = render(
+      <ul>
+        <TaskRow locale="en" members={members} t={t} task={makeTask({ blocked: false })} />
+      </ul>,
+    );
+    expect(screen.queryByText('Blocked')).toBeNull();
+    rerender(
+      <ul>
+        <TaskRow locale="en" members={members} t={t} task={makeTask({ blocked: true })} />
+      </ul>,
+    );
+    expect(screen.getByText('Blocked')).toBeInTheDocument();
+  });
+
+  it('leaves an undated deadline empty instead of saying so on every row', () => {
+    render(
+      <ul>
+        <TaskRow locale="en" members={members} t={t} task={makeTask()} />
+      </ul>,
+    );
+    expect(screen.queryByText('No deadline')).toBeNull();
   });
 
   it('gives the claim action a descriptive accessible name in Bulgarian', () => {
@@ -145,24 +169,24 @@ describe('TaskRow', () => {
         />
       </ul>,
     );
-    expect(screen.getByRole('button', { name: 'Поеми Изхвърляне на боклука' })).toBeDefined();
+    const claim = screen.getByRole('button', { name: 'Поеми Изхвърляне на боклука' });
+    // The visible label stays short; the title lives in the accessible name.
+    expect(claim).toHaveTextContent(tBg('task.claim.short'));
   });
 
-  it('does not nest the edit action inside another button', () => {
-    render(
+  it('shows move controls only in reorder mode', () => {
+    const { rerender } = render(
       <ul>
-        <TaskRow
-          locale="en"
-          members={members}
-          onEdit={vi.fn()}
-          onToggleCompleted={vi.fn()}
-          t={t}
-          task={makeTask()}
-        />
+        <TaskRow locale="en" members={members} t={t} task={makeTask()} />
       </ul>,
     );
-    const edit = screen.getByRole('button', { name: 'Edit Empty the bins' });
-    expect(edit.closest('button')).toBe(edit);
+    expect(screen.queryByRole('button', { name: 'Move Empty the bins up' })).toBeNull();
+    rerender(
+      <ul>
+        <TaskRow locale="en" members={members} onMove={vi.fn()} t={t} task={makeTask()} />
+      </ul>,
+    );
+    expect(screen.getByRole('button', { name: 'Move Empty the bins up' })).toBeInTheDocument();
   });
 
   it('opens full task details from the title without toggling completion', async () => {

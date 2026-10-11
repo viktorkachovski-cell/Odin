@@ -22,21 +22,24 @@ specify. Persistent desktop navigation is a documented adaptation, not a
 replacement of the confirmed behaviour — core destinations and actions are
 identical on both platforms.
 
-Home uses two clearly labelled sections, keeping bordered template cards and
-unbordered active-list cards. Width is used through a grid of constrained
-readable cards, not stretched text. Active-list progress shows count plus
-percentage. A task row carries completion, title, assignee, deadline and the
-edit action, wrapping metadata on narrow widths rather than scrolling
-horizontally.
+The rail holds Today, Tasks (with the member's open-task count) and Lists,
+with Settings set apart at its foot; compact viewports show the same four in
+the bottom bar. Content is centred in a capped column.
 
-The task-workflow branch adds a dedicated All Tasks route with deadline presets
-and a local-date range. A task title opens full details, where an active task
-is edited in place (`TaskDetailsFlow`, the same flow as Android); status,
-completion and move controls remain separate and come from one shared hook,
-`useTaskRowActions`. List titles carry an inline save-template icon, and the
-up/down controls persist shared order, including a template's tasks. Each
-collection loads in one read. These views require both branch database
-migrations before test use.
+Task lists render as one table surface (`TaskTable`, `TaskRow`): completion,
+title with notes underneath, list, assignee or Claim, deadline and one overflow
+menu, on a shared grid so columns line up. Below 860px the header hides and
+each row's metadata wraps under its title. Rows are grouped by deadline
+(`TaskGroups`) on Today and Tasks; list detail shows open tasks with completed
+ones collapsed. `useTaskWiring` gives every screen the same row commands, the
+task panel and the destructive confirmations.
+
+Opening a task opens `TaskDetailsFlow` as a side panel (`Dialog` with
+`variant="side"`, a bottom sheet on a phone) that is the editor itself.
+`NewTaskEditor` is the same editor with a list picker. Saving a list as a
+template confirms with a `Toast` rather than a sentence left on the page.
+Lists and list detail reorder only in Reorder mode. Icons are inline SVG
+(`Icon`), not platform text glyphs. Every collection still loads in one read.
 
 ### Interaction rules
 

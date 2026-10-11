@@ -57,7 +57,7 @@ describe('TaskDetailsFlow', () => {
       wrapper,
     });
 
-    await user.click(screen.getByRole('button', { name: 'Edit task' }));
+    // The panel opens straight into the editor: no read-only step first.
     const title = screen.getByLabelText('Task title');
     await user.clear(title);
     await user.type(title, 'Water every plant');

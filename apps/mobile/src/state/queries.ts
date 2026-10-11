@@ -101,3 +101,14 @@ export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {
     enabled: taskId !== null,
   });
 }
+
+const EVERY_TASK: TaskDeadlineFilter = { preset: 'all' };
+
+/**
+ * Every task in the household's open active lists, done ones included, in one
+ * read. Today, Tasks and the navigation badge all derive from this one cache
+ * entry -- the same entry the web client uses -- so they always agree.
+ */
+export function useHouseholdTasksQuery(): UseQueryResult<TaskCollectionDto> {
+  return useAllTasksQuery(EVERY_TASK);
+}

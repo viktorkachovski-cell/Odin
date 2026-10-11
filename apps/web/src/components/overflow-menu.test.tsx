@@ -136,16 +136,17 @@ describe('OverflowMenu', () => {
 });
 
 describe('TaskRow actions', () => {
-  it('shows Edit inline and hides the destructive pair behind the overflow', async () => {
+  it('keeps block, unassign and delete behind the overflow, delete last', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
+    const onSetState = vi.fn();
     render(
       <ul>
         <TaskRow
           locale="en"
           members={members}
           onDelete={onDelete}
-          onEdit={vi.fn()}
+          onSetState={onSetState}
           onToggleCompleted={vi.fn()}
           onUnassign={vi.fn()}
           t={t}
@@ -154,13 +155,35 @@ describe('TaskRow actions', () => {
       </ul>,
     );
 
-    // Edit is reachable without opening anything; Delete is not.
-    expect(screen.getByRole('button', { name: 'Edit Empty the bins' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Actions for Empty the bins' }));
+    const entries = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(entries).toEqual(['Mark blocked', 'Unassign', 'Delete']);
+    await user.click(screen.getByRole('menuitem', { name: 'Mark blocked' }));
+    expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'blocked');
 
     await user.click(screen.getByRole('button', { name: 'Actions for Empty the bins' }));
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers Unblock on a blocked task, which reopens it', async () => {
+    const user = userEvent.setup();
+    const onSetState = vi.fn();
+    render(
+      <ul>
+        <TaskRow
+          locale="en"
+          members={members}
+          onSetState={onSetState}
+          t={t}
+          task={makeTask({ blocked: true })}
+        />
+      </ul>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions for Empty the bins' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Unblock' }));
+    expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'open');
   });
 
   it('names the overflow after its own task, so sibling rows are distinguishable', () => {

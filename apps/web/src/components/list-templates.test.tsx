@@ -7,7 +7,8 @@ import type { ListDto } from '@odin/contracts';
 import { createTranslator } from '@odin/i18n';
 
 import { ListEditor } from './ListEditor.tsx';
-import { ListHeader, TemplateSavedNotice } from './ListDetailParts.tsx';
+import { ListHeader } from './ListDetailParts.tsx';
+import { Toast } from './Toast.tsx';
 
 /**
  * The list note and the save-as-list-template action, which are the two ways a
@@ -111,11 +112,13 @@ describe('ListHeader', () => {
         <ListHeader
           isTemplate={false}
           notes="Buy the good olive oil"
-          onAddTask={vi.fn()}
+          canReorder
           onDelete={vi.fn()}
           onEdit={vi.fn()}
           onSaveTemplate={overrides.onSaveTemplate ?? vi.fn()}
+          onToggleReorder={vi.fn()}
           pending={false}
+          reorder={false}
           subtitle="Weekly"
           t={t}
           title="Pantry"
@@ -131,15 +134,13 @@ describe('ListHeader', () => {
     expect(screen.getByText('Buy the good olive oil')).toBeInTheDocument();
   });
 
-  it('saves the list as a template from the named inline icon', async () => {
+  it('saves the list as a template from the list menu', async () => {
     const user = userEvent.setup();
     const onSaveTemplate = vi.fn();
     renderHeader({ onSaveTemplate });
 
-    expect(
-      screen.queryByRole('menuitem', { name: 'Save as list template' }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Save Pantry as list template' }));
+    await user.click(screen.getByRole('button', { name: 'List actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Save as list template' }));
     expect(onSaveTemplate).toHaveBeenCalledTimes(1);
   });
 
@@ -151,11 +152,13 @@ describe('ListHeader', () => {
         <ListHeader
           isTemplate
           notes={null}
-          onAddTask={vi.fn()}
+          canReorder={false}
           onDelete={onDelete}
           onEdit={vi.fn()}
           onSaveTemplate={vi.fn()}
+          onToggleReorder={vi.fn()}
           pending={false}
+          reorder={false}
           subtitle={null}
           t={t}
           title="Weekly cleaning"
@@ -174,44 +177,36 @@ describe('ListHeader', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the full menu and the Add task primary on an active list', async () => {
+  it('keeps edit, save-as-template and delete in one menu on an active list', async () => {
     const user = userEvent.setup();
     renderHeader();
 
-    expect(screen.getByRole('button', { name: 'Add task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'List actions' }));
     const items = screen.getAllByRole('menuitem');
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(3);
     expect(screen.getByRole('menuitem', { name: 'Edit list' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Save Pantry as list template' }),
-    ).toBeInTheDocument();
     // The overflow orders destructive entries last whatever the caller passed.
     expect(items.at(-1)).toHaveAccessibleName('Delete list');
   });
 });
 
-describe('TemplateSavedNotice', () => {
-  it('confirms a save once it has happened', () => {
-    render(<TemplateSavedNotice error={null} saved t={t} />);
-
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'List template saved. It is available to your household.',
+describe('Toast', () => {
+  it('confirms a template save briefly and links to it', async () => {
+    const onDismiss = vi.fn();
+    render(
+      <MemoryRouter>
+        <Toast
+          action={{ label: 'View', to: '/lists?tab=templates' }}
+          message="Saved as a list template"
+          onDismiss={onDismiss}
+        />
+      </MemoryRouter>,
     );
-  });
 
-  it('stays quiet before a save and while an error is on screen', () => {
-    const { rerender } = render(<TemplateSavedNotice error={null} saved={false} t={t} />);
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-
-    rerender(
-      <TemplateSavedNotice
-        error={{ code: 'NOT_FOUND', message_key: 'error.not_found' }}
-        saved
-        t={t}
-      />,
-    );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Saved as a list template');
+    await userEvent.click(screen.getByRole('link', { name: 'View' }));
+    expect(onDismiss).toHaveBeenCalled();
   });
 });

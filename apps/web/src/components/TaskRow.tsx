@@ -1,22 +1,22 @@
 import type { ReactNode } from 'react';
 
 import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
-import { isOverdue, taskState, taskStatusOptions } from '@odin/domain';
-import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
+import { isOverdue } from '@odin/domain';
+import { formatDueShort, type Locale, type Translator } from '@odin/i18n';
 
 import { Avatar } from './Avatar.tsx';
+import { Icon } from './Icon.tsx';
 import { OverflowMenu, type OverflowItem } from './OverflowMenu.tsx';
 
 /**
- * A task row is a flat set of sibling controls, never a clickable card with
- * buttons nested inside it. Toggling completion and opening the editor are
- * separate targets, so completing a task can never open the editor by accident.
+ * One row of a task table: completion, title, list, assignee, deadline and a
+ * single overflow menu. It shows exceptions, not defaults -- a status label
+ * appears only when the task is Blocked, an empty deadline is an empty cell,
+ * and an unclaimed task offers Claim instead of an "Unassigned" chip.
  *
- * It renders a `TaskRowModel`, so the full list-detail task and the narrower
- * My Tasks / Unassigned projection share one component.
- *
- * Claim and Edit stay visible; Unassign and Delete live in the row's overflow,
- * so Delete never carries the same weight as Edit.
+ * Every control is a sibling, never nested in a clickable row: completing a
+ * task can never open it. The title opens the task panel, where it is edited.
+ * Move controls render only when the caller is in reorder mode.
  */
 
 interface TaskRowProps {
@@ -24,281 +24,218 @@ interface TaskRowProps {
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
-  readonly busy?: boolean;
+  readonly busy?: boolean | undefined;
+  /** Defaults to showing the list column whenever the row knows its list. */
+  readonly showList?: boolean | undefined;
+  readonly showAssignee?: boolean | undefined;
+  readonly now?: Date | undefined;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
+  readonly onOpenDetails?: ((task: TaskRowModel) => void) | undefined;
+  readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
+  /** Offered as Mark blocked / Unblock in the row menu. */
   readonly onSetState?: ((task: TaskRowModel, state: TaskState) => void) | undefined;
+  readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
+  readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
   readonly onMove?: ((task: TaskRowModel, direction: MoveDirection) => void) | undefined;
   readonly moveUpDisabled?: boolean | undefined;
   readonly moveDownDisabled?: boolean | undefined;
-  readonly onOpenDetails?: ((task: TaskRowModel) => void) | undefined;
-  readonly onEdit?: ((task: TaskRowModel) => void) | undefined;
-  readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
-  readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
-  readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
 }
 
-function TaskActions({
+function menuItems({
   task,
-  busy,
   t,
-  onClaim,
-  onEdit,
+  onSetState,
   onUnassign,
   onDelete,
-  onMove,
-  moveUpDisabled,
-  moveDownDisabled,
-}: Pick<
-  TaskRowProps,
-  | 'task'
-  | 'busy'
-  | 't'
-  | 'onClaim'
-  | 'onEdit'
-  | 'onUnassign'
-  | 'onDelete'
-  | 'onMove'
-  | 'moveUpDisabled'
-  | 'moveDownDisabled'
->): ReactNode {
-  const overflowItems: OverflowItem[] = [];
-
+}: Pick<TaskRowProps, 'task' | 't' | 'onSetState' | 'onUnassign' | 'onDelete'>): OverflowItem[] {
+  const items: OverflowItem[] = [];
+  if (onSetState !== undefined && !task.completed) {
+    items.push(
+      task.blocked === true
+        ? { key: 'unblock', label: t('task.unblock'), onSelect: () => onSetState(task, 'open') }
+        : { key: 'block', label: t('task.block'), onSelect: () => onSetState(task, 'blocked') },
+    );
+  }
   if (onUnassign !== undefined && task.assignee_id !== null) {
-    overflowItems.push({
+    items.push({
       key: 'unassign',
       label: t('task.unassign.short'),
-      glyph: '↺',
       onSelect: () => onUnassign(task),
     });
   }
   if (onDelete !== undefined) {
-    overflowItems.push({
+    items.push({
       key: 'delete',
       label: t('task.delete.short'),
-      glyph: '⌫',
       danger: true,
       onSelect: () => onDelete(task),
     });
   }
-
-  if (
-    onClaim === undefined &&
-    onEdit === undefined &&
-    onMove === undefined &&
-    overflowItems.length === 0
-  )
-    return null;
-
-  return (
-    <div className="task-row__actions">
-      {onClaim !== undefined && (
-        <button
-          className="button button--accent"
-          disabled={busy}
-          onClick={() => onClaim(task)}
-          type="button"
-        >
-          {t('task.claim', { title: task.title })}
-        </button>
-      )}
-      {onEdit !== undefined && (
-        <button
-          aria-label={t('task.edit_action', { title: task.title })}
-          className="button button--quiet"
-          disabled={busy}
-          onClick={() => onEdit(task)}
-          type="button"
-        >
-          {t('task.edit_action.short')}
-        </button>
-      )}
-      {onMove !== undefined && (
-        <>
-          <button
-            aria-label={t('task.move.up', { title: task.title })}
-            className="button button--quiet task-row__move"
-            disabled={busy || moveUpDisabled}
-            onClick={() => onMove(task, 'up')}
-            type="button"
-          >
-            <span aria-hidden="true">↑</span>
-          </button>
-          <button
-            aria-label={t('task.move.down', { title: task.title })}
-            className="button button--quiet task-row__move"
-            disabled={busy || moveDownDisabled}
-            onClick={() => onMove(task, 'down')}
-            type="button"
-          >
-            <span aria-hidden="true">↓</span>
-          </button>
-        </>
-      )}
-      {overflowItems.length > 0 && (
-        <OverflowMenu
-          disabled={busy}
-          items={overflowItems}
-          label={t('task.actions', { title: task.title })}
-        />
-      )}
-    </div>
-  );
+  return items;
 }
 
-function StatusSelect({
+function Toggle({
   task,
   t,
   busy,
-  onSetState,
-}: {
-  readonly task: TaskRowModel;
-  readonly t: Translator;
-  readonly busy: boolean | undefined;
-  readonly onSetState: (task: TaskRowModel, state: TaskState) => void;
-}): ReactNode {
-  const options = taskStatusOptions(task);
-  return (
-    <label className="task-row__status">
-      <span className="visually-hidden">{t('task.status.change', { title: task.title })}</span>
-      <select
-        aria-label={t('task.status.change', { title: task.title })}
-        disabled={busy}
-        onChange={(event) => {
-          const chosen = options.find((option) => option.state === event.target.value);
-          if (chosen !== undefined) onSetState(task, chosen.state);
-        }}
-        value={taskState(task)}
-      >
-        {options.map((option) => (
-          <option key={option.state} value={option.state}>
-            {t(`task.status.${option.status}`)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function TaskMeta({
-  task,
-  members,
-  locale,
-  t,
-  busy,
-  onSetState,
-}: Pick<TaskRowProps, 'task' | 'members' | 'locale' | 't' | 'busy' | 'onSetState'>): ReactNode {
-  const assignee = members.find((member) => member.user_id === task.assignee_id);
-  const overdue = isOverdue(task);
-  return (
-    <div className="task-row__meta">
-      {onSetState !== undefined && (
-        <StatusSelect busy={busy} onSetState={onSetState} t={t} task={task} />
-      )}
-      {task.list_title !== undefined && <span>{t('task.in_list', { list: task.list_title })}</span>}
-      {assignee === undefined ? (
-        <span className="chip">{t('task.assignee.unassigned')}</span>
-      ) : (
-        <span className="chip">
-          <Avatar displayName={assignee.display_name} userId={assignee.user_id} />
-          {assignee.display_name}
-        </span>
-      )}
-      {task.due_at === null ? (
-        <span>{t('task.due.none')}</span>
-      ) : (
-        <span className={overdue ? 'overdue' : undefined}>
-          {overdue ? `${t('task.overdue')} · ` : ''}
-          {formatDueAt(task.due_at, locale)}
-        </span>
-      )}
-    </div>
-  );
-}
-
-export function TaskRow({
-  task,
-  members,
-  locale,
-  t,
-  busy = false,
   onToggleCompleted,
-  onSetState,
-  onOpenDetails,
-  onEdit,
-  onClaim,
-  onUnassign,
-  onDelete,
-  onMove,
-  moveUpDisabled,
-  moveDownDisabled,
-}: TaskRowProps): ReactNode {
+}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'onToggleCompleted'>): ReactNode {
+  if (onToggleCompleted === undefined) return <span className="task-row__toggle-slot" />;
   return (
-    <li className={task.completed ? 'task-row task-row--done' : 'task-row'}>
-      {onToggleCompleted !== undefined && (
-        <button
-          aria-pressed={task.completed}
-          className="task-row__toggle"
-          disabled={busy}
-          onClick={() => onToggleCompleted(task, !task.completed)}
-          type="button"
-        >
-          <span aria-hidden="true">{task.completed ? '✓' : '☐'}</span>
-          <span className="visually-hidden">
-            {task.completed
-              ? t('task.incomplete', { title: task.title })
-              : t('task.complete', { title: task.title })}
-          </span>
-        </button>
-      )}
+    <button
+      aria-pressed={task.completed}
+      className="task-row__toggle"
+      disabled={busy}
+      onClick={() => onToggleCompleted(task, !task.completed)}
+      type="button"
+    >
+      <span aria-hidden="true" className="task-row__box">
+        {task.completed && <Icon name="check" size={16} />}
+      </span>
+      <span className="visually-hidden">
+        {task.completed
+          ? t('task.incomplete', { title: task.title })
+          : t('task.complete', { title: task.title })}
+      </span>
+    </button>
+  );
+}
 
-      <div className="task-row__body">
+function TitleCell({ task, t, onOpenDetails }: Pick<TaskRowProps, 'task' | 't' | 'onOpenDetails'>) {
+  const titleClass = task.completed ? 'task-row__title task-row__title--done' : 'task-row__title';
+  return (
+    <div className="task-row__main">
+      <span className="task-row__headline">
         {onOpenDetails === undefined ? (
-          <span
-            className={task.completed ? 'task-row__title task-row__title--done' : 'task-row__title'}
-          >
-            {task.title}
-          </span>
+          <span className={titleClass}>{task.title}</span>
         ) : (
           <button
-            className={
-              task.completed
-                ? 'task-row__title task-row__title--done task-row__title-button'
-                : 'task-row__title task-row__title-button'
-            }
+            className={`${titleClass} task-row__title-button`}
             onClick={() => onOpenDetails(task)}
             type="button"
           >
             {task.title}
           </button>
         )}
-        {task.notes !== undefined && task.notes !== null && (
-          <p className="task-row__notes" title={task.notes}>
-            {task.notes}
-          </p>
+        {task.blocked === true && !task.completed && (
+          <span className="status-pill status-pill--blocked">
+            <Icon name="blocked" size={12} />
+            {t('task.status.blocked')}
+          </span>
         )}
+      </span>
+      {task.notes !== undefined && task.notes !== null && task.notes.length > 0 && (
+        <span className="task-row__notes" title={task.notes}>
+          {task.notes}
+        </span>
+      )}
+    </div>
+  );
+}
 
-        <TaskMeta
-          busy={busy}
-          locale={locale}
-          members={members}
-          onSetState={onSetState}
-          t={t}
-          task={task}
+function AssigneeCell({
+  task,
+  members,
+  t,
+  busy,
+  onClaim,
+}: Pick<TaskRowProps, 'task' | 'members' | 't' | 'busy' | 'onClaim'>): ReactNode {
+  const assignee = members.find((member) => member.user_id === task.assignee_id);
+  if (assignee !== undefined) {
+    return (
+      <span className="task-row__cell task-row__assignee">
+        <Avatar displayName={assignee.display_name} userId={assignee.user_id} />
+        {assignee.display_name}
+      </span>
+    );
+  }
+  if (task.assignee_id === null && onClaim !== undefined && !task.completed) {
+    return (
+      <span className="task-row__cell">
+        <button
+          aria-label={t('task.claim', { title: task.title })}
+          className="button button--accent button--compact"
+          disabled={busy}
+          onClick={() => onClaim(task)}
+          type="button"
+        >
+          {t('task.claim.short')}
+        </button>
+      </span>
+    );
+  }
+  return (
+    <span className="task-row__cell">
+      {task.assignee_id === null && (
+        <span className="visually-hidden">{t('task.assignee.unassigned')}</span>
+      )}
+    </span>
+  );
+}
+
+function DueCell({ task, locale, t, now }: Pick<TaskRowProps, 'task' | 'locale' | 't' | 'now'>) {
+  if (task.due_at === null) return <span className="task-row__cell task-row__due" />;
+  const date = formatDueShort(task.due_at, locale, now);
+  return isOverdue(task, now) ? (
+    <span className="task-row__cell task-row__due overdue">{t('task.overdue_on', { date })}</span>
+  ) : (
+    <span className="task-row__cell task-row__due">{date}</span>
+  );
+}
+
+function Actions(props: TaskRowProps): ReactNode {
+  const { task, t, busy, onMove, moveUpDisabled, moveDownDisabled } = props;
+  const items = menuItems(props);
+  return (
+    <span className="task-row__actions">
+      {onMove !== undefined && (
+        <>
+          <button
+            aria-label={t('task.move.up', { title: task.title })}
+            className="button button--quiet button--icon"
+            disabled={busy === true || moveUpDisabled === true}
+            onClick={() => onMove(task, 'up')}
+            type="button"
+          >
+            <Icon name="arrow-up" />
+          </button>
+          <button
+            aria-label={t('task.move.down', { title: task.title })}
+            className="button button--quiet button--icon"
+            disabled={busy === true || moveDownDisabled === true}
+            onClick={() => onMove(task, 'down')}
+            type="button"
+          >
+            <Icon name="arrow-down" />
+          </button>
+        </>
+      )}
+      {items.length > 0 && (
+        <OverflowMenu
+          disabled={busy}
+          items={items}
+          label={t('task.actions', { title: task.title })}
         />
-      </div>
+      )}
+    </span>
+  );
+}
 
-      <TaskActions
-        busy={busy}
-        onClaim={onClaim}
-        onDelete={onDelete}
-        onEdit={onEdit}
-        onMove={onMove}
-        onUnassign={onUnassign}
-        moveUpDisabled={moveUpDisabled}
-        moveDownDisabled={moveDownDisabled}
-        t={t}
-        task={task}
-      />
+export function TaskRow(props: TaskRowProps): ReactNode {
+  const { task, members, locale, t, busy = false, now } = props;
+  const showList = props.showList ?? task.list_title !== undefined;
+  return (
+    <li className={task.completed ? 'task-row task-row--done' : 'task-row'}>
+      <Toggle busy={busy} onToggleCompleted={props.onToggleCompleted} t={t} task={task} />
+      <TitleCell onOpenDetails={props.onOpenDetails} t={t} task={task} />
+      <span className="task-row__meta">
+        {showList && <span className="task-row__cell task-row__list">{task.list_title}</span>}
+        {props.showAssignee !== false && (
+          <AssigneeCell busy={busy} members={members} onClaim={props.onClaim} t={t} task={task} />
+        )}
+        <DueCell locale={locale} now={now} t={t} task={task} />
+      </span>
+      <Actions {...props} busy={busy} />
     </li>
   );
 }

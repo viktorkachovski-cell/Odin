@@ -31,6 +31,11 @@ interface TaskEditorProps {
   readonly conflict: boolean;
   readonly onCancel: () => void;
   readonly onReviewConflict: () => void;
+  readonly variant?: 'center' | 'side';
+  /** Rendered above the title, for the global New task editor's list picker. */
+  readonly listField?: ReactNode;
+  /** Offered as a quiet destructive action on the left of the footer. */
+  readonly onDelete?: (() => void) | undefined;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
@@ -49,6 +54,9 @@ export function TaskEditor({
   onCancel,
   onReviewConflict,
   onSubmit,
+  variant = 'center',
+  listField,
+  onDelete,
 }: TaskEditorProps): ReactNode {
   const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
@@ -71,10 +79,40 @@ export function TaskEditor({
     });
   };
 
+  // A new task can start from a template, so the chooser leads; an existing
+  // task's "save as template" is secondary and sits below the fields.
+  const templates = (
+    <TaskTemplates
+      draft={draft}
+      allowChoose={task === null}
+      disabled={pending}
+      onChoose={(template) =>
+        setDraft({
+          title: template.title,
+          notes: template.notes ?? '',
+          assigneeId: null,
+          dueDate: '',
+          dueTime: '',
+        })
+      }
+      t={t}
+    />
+  );
+
   return (
     <Dialog
       footer={
         <>
+          {onDelete !== undefined && (
+            <button
+              className="button button--quiet button--danger dialog__start"
+              disabled={pending}
+              onClick={onDelete}
+              type="button"
+            >
+              {t('task.delete.short')}
+            </button>
+          )}
           <button className="button" onClick={onCancel} type="button">
             {t('task.cancel')}
           </button>
@@ -90,7 +128,9 @@ export function TaskEditor({
       }
       onClose={onCancel}
       title={task === null ? t('task.new.title') : t('task.edit.title')}
+      variant={variant}
     >
+      {listField}
       {conflict && (
         <div className="banner banner--danger" role="alert">
           <div>
@@ -105,21 +145,7 @@ export function TaskEditor({
 
       {error !== null && !conflict && <ErrorBanner error={error} t={t} />}
 
-      <TaskTemplates
-        draft={draft}
-        allowChoose={task === null}
-        disabled={pending}
-        onChoose={(template) =>
-          setDraft({
-            title: template.title,
-            notes: template.notes ?? '',
-            assigneeId: null,
-            dueDate: '',
-            dueTime: '',
-          })
-        }
-        t={t}
-      />
+      {task === null && templates}
       <Field error={titleIssue} label={t('task.title.label')}>
         {(props) => (
           <input
@@ -176,7 +202,7 @@ export function TaskEditor({
             />
           )}
         </Field>
-        <Field label={t('task.due.time')} hint={t('task.due.optional')}>
+        <Field label={t('task.due.time')}>
           {(props) => (
             <input
               {...props}
@@ -197,6 +223,7 @@ export function TaskEditor({
       >
         {t('task.due.clear')}
       </button>
+      {task !== null && templates}
     </Dialog>
   );
 }

@@ -152,8 +152,13 @@ reimplemented here, and no schema change was needed.
 Android adapts the presentation, never the rules. Shared commands, labels,
 permissions and task behaviour stay aligned with the web client.
 
-- Extended floating action buttons for the primary create action on Home and
-  list detail.
+- Four bottom-navigation tabs -- Today, Tasks, Lists, Settings -- with icons
+  drawn from views (no icon font or native dependency) and the member's
+  open-task count on Tasks. `/my-tasks`, `/unassigned` and `/all-tasks`
+  redirect to Tasks with the matching view.
+- Extended floating action buttons for the primary create action on Today
+  (New task), Tasks (New task) and Lists (New list). List detail has a quick
+  add docked above the navigation instead, and pins the navigation visible.
 - Secondary task and list actions use Android overflow controls and modal
   bottom menus rather than rows of desktop buttons.
 - Task-template selection uses a scrollable bottom picker, so long titles and a
@@ -163,7 +168,11 @@ permissions and task behaviour stay aligned with the web client.
 - Destructive actions keep the native confirmation alert.
 - Completion and Claim stay directly reachable: they are the primary action of
   their row.
-- Template cards keep their border; active cards do not.
+- Lists are compact rows on one surface, split into Active and Templates tabs;
+  a template row offers Use template. Reorder is a mode, from the Lists toolbar
+  or the list-detail menu.
+- A task opens straight into its editor sheet; saving a list as a template
+  confirms with an Android toast.
 - A template's tasks can be reordered but have no completion, edit, delete or
   unassign controls.
 - Touch targets stay at least 48 dp, every control carries a TalkBack label,
@@ -171,20 +180,19 @@ permissions and task behaviour stay aligned with the web client.
 
 ## Lists, templates and notes on Android
 
-| Action                     | Where it lives                                      | Command                     |
-| -------------------------- | --------------------------------------------------- | --------------------------- |
-| Save a list as a template  | Icon beside the Home card title; list-detail header | `save_list_template`        |
-| Delete a list or template  | Overflow on the Home card, and on list detail       | `delete_list`               |
-| Read a list's shared note  | Under the subtitle on the Home card and list detail | `get_home_v2`/`get_list_v2` |
-| Write a list's shared note | Note field under the subtitle field in the editor   | `update_list_v2`            |
+| Action                     | Where it lives                                    | Command                     |
+| -------------------------- | ------------------------------------------------- | --------------------------- |
+| Save a list as a template  | Overflow on the Lists row and on list detail      | `save_list_template`        |
+| Delete a list or template  | Overflow on the Lists row and on list detail      | `delete_list`               |
+| Read a list's shared note  | Lists row; collapsible Notes on list detail       | `get_home_v2`/`get_list_v2` |
+| Write a list's shared note | Note field under the subtitle field in the editor | `update_list_v2`            |
 
-- The save-template icon sits beside an active list's name on Home, and the
-  list-detail header exposes the same action. It takes no confirmation alert;
-  the new template card appearing on Home confirms the save. The source list
-  stays unchanged and keeps its version.
+- Save as list template is in the overflow of an active list's row and of list
+  detail. It takes no confirmation alert; a toast confirms the save. The source
+  list stays unchanged and keeps its version.
 - `Delete list` appears on template cards as well as active ones, with the same
   destructive alert and the same `expected_version` from the summary. The
-  summary DTO already carries `version`, so deleting from Home needs no extra
+  summary DTO already carries `version`, so deleting from Lists needs no extra
   read.
 - Saving a list writes **one list template** and never a task template, so the
   task editor's picker keeps reading `get_task_templates` alone.

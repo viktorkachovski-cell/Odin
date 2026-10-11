@@ -8,14 +8,13 @@ import { EmailConfirmed } from './routes/EmailConfirmed.tsx';
 
 import { AuthGate } from './app/AuthGate.tsx';
 import { AppLayout } from './components/AppLayout.tsx';
-import { Home } from './routes/Home.tsx';
 import { Invite } from './routes/Invite.tsx';
 import { ListDetail } from './routes/ListDetail.tsx';
-import { MyTasks } from './routes/MyTasks.tsx';
+import { Lists } from './routes/Lists.tsx';
 import { Settings } from './routes/Settings.tsx';
 import { SignIn } from './routes/SignIn.tsx';
-import { Unassigned } from './routes/Unassigned.tsx';
-import { AllTasks } from './routes/AllTasks.tsx';
+import { Tasks } from './routes/Tasks.tsx';
+import { Today } from './routes/Today.tsx';
 
 /**
  * Every nested path is a real route so a browser refresh on `/lists/:id`
@@ -44,16 +43,26 @@ export function App(): ReactNode {
         }
         path="/"
       >
-        <Route element={<Home />} index />
+        <Route element={<Today />} index />
+        <Route element={<Tasks />} path="tasks" />
+        <Route element={<Lists />} path="lists" />
         <Route element={<ListDetail />} path="lists/:listId" />
-        <Route element={<Unassigned />} path="unassigned" />
-        <Route element={<MyTasks />} path="my-tasks" />
-        <Route element={<AllTasks />} path="all-tasks" />
+        {/* The three task views merged into Tasks; old links and bookmarks still land. */}
+        <Route element={<TasksRedirect view="mine" />} path="my-tasks" />
+        <Route element={<TasksRedirect view="unassigned" />} path="unassigned" />
+        <Route element={<TasksRedirect view="everyone" />} path="all-tasks" />
         <Route element={<Settings />} path="settings" />
       </Route>
       <Route element={<NotFound />} path="*" />
     </Routes>
   );
+}
+
+function TasksRedirect({ view }: { readonly view: string }): ReactNode {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set('view', view);
+  return <Navigate replace to={`/tasks?${params.toString()}`} />;
 }
 
 function NotFound(): ReactNode {

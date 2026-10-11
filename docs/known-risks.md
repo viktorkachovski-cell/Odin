@@ -117,14 +117,15 @@ handles an inactive membership, but nothing exercises what happens to that
 member's assigned tasks, and equal permissions mean no member has authority to
 expel another anyway.
 
-### R8 — Web bundle is one ~595 kB chunk
+### R8 — Web bundle is one ~618 kB chunk
 
 **Severity: low.**
 
 No code splitting; the whole app loads up front. Fine on a desktop connection,
 noticeable on a slow phone. The task-workflow branch's Quality build at
 `69197cc` emitted 595.39 kB of JavaScript before gzip, 168.28 kB gzipped;
-Vite reports a non-blocking size warning. Shared notification rules and
+Vite reports a non-blocking size warning. The 2026-10-11 UI overhaul build
+emitted 617.72 kB, 174.41 kB gzipped. Shared notification rules and
 strings also enter the web bundle even though only Android notifies.
 
 ### R9 — Notification delivery is partial and unverified
@@ -174,6 +175,12 @@ such as a shopping list accumulates rows indefinitely. When it happens the
 member sees a "too many items" message on that view and no data, while the
 other views keep working. Archiving old lists is the only relief, and archiving
 is itself one-way (R2).
+
+Since 2026-10-11 the reach is wider: Today, Tasks and the Tasks badge all read
+that same unfiltered All Tasks collection (`features.md`, Navigation and task
+views), so past the limit both screens show the error and the badge
+disappears, on web and Android. List detail and Lists keep working, and
+Android notifications still read My Tasks and Unassigned separately.
 
 ### R12 — Client sync and rendering costs are unmeasured on a device
 
