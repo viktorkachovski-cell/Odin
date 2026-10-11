@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { MemberDto, TaskDto } from '@odin/contracts';
+import type { MemberDto } from '@odin/contracts';
 import { taskStatus } from '@odin/domain';
 import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
@@ -8,24 +8,19 @@ import { useTaskQuery } from '../app/queries.ts';
 import { Avatar } from './Avatar.tsx';
 import { Dialog } from './Dialog.tsx';
 
+/** A task read-only: a template task, or any task while it loads or fails to. */
 export function TaskDetailsDialog({
   taskId,
   members,
   locale,
   t,
-  canEdit,
   onClose,
-  onEdit,
-  variant = 'center',
 }: {
   readonly taskId: string;
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
-  readonly canEdit: boolean;
   readonly onClose: () => void;
-  readonly onEdit: (task: TaskDto) => void;
-  readonly variant?: 'center' | 'side';
 }): ReactNode {
   const query = useTaskQuery(taskId);
   const task = query.isError ? undefined : query.data;
@@ -37,20 +32,13 @@ export function TaskDetailsDialog({
   return (
     <Dialog
       footer={
-        <>
-          {task !== undefined && canEdit && (
-            <button className="button button--primary" onClick={() => onEdit(task)} type="button">
-              {t('task.details.edit')}
-            </button>
-          )}
-          <button className="button" onClick={onClose} type="button">
-            {t('task.details.close')}
-          </button>
-        </>
+        <button className="button" onClick={onClose} type="button">
+          {t('task.details.close')}
+        </button>
       }
       onClose={onClose}
-      variant={variant}
       title={task?.title ?? t('task.details.title')}
+      variant="side"
     >
       {query.isPending && <p role="status">{t('task.details.loading')}</p>}
       {query.isError && (

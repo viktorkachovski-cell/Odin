@@ -1,9 +1,6 @@
 /**
- * The cross-list task views both clients render from one household read:
- * the Today summary and the Tasks register (Mine / Unassigned / Everyone,
- * deadline chips, search, done toggle). Keeping the filtering and grouping here
- * means Android and web can never disagree about which task is "overdue" or
- * which group it sits in.
+ * The cross-list task views both clients render from one household read, so
+ * Android and web never disagree about which task is overdue or where it sits.
  */
 
 import { isOverdue } from './dates.ts';
@@ -14,7 +11,7 @@ export const TASK_VIEWS = ['mine', 'unassigned', 'everyone'] as const;
 export type TaskView = (typeof TASK_VIEWS)[number];
 
 export function isTaskView(value: string | null | undefined): value is TaskView {
-  return value !== null && value !== undefined && TASK_VIEWS.some((view) => view === value);
+  return TASK_VIEWS.some((view) => view === value);
 }
 
 /** Display groups, in the order they render. */
@@ -80,7 +77,8 @@ export function groupTasksByDeadline<T extends ViewTask>(
 export interface TaskViewFilter {
   readonly view: TaskView;
   readonly userId: string | null;
-  readonly deadline: TaskDeadlineFilter;
+  /** Every deadline when omitted. */
+  readonly deadline?: TaskDeadlineFilter;
   readonly search?: string;
   /** Only meaningful for Everyone: Mine and Unassigned never include done tasks. */
   readonly showDone?: boolean;
@@ -130,20 +128,18 @@ export function filterTasks<T extends ViewTask>(
       matchesView(task, filter.view, filter.userId) &&
       (includeDone || !task.completed) &&
       (filter.blockedOnly !== true || (task.blocked === true && !task.completed)) &&
-      matchesDeadline(task, filter.deadline, now) &&
+      (filter.deadline === undefined || matchesDeadline(task, filter.deadline, now)) &&
       matchesSearch(task, needle),
   );
 }
 
-export interface TaskSummary {
-  /** Open tasks past their deadline, anyone's. */
+/** Open-task counts. `mine`, `unassigned` and `everyone` are the Tasks view counts. */
+export interface TaskSummary extends Readonly<Record<TaskView, number>> {
+  /** Past their deadline, anyone's. */
   readonly overdue: number;
-  /** Open tasks still due later today, anyone's. */
+  /** Still due later today, anyone's. */
   readonly dueToday: number;
-  readonly unassigned: number;
   readonly blocked: number;
-  /** Open tasks assigned to the member. */
-  readonly mine: number;
 }
 
 export function summarizeTasks(
@@ -156,8 +152,10 @@ export function summarizeTasks(
   let unassigned = 0;
   let blocked = 0;
   let mine = 0;
+  let everyone = 0;
   for (const task of tasks) {
     if (task.completed) continue;
+    everyone += 1;
     const group = deadlineGroup(task, now);
     if (group === 'overdue') overdue += 1;
     if (group === 'today') dueToday += 1;
@@ -165,5 +163,22 @@ export function summarizeTasks(
     if (task.blocked === true) blocked += 1;
     if (userId !== null && task.assignee_id === userId) mine += 1;
   }
-  return { overdue, dueToday, unassigned, blocked, mine };
+  return { overdue, dueToday, unassigned, blocked, mine, everyone };
+}
+
+/**
+ * Today's view of the member's own open tasks: dated work by deadline group,
+ * with undated work left to a count unless it is all the member has.
+ */
+export function groupMyTasksForToday<T extends ViewTask>(
+  tasks: readonly T[],
+  userId: string | null,
+  now: Date = new Date(),
+): { readonly groups: readonly TaskGroup<T>[]; readonly undated: number; readonly total: number } {
+  const mine = filterTasks(tasks, { view: 'mine', userId }, now);
+  const groups = groupTasksByDeadline(mine, now);
+  const dated = groups.filter((group) => group.group !== 'undated');
+  if (dated.length === 0) return { groups, undated: 0, total: mine.length };
+  const shown = dated.reduce((sum, group) => sum + group.tasks.length, 0);
+  return { groups: dated, undated: mine.length - shown, total: mine.length };
 }

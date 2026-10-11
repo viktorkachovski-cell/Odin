@@ -16,7 +16,6 @@ export type IconName =
   | 'chevron-down'
   | 'more'
   | 'search'
-  | 'close'
   | 'reorder'
   | 'check'
   | 'blocked'
@@ -64,7 +63,6 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M13 13l4 4" />
     </>
   ),
-  close: <path d="M5 5l10 10M15 5L5 15" />,
   reorder: <path d="M7 4v12M7 4L4 7M7 4l3 3M13 16V4M13 16l-3-3M13 16l3-3" />,
   check: <path d="M4.5 10.5l3.5 3.5 7.5-8" />,
   blocked: (

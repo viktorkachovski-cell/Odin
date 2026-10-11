@@ -14,13 +14,7 @@ export { configureRequestIdGenerator } from './request-id.ts';
 export { setSessionAutoRefresh } from './auth.ts';
 
 export type { AuthUser } from './auth.ts';
-export {
-  getCurrentUser,
-  onAuthStateChange,
-  requestSignInCode,
-  signOut,
-  verifySignInCode,
-} from './auth.ts';
+export { getCurrentUser, onAuthStateChange, signOut } from './auth.ts';
 
 export { OdinError } from './error-mapping.ts';
 export {
@@ -40,7 +34,6 @@ export {
   getMyHousehold,
   getMyProfile,
   getMyTasks,
-  getSession,
   getUnassigned,
 } from './repositories.ts';
 
@@ -91,3 +84,4 @@ export { getTask } from './task-detail.ts';
 export { moveList, moveTask, setTaskState } from './task-workflow.ts';
 export type { TaskRowActions, TaskRowCommandError } from './use-task-actions.ts';
 export { useTaskRowActions } from './use-task-actions.ts';
+export { useListActions } from './use-list-actions.ts';

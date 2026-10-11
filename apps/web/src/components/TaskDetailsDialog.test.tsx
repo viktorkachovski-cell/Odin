@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MemberDto, TaskDto } from '@odin/contracts';
@@ -37,25 +36,15 @@ describe('TaskDetailsDialog', () => {
     });
   });
 
-  it('shows notes, assignee and deadline and opens the active-task editor', async () => {
-    const onEdit = vi.fn();
+  it('shows notes, assignee and deadline read-only', () => {
     render(
-      <TaskDetailsDialog
-        canEdit
-        locale="en"
-        members={members}
-        onClose={vi.fn()}
-        onEdit={onEdit}
-        t={t}
-        taskId={task.id}
-      />,
+      <TaskDetailsDialog locale="en" members={members} onClose={vi.fn()} t={t} taskId={task.id} />,
     );
 
     const dialog = screen.getByRole('dialog', { name: 'Water the plants' });
     expect(dialog).toHaveTextContent('Use the small watering can');
     expect(dialog).toHaveTextContent('Ana');
     expect(dialog).toHaveTextContent(/5 Apr 2030/);
-    await userEvent.click(screen.getByRole('button', { name: 'Edit task' }));
-    expect(onEdit).toHaveBeenCalledWith(task);
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Close']);
   });
 });

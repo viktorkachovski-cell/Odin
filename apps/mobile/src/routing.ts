@@ -41,7 +41,6 @@ const AUTH_ROUTES: readonly string[] = [
   '/register',
   '/forgot-password',
   '/reset-password',
-  '/verify-code',
 ];
 
 export function safeAuthDestination(candidate: string | undefined | null): InternalPath {

@@ -8,6 +8,8 @@ import {
   createTranslator,
   formatDueAt,
   formatDueShort,
+  formatLongDate,
+  progressText,
   resolveLocale,
   translate,
 } from './index.ts';
@@ -70,7 +72,24 @@ describe('translate', () => {
 
   it('binds a locale once through createTranslator', () => {
     const t = createTranslator('bg');
-    expect(t('nav.my_tasks')).toBe('Моите задачи');
+    expect(t('nav.tasks')).toBe('Задачи');
+  });
+});
+
+describe('progressText', () => {
+  it('reports an empty list as nothing to do, not nothing done', () => {
+    const t = createTranslator('en');
+    expect(progressText(t, 1, 3, 33)).toBe('1 of 3 done · 33%');
+    expect(progressText(t, 0, 0, 0)).toBe('No tasks yet · 0%');
+    expect(progressText(createTranslator('bg'), 0, 0, 0)).toBe('Няма задачи още · 0%');
+  });
+});
+
+describe('formatLongDate', () => {
+  it('names the weekday and month in the member language', () => {
+    const date = new Date(2026, 9, 11, 14, 0);
+    expect(formatLongDate(date, 'en')).toBe('Sunday 11 October');
+    expect(formatLongDate(date, 'bg')).toMatch(/неделя/);
   });
 });
 

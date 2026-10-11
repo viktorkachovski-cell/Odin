@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { CommandError } from '@odin/contracts';
+import { commandError, type CommandError } from '@odin/contracts';
+import { OdinError } from '@odin/data';
 import { errorMessage, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -47,6 +48,20 @@ export function ErrorBanner({
       {onRetry !== undefined && <SecondaryButton label={t('state.retry')} onPress={onRetry} />}
     </View>
   );
+}
+
+/** A screen's read failed: its typed error when it has one, never raw text. */
+export function LoadFailure({
+  t,
+  error,
+  onRetry,
+}: {
+  readonly t: Translator;
+  readonly error?: unknown;
+  readonly onRetry: () => void;
+}): ReactNode {
+  const info = error instanceof OdinError ? error.info : commandError('UNKNOWN');
+  return <ErrorBanner error={info} onRetry={onRetry} t={t} />;
 }
 
 /** Offline and reconnecting states are announced politely, not as alerts. */

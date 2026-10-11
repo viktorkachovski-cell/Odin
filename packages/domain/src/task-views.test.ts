@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   deadlineGroup,
   filterTasks,
+  groupMyTasksForToday,
   groupTasksByDeadline,
   isTaskView,
   summarizeTasks,
   type ViewTask,
 } from './task-views.ts';
+import { isTaskDeadlinePreset } from './task-workflow.ts';
 
 // Sunday 11 October 2026, 14:00 local.
 const NOW = new Date(2026, 9, 11, 14, 0, 0, 0);
@@ -65,22 +67,20 @@ describe('task view filter', () => {
     task('free', { due_at: at(9, 9) }),
     task('free-done', { completed: true, due_at: at(9, 9) }),
   ];
-  const all = { preset: 'all' } as const;
 
   it('Mine and Unassigned never include done tasks, matching their server reads', () => {
-    const mine = filterTasks(tasks, { view: 'mine', userId: 'me', deadline: all, showDone: true });
+    const mine = filterTasks(tasks, { view: 'mine', userId: 'me', showDone: true });
     expect(mine.map((entry) => entry.id)).toEqual(['mine']);
-    const free = filterTasks(tasks, { view: 'unassigned', userId: 'me', deadline: all });
+    const free = filterTasks(tasks, { view: 'unassigned', userId: 'me' });
     expect(free.map((entry) => entry.id)).toEqual(['free']);
   });
 
   it('Everyone shows done tasks only on request', () => {
-    const hidden = filterTasks(tasks, { view: 'everyone', userId: 'me', deadline: all });
+    const hidden = filterTasks(tasks, { view: 'everyone', userId: 'me' });
     expect(hidden).toHaveLength(3);
     const shown = filterTasks(tasks, {
       view: 'everyone',
       userId: 'me',
-      deadline: all,
       showDone: true,
     });
     expect(shown).toHaveLength(5);
@@ -124,7 +124,6 @@ describe('task view filter', () => {
     const result = filterTasks(tasks, {
       view: 'everyone',
       userId: 'me',
-      deadline: all,
       search: '  LANDLORD ',
     });
     expect(result.map((entry) => entry.id)).toEqual(['theirs']);
@@ -134,7 +133,6 @@ describe('task view filter', () => {
     const result = filterTasks(tasks, {
       view: 'everyone',
       userId: 'me',
-      deadline: all,
       blockedOnly: true,
     });
     expect(result.map((entry) => entry.id)).toEqual(['theirs']);
@@ -153,12 +151,40 @@ describe('summary', () => {
       'me',
       NOW,
     );
-    expect(summary).toEqual({ overdue: 1, dueToday: 1, unassigned: 1, blocked: 1, mine: 1 });
+    expect(summary).toEqual({
+      overdue: 1,
+      dueToday: 1,
+      unassigned: 1,
+      blocked: 1,
+      mine: 1,
+      everyone: 3,
+    });
+  });
+
+  it("leaves Today's undated work to a count unless it is all the member has", () => {
+    const dated = groupMyTasksForToday(
+      [
+        task('soon', { assignee_id: 'me', due_at: at(11, 18) }),
+        task('someday', { assignee_id: 'me' }),
+        task('theirs', { assignee_id: 'other', due_at: at(11, 18) }),
+      ],
+      'me',
+      NOW,
+    );
+    expect(dated.groups.map((entry) => entry.group)).toEqual(['today']);
+    expect(dated).toMatchObject({ undated: 1, total: 2 });
+
+    const undated = groupMyTasksForToday([task('someday', { assignee_id: 'me' })], 'me', NOW);
+    expect(undated.groups.map((entry) => entry.group)).toEqual(['undated']);
+    expect(undated).toMatchObject({ undated: 0, total: 1 });
   });
 
   it('recognises view names', () => {
     expect(isTaskView('mine')).toBe(true);
     expect(isTaskView('all')).toBe(false);
     expect(isTaskView(null)).toBe(false);
+    expect(isTaskDeadlinePreset('overdue')).toBe(true);
+    expect(isTaskDeadlinePreset('soon')).toBe(false);
+    expect(isTaskDeadlinePreset(undefined)).toBe(false);
   });
 });

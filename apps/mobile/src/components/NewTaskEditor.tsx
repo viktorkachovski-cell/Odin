@@ -1,19 +1,39 @@
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ListSummaryDto, MemberDto } from '@odin/contracts';
 import { createTask, keysAffectedByTaskChange, useCommand } from '@odin/data';
 
 import { useOdin } from '../state/OdinContext.ts';
 import { useTheme } from '../theme.ts';
+import { Chip } from './Blocks.tsx';
+import { FloatingActionButton } from './FloatingActionButton.tsx';
 import { TaskEditor } from './TaskEditor.tsx';
 
 /**
- * "New task" from Today or Tasks, where no list is open: the ordinary task
- * editor with a list choice on top. A task still belongs to exactly one active
- * list; this only lets the member pick which.
+ * "New task" from Today or Tasks, where no list is open: the floating action
+ * button and the ordinary task editor with a list choice on top. A task still
+ * belongs to exactly one active list; this only lets the member pick which.
  */
-export function NewTaskEditor({
+export function NewTaskFab({
+  lists,
+  members,
+}: {
+  readonly lists: readonly ListSummaryDto[];
+  readonly members: readonly MemberDto[];
+}): ReactNode {
+  const { t } = useOdin();
+  const [open, setOpen] = useState(false);
+  if (!lists.some((list) => list.kind === 'active')) return null;
+  return (
+    <>
+      <FloatingActionButton label={t('tasks.new')} onPress={() => setOpen(true)} />
+      {open && <NewTaskEditor lists={lists} members={members} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function NewTaskEditor({
   lists,
   members,
   onClose,
@@ -44,43 +64,21 @@ export function NewTaskEditor({
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.colors.textMuted }]}>{t('task.list.label')}</Text>
       <ScrollView contentContainerStyle={styles.chips} horizontal>
-        {active.map((list) => {
-          const selected = list.id === listId;
-          return (
-            <Pressable
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              key={list.id}
-              onPress={() => setListId(list.id)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: selected ? theme.colors.accentSoft : theme.colors.surface,
-                  borderColor: selected ? theme.colors.accent : theme.colors.borderStrong,
-                  borderRadius: theme.radius.pill,
-                  minHeight: theme.touchTarget,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: selected ? theme.colors.accent : theme.colors.text },
-                  selected && styles.chipSelected,
-                ]}
-              >
-                {list.title}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {active.map((list) => (
+          <Chip
+            key={list.id}
+            label={list.title}
+            onPress={() => setListId(list.id)}
+            role="radio"
+            selected={list.id === listId}
+          />
+        ))}
       </ScrollView>
     </View>
   );
 
   return (
     <TaskEditor
-      conflict={false}
       error={save.state.error}
       listField={listField}
       members={members}
@@ -100,10 +98,7 @@ export function NewTaskEditor({
 }
 
 const styles = StyleSheet.create({
-  chip: { borderWidth: 1, justifyContent: 'center', paddingHorizontal: 14 },
-  chipSelected: { fontWeight: '700' },
-  chipText: { fontSize: 14 },
-  chips: { gap: 8 },
+  chips: { gap: 8, paddingVertical: 4 },
   field: { gap: 6 },
   label: { fontSize: 14 },
 });

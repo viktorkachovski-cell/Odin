@@ -18,12 +18,10 @@ import { Icon } from './Icon.tsx';
 export interface OverflowItem {
   readonly key: string;
   readonly label: string;
-  readonly glyph?: string | undefined;
   /** A quieter second line, such as a template's task count. */
   readonly description?: string | undefined;
   /** Destructive items are grouped last, behind a rule. */
   readonly danger?: boolean | undefined;
-  readonly disabled?: boolean | undefined;
   readonly onSelect: () => void;
 }
 
@@ -169,7 +167,6 @@ export function OverflowMenu({
                 className={
                   item.danger === true ? 'overflow__item overflow__item--danger' : 'overflow__item'
                 }
-                disabled={item.disabled ?? false}
                 onClick={() => select(item)}
                 ref={(node) => {
                   itemRefs.current[index] = node;
@@ -178,11 +175,6 @@ export function OverflowMenu({
                 tabIndex={index === focusIndex ? 0 : -1}
                 type="button"
               >
-                {item.glyph !== undefined && (
-                  <span aria-hidden="true" className="button__glyph">
-                    {item.glyph}
-                  </span>
-                )}
                 {item.description === undefined ? (
                   item.label
                 ) : (

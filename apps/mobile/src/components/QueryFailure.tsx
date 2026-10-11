@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
-import { OdinError } from '@odin/data';
 
 import { useOdin } from '../state/OdinContext.ts';
-import { ErrorBanner } from './Banner.tsx';
+import { LoadFailure } from './Banner.tsx';
 import { Screen } from './Screen.tsx';
 
 export function QueryFailure({
@@ -15,15 +14,7 @@ export function QueryFailure({
   const { t } = useOdin();
   return (
     <Screen>
-      <ErrorBanner
-        error={
-          error instanceof OdinError
-            ? error.info
-            : { code: 'UNKNOWN', message_key: 'error.unknown' }
-        }
-        t={t}
-        onRetry={onRetry}
-      />
+      <LoadFailure error={error} onRetry={onRetry} t={t} />
     </Screen>
   );
 }

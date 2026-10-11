@@ -18,8 +18,7 @@ import { TaskTemplates } from './TaskTemplates.tsx';
 
 /**
  * Task editor. Drafts survive a failed save: on CONFLICT the typed text is kept
- * and the user is offered a review of the latest version rather than having
- * their edit silently overwritten or discarded.
+ * and the member is offered a review of the latest version.
  */
 
 interface TaskEditorProps {
@@ -27,11 +26,10 @@ interface TaskEditorProps {
   readonly members: readonly MemberDto[];
   readonly t: Translator;
   readonly pending: boolean;
+  /** A CONFLICT keeps the draft and offers `onReviewConflict` instead of a banner. */
   readonly error: CommandError | null;
-  readonly conflict: boolean;
   readonly onCancel: () => void;
   readonly onReviewConflict: () => void;
-  readonly variant?: 'center' | 'side';
   /** Rendered above the title, for the global New task editor's list picker. */
   readonly listField?: ReactNode;
   /** Offered as a quiet destructive action on the left of the footer. */
@@ -50,11 +48,9 @@ export function TaskEditor({
   t,
   pending,
   error,
-  conflict,
   onCancel,
   onReviewConflict,
   onSubmit,
-  variant = 'center',
   listField,
   onDelete,
 }: TaskEditorProps): ReactNode {
@@ -62,6 +58,7 @@ export function TaskEditor({
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
+  const conflict = error?.code === 'CONFLICT';
 
   const submit = (): void => {
     const titleCheck = validateTaskTitle(draft.title);
@@ -128,7 +125,7 @@ export function TaskEditor({
       }
       onClose={onCancel}
       title={task === null ? t('task.new.title') : t('task.edit.title')}
-      variant={variant}
+      variant="side"
     >
       {listField}
       {conflict && (

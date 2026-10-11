@@ -12,45 +12,26 @@ Expo Doctor, Android export). The `Database` workflow starts a disposable
 Supabase stack and runs `supabase db lint` with warnings failing the job, the
 pgTAP suites and the parallel-transaction concurrency suite.
 
-Locally the same set runs as `npm run check` plus `npm run build`. Current
-counts at the latest release commit: 12 tooling tests, 19 Vitest files with 179
-tests, 14 Android Jest suites with 113 tests, 4 mobile build-environment tests,
-pgTAP planning 32 and 47 assertions, Expo Doctor 21/21 in CI, and a successful
-Android export and web production build.
+Locally the same set runs as `npm run check` plus `npm run build`. Counts on
+2026-10-11: 12 tooling tests, 28 Vitest files with 244 tests, 18 Android Jest
+suites with 138 tests, 4 mobile build-environment tests, pgTAP planning 32, 47
+and 43 assertions (122), five parallel-transaction cases, Expo Doctor 21/21 in
+CI, and a successful Android export and web production build.
 
 Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment
 limitation, not a project finding; CI reports 21/21.
 
-## Task-workflow branch evidence — review-fix commit `69197cc`
+## Task-workflow evidence — 2026-09-27
 
-The reviewed code commit `69197cc` on `codex/task-workflow-polish` passed GitHub [Quality](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210138)
-and [Database](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210226).
-Quality covers ESLint, Prettier, workspace typechecks, 12 tooling tests, 209
-Vitest tests in 25 files, 121 Android Jest tests, four build-environment tests,
-the web build, Expo Doctor (21/21) and Android JavaScript export. The web
-JavaScript output was 595.39 kB before gzip; see R8 in `known-risks.md`.
-
-Database CI replayed both branch migrations on a disposable Supabase stack.
-SQL lint found no schema errors; pgTAP passed 122 assertions across three
-files, including 43 task-workflow assertions. Five genuine parallel cases
-passed: duplicate create, competing claims, append order, moving while a
-neighbour is deleted, and competing adjacent moves. The review had reproduced
-the neighbour-delete race as a not-null `sort_order` failure before the fix.
-`20260927154349_task_workflow_review_fixes.sql` adds the list lock and changes
-the draft status and read RPCs; generated public types were refreshed from
-the disposable database.
-
-Local Node 22 `npm run check`, web build and Android export also passed after
-the review fixes using non-secret placeholder public configuration. No branch
-client was installed on a device or exercised against the hosted project.
-On 2026-09-27 the migrations were dry-run on the hosted project inside a
-transaction forced to roll back, then applied with a follow-up permissions
-migration, and `supabase/smoke/task-workflow-smoke.sql` passed there with
-identical row counts before and after (`deployment-log.md`). Nobody has yet
-checked two-client movement/state synchronization, deadline filters around
-local midnight and DST, or phone/tablet visual fit against the supplied
-reference, on a device or in a browser.
+Review-fix commit `69197cc` passed GitHub [Quality](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210138)
+and [Database](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210226),
+including all three pgTAP files and the five parallel cases; the review had
+reproduced the neighbour-delete race as a not-null `sort_order` failure before
+the parent-list lock fixed it. The hosted dry run, apply and smoke run are in
+`deployment-log.md`. Nobody has yet checked two-client movement/state
+synchronization, deadline filters around local midnight and DST, or
+phone/tablet visual fit, on a device or in a browser.
 
 ## Requirements traceability
 
@@ -58,16 +39,16 @@ reference, on a device or in a browser.
 | --------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | FR 01                             | Database + both clients  | Household A cannot read/write/subscribe to B through any exposed table/view/RPC; identity and counts isolated                                                                   |
 | FR 02                             | Shared + clients         | Display name and fallback avatar visible only to own household                                                                                                                  |
-| FR 03–04                          | Both clients             | Separate labeled sections, bordered templates and distinct active cards                                                                                                         |
+| FR 03–04 (amended 2026-10-11)     | Both clients             | Lists has separate Active and Templates tabs; a template is visibly a template and used through Use template                                                                    |
 | FR 05                             | Database + clients       | Valid create succeeds once; blank rejected; cancel leaves nothing                                                                                                               |
 | FR 06–08                          | Database + clients       | Atomic copy, unchanged source, fields/order copied, assignee/due/completion reset, same request twice yields one list                                                           |
-| FR 09                             | Both clients             | Card and direct link open correct authorized detail                                                                                                                             |
+| FR 09                             | Both clients             | List row and direct link open correct authorized detail                                                                                                                         |
 | FR 10–13                          | Database + clients       | Create/edit/single assign/reassign; inactive/foreign assignee rejected; peers have equal permissions                                                                            |
 | FR 14                             | Database + clients       | One-action self-claim; simultaneous claims have exactly one winner                                                                                                              |
 | FR 15                             | All                      | Optional task date/time works; no list deadline in UI, API or schema                                                                                                            |
 | FR 16–18                          | All                      | Complete/reopen, 0% empty, correct rounding/count, incomplete group first and stable order                                                                                      |
 | FR 19–20                          | All                      | Cross-list filters correct after claim, reassignment, completion and removal of assignee; dated order/null-last                                                                 |
-| FR 21–22                          | Both clients             | Home navigation without mutation; down hides/up reveals bottom bar; desktop adaptation reviewed                                                                                 |
+| FR 21–22 (amended 2026-10-11)     | Both clients             | Today/Tasks/Lists/Settings navigation without mutation; down hides/up reveals bottom bar; desktop adaptation reviewed                                                           |
 | FR 23–24                          | All                      | Two actual sessions update within normal 5 seconds; stale edit is surfaced, drafts retained, reconnect recovers                                                                 |
 | FR 25–26                          | Both clients             | Every data screen has empty/loading/offline/retry/save-failure states, no silent draft loss                                                                                     |
 | FR 27                             | Both clients, optional   | Read-only preview with separate copy action; never blocks Must completion                                                                                                       |
@@ -85,7 +66,7 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 - [ ] Stale fetch after successful mutation cannot restore older state; Realtime loss, reconnect and Android foreground resynchronize.
 - [ ] Completed tasks disappear from cross-list views, remain in detail/totals, and never show overdue.
 - [ ] Progress 0/0 = 0, 1/3 = 33, 2/3 = 67, 1/8 = 13 and all complete = 100.
-- [ ] Current snapshot readers return complete lists through 1,000 rows and a visible `TOO_LARGE` above it; installed clients' 50-row paged readers remain correct; counts cover all tasks and Home has no N+1 reads.
+- [ ] Current snapshot readers return complete lists through 1,000 rows and a visible `TOO_LARGE` above it; installed clients' 50-row paged readers remain correct; counts cover all tasks and Lists has no N+1 reads.
 - [ ] Blank/whitespace-only title, max length, emoji/supplementary Unicode, Bulgarian, very long member/title labels, null subtitle/deadline/assignee.
 - [ ] Same UTC due instant renders correctly in Europe/Sofia and another zone; DST invalid/ambiguous input handled explicitly; locale switching doesn't mutate instants.
 - [ ] Invalid, expired, revoked and already-used invite; logged-out deep-link continuation; account already in another household; no token in logs/referrers.
@@ -105,7 +86,7 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 
 ## Performance evidence
 
-Measure Home and List Detail usable-data time at the 75th percentile against the source target of 2 seconds on a documented typical mobile connection. Use at least 30 observations per scenario and report device, network profile, warm/cold cache and dataset (e.g. 20 lists/500 tasks). Track empty/loading UI separately from usable data. Measure accepted-write-to-other-client-visible time with two clients; target 5 seconds in normal connected conditions. Report sample size, worst case and failures; do not fabricate measurements.
+Measure Today, Lists and List Detail usable-data time at the 75th percentile against the source target of 2 seconds on a documented typical mobile connection. Use at least 30 observations per scenario and report device, network profile, warm/cold cache and dataset (e.g. 20 lists/500 tasks). Track empty/loading UI separately from usable data. Measure accepted-write-to-other-client-visible time with two clients; target 5 seconds in normal connected conditions. Report sample size, worst case and failures; do not fabricate measurements.
 
 ## Release gates
 

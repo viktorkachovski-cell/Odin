@@ -6,11 +6,9 @@ permissions. It runs as an Expo Android client and a Vite React web client on
 Vercel, over a Supabase Postgres backend, in English and Bulgarian.
 
 All three are implemented and in production. The web client is at
-`https://odin-ten-tau.vercel.app`.
-The task workflow (task details, Open/Blocked/Done, shared ordering and All
-Tasks) reached production on 2026-09-27: its migrations are on the hosted
-database and the web client ships from `main`. No Android build containing it
-has been released yet. See [the deployment log](docs/deployment-log.md).
+`https://odin-ten-tau.vercel.app` and deploys from `main`; no Android build
+containing the 2026-09-27 task workflow has been released yet.
+[The deployment log](docs/deployment-log.md) records what reached production.
 
 ## Documentation
 

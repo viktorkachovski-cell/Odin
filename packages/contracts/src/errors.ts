@@ -42,14 +42,9 @@ export function isErrorCode(value: unknown): value is ErrorCode {
 }
 
 /**
- * NETWORK means the commit outcome is unknown: the caller must retry with the
- * SAME request ID rather than generating a fresh one.
+ * NETWORK means the commit outcome is unknown, so the caller retries with the
+ * SAME request ID. Conflicts are never retried automatically.
  */
-export function isOutcomeUnknown(error: CommandError): boolean {
-  return error.code === 'NETWORK';
-}
-
-/** Conflicts are never retried automatically; the user reviews and resubmits. */
 export function isRetryableWithSameRequestId(error: CommandError): boolean {
   return error.code === 'NETWORK';
 }
@@ -64,12 +59,4 @@ export function commandError(
     message_key: messageKey ?? `error.${code.toLowerCase()}`,
     ...(currentVersion === undefined ? {} : { current_version: currentVersion }),
   };
-}
-
-export function failure<T>(error: CommandError): CommandResult<T> {
-  return { ok: false, error };
-}
-
-export function success<T>(data: T): CommandResult<T> {
-  return { ok: true, data };
 }

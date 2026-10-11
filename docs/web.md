@@ -35,11 +35,13 @@ ones collapsed. `useTaskWiring` gives every screen the same row commands, the
 task panel and the destructive confirmations.
 
 Opening a task opens `TaskDetailsFlow` as a side panel (`Dialog` with
-`variant="side"`, a bottom sheet on a phone) that is the editor itself.
-`NewTaskEditor` is the same editor with a list picker. Saving a list as a
-template confirms with a `Toast` rather than a sentence left on the page.
-Lists and list detail reorder only in Reorder mode. Icons are inline SVG
-(`Icon`), not platform text glyphs. Every collection still loads in one read.
+`variant="side"`, a bottom sheet on a phone) that is the editor itself; a
+template task, or one still loading, shows `TaskDetailsDialog` read-only.
+`NewTaskAction` is the header button, its Fab and the same editor with a list
+picker. Saving a list as a template confirms with a `Toast`. `Controls` holds
+the segmented control, the Reorder toggle and the move buttons that Tasks,
+Lists and list detail share. Icons are inline SVG (`Icon`), not platform text
+glyphs.
 
 ### Interaction rules
 
@@ -48,7 +50,7 @@ Lists and list detail reorder only in Reorder mode. Icons are inline SVG
 - Copy controls get descriptive names ("Create list from …").
 - Escape closes a dialog without saving and returns focus to its trigger;
   unsaved changes are handled explicitly.
-- No button nested inside another clickable button or card.
+- No button nested inside another clickable button or row.
 - 44×44 CSS pixel targets even with a mouse; contrast checked in both
   languages; overdue is text, not colour alone.
 - Long task names wrap, assignee chips keep their names, and Bulgarian text

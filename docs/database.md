@@ -21,19 +21,12 @@ isolation, equal member task permissions and explicit completion state. Writes
 carry actor-scoped request IDs and expected versions. Assignment and claim use
 deterministic locks, and clients cannot bypass them with direct table writes.
 
-Migration `20260927121823_task_workflow_polish.sql` adds task `blocked`, household list
-positions, and versioned adjacent move commands, backfilling existing list
-positions in creation order before enforcing uniqueness.
-`20260927154349_task_workflow_review_fixes.sql` then replaces the status
-command with `set_task_state` (open/blocked/done), makes every command that
-changes a task's position or completion group lock the parent list through
-`private.lock_task_list` before checking versions, and replaces paged reads with
-one-snapshot readers (`get_home_v2`, `get_list_v2` and
-`private.get_household_tasks` behind My Tasks, Unassigned and All Tasks) that
-return `TOO_LARGE` above 1,000 rows. Legacy paged reads stay for installed
-clients. `20260927194500_task_workflow_function_permissions.sql` removes the
-anonymous execute grants hosted default privileges add to the new functions.
-All three are on the hosted database since 2026-09-27.
+The task-workflow migrations add task `blocked`, shared list and task order with
+versioned adjacent moves, `set_task_state`, a parent-list lock
+(`private.lock_task_list`) taken by every command that changes a task's
+position or completion group, and the one-snapshot readers (`get_home_v2`,
+`get_list_v2`, and `private.get_household_tasks` behind the three cross-list
+reads). Their order and hosted versions are in `deployment-log.md`.
 
 ## Authorization design
 
@@ -65,8 +58,8 @@ These are the rules a change must preserve.
   therefore contain that key — risk R6 in `known-risks.md`.
 - Realtime is an invalidation channel, not a source of truth. Protected tables
   keep RLS and managed Realtime schema objects are untouched.
-- Current Home, list and cross-list task readers return one snapshot and fail
-  with `TOO_LARGE` above 1,000 rows; installed clients retain 50-row keyset
+- Current list and cross-list task readers return one snapshot and fail with
+  `TOO_LARGE` above 1,000 rows; installed clients retain 50-row keyset
   readers. Aggregate progress counts all tasks, not only a displayed subset.
 
 Keep the function/grant matrix in `supabase/README.md` current: owner, security

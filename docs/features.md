@@ -33,106 +33,72 @@ it under the subtitle and put its editor field under the subtitle field.
 ## Tasks
 
 A task has a title (1–500 code points), an optional shared note (up to 5,000),
-at most one assignee, an optional deadline and an explicit completion state.
+at most one assignee, an optional deadline and an explicit state.
 
 - A date with no time resolves on the client to `23:59:59.999` in the device's
   local time zone and is stored as UTC. A time without a date is invalid.
 - Completion is an explicit desired state, never a toggle, so a retry cannot
-  invert it.
-- Tasks render incomplete-first, preserving declared order inside each group.
-  Progress counts the whole list, never only the loaded page.
-- My Tasks and Unassigned exclude completed and template tasks. Both sort by
-  due timestamp ascending, nulls last, with a stable list/task ID tie-breaker.
-- A completed task never shows as overdue.
+  invert it. A completed task never shows as overdue.
+- Four visible statuses: Unassigned, To-do, Blocked and Done. A task is stored
+  as Open, Blocked or Done; an open task shows Unassigned without an assignee
+  and To-do with one, so that label follows assignment automatically. Blocked
+  and Done are explicit choices and do not change the assignee. Assignment
+  changes preserve a blocked state; completion and reopening clear it.
+- Up/down moves persist one shared household order: tasks within their
+  incomplete/completed group (a template's tasks too), active lists and list
+  templates each within their own kind. End-of-group moves are disabled, and
+  every move control stays disabled until the previous move's result has
+  reloaded, so rapid taps never send a stale version.
+- Progress counts the whole list. Lists, list detail and the household task
+  read each load in one read, so a reorder by another member can never drop or
+  repeat a row; a collection above 1,000 rows shows a "too many items" message
+  instead of a partial list (R10).
 
-### Task workflow — 2026-09-27
-
-The three task-workflow migrations were applied to the hosted database on
-2026-09-27 (`deployment-log.md`) and the web client ships these additions from
-`main`. No Android build containing them has been released yet.
-
-- Tapping or clicking a task opens its complete details, including notes,
-  assignee and deadline. Completion, status, move and overflow controls remain
-  independent of opening details. Active tasks can be edited from details on
-  every screen; a conflicting save keeps the draft and reloads the task, so the
-  member can resubmit against the latest version.
-- The four visible statuses are Unassigned, To-do, Blocked and Done. A task is
-  stored as Open, Blocked or Done; an open task shows Unassigned without an
-  assignee and To-do with one, so that label follows assignment automatically.
-  Blocked and Done are explicit choices and do not change the assignee.
-  Choosing the open option restores the appropriate label. Assignment changes
-  preserve a blocked state. Completion/reopening clears it.
-- Up/down actions persist one shared household order. Active lists and list
-  templates each have their own order. Tasks move inside the existing
-  incomplete/completed groups; a template's tasks show move controls too.
-  End-of-group moves are disabled, and every move control stays disabled until
-  the previous move's result has reloaded, so rapid taps never send a stale
-  version. Reordering uses version checks, so an old screen cannot silently
-  overwrite a newer change.
-- Saving a list template is an icon beside the list title, with a descriptive
-  accessible label that includes the title.
-- All Tasks includes every task in open active lists, including done tasks.
-  It offers All deadlines, Overdue, Today, Upcoming, No deadline and Date range.
-  Overdue excludes done tasks and means deadline before now; Today uses the
-  entire local day; Upcoming starts tomorrow. The custom range includes both
-  selected local dates. Tasks without deadlines appear only in All deadlines
-  and No deadline. Invalid or reversed ranges cannot be applied.
-- Home, list detail, My Tasks, Unassigned and All Tasks each load in one read,
-  so a reorder by another member can never drop or repeat a row. A collection
-  above 1,000 rows shows a "too many items" message instead of a partial list.
-- My Tasks and Unassigned rows now show a task's notes, as All Tasks and list
-  detail rows already did, because all three read the same full task rows.
-
-Mobile presentation uses Odin's existing palette with clearer spacing,
-task hierarchy, restrained surfaces and separate accessible touch targets.
-English and Bulgarian labels cover the new controls.
-
-## Navigation and task views — 2026-10-11
+## Navigation and task views
 
 Both clients have four destinations: **Today**, **Tasks**, **Lists** and
-**Settings**. My Tasks, Unassigned and All Tasks were three readings of the same
-tasks and are now one Tasks screen; their old routes (`/my-tasks`,
-`/unassigned`, `/all-tasks`) redirect to it with the matching view, so links,
-bookmarks and notification taps still land. Nothing in the API changed.
+**Settings** (owner amendment of 2026-10-11 in `decisions.md`). The old
+`/my-tasks`, `/unassigned` and `/all-tasks` routes redirect to Tasks with the
+matching view, so links, bookmarks and notification taps still land.
 
 - **One household read.** Today, Tasks and the Tasks badge all derive from the
-  All Tasks read with no deadline filter (`get_all_tasks`), filtered on the
-  client by the shared `@odin/domain` functions `filterTasks`,
-  `groupTasksByDeadline` and `summarizeTasks`. The deadline presets apply the
-  bounds `resolveTaskDeadlineFilter` already gave the server, so a filter moved
-  client-side returns the same tasks. Mine and Unassigned keep their rules:
-  open tasks only, the member's own or nobody's.
+  unfiltered `get_all_tasks` read, filtered on the client by the shared
+  `@odin/domain` functions `filterTasks`, `groupTasksByDeadline`,
+  `groupMyTasksForToday` and `summarizeTasks`. The deadline presets apply the
+  bounds `resolveTaskDeadlineFilter` gives the server, so a filter moved
+  client-side returns the same tasks. Mine and Unassigned show open tasks
+  only, the member's own or nobody's, due-ascending with undated last.
 - **Today** shows four counts that open the matching Tasks filter (Overdue and
   Due today across the household, Unassigned, Blocked), the member's open tasks
   grouped Overdue / Today / Upcoming with undated ones summarised by a link, up
   to three unclaimed tasks with Claim, and active-list progress.
-- **Tasks** has Mine / Unassigned / Everyone with counts, the deadline presets
-  and date range as chips, a Blocked-only chip, search over title, notes and
-  list name, and Show done (Everyone only). Rows are grouped by deadline:
-  Overdue, Today, Upcoming, No deadline, Done. On web the filters live in the
-  URL.
+- **Tasks** has Mine / Unassigned / Everyone with counts, deadline chips (All,
+  Overdue, Today, Upcoming, No deadline, Date range), a Blocked-only chip,
+  search over title, notes and list name, and Show done (Everyone only).
+  Overdue excludes done tasks and means deadline before now; Today is the whole
+  local day; Upcoming starts tomorrow; a range includes both local dates, and
+  an invalid or reversed range cannot be applied. Rows are grouped Overdue,
+  Today, Upcoming, No deadline, Done. On web the filters live in the URL.
 - **Lists** has Active and Templates tabs. A template is used from its row or,
-  on web, from the New list menu. Saving a list as a template moved from an
-  icon beside the title into the list's menu; a short toast confirms it.
+  on web, from the New list menu. Save as template sits in the list's menu and
+  a short toast confirms it.
 - **Reordering is a mode.** Up/down controls appear only after choosing
-  Reorder, on Lists and on list detail; the persisted shared order and its
-  version checks are unchanged.
+  Reorder, on Lists and on list detail.
 - **Task rows show exceptions, not defaults.** A status label appears only for
-  Blocked; Mark blocked / Unblock, Unassign and Delete sit in the row menu.
-  Completion stays a checkbox. An empty deadline is an empty cell and an
-  unclaimed task offers Claim (assistive technology still hears
-  "Unassigned"). Overdue is still spelled out.
+  Blocked; Mark blocked / Unblock, Unassign and Delete sit in the row menu
+  (`taskRowActions`). Completion stays a checkbox, separate from opening the
+  task. An empty deadline is an empty cell and an unclaimed task offers Claim
+  (assistive technology still hears "Unassigned"). Overdue is spelled out.
 - **Opening a task opens its editor** (a side panel on web, the editor sheet on
-  Android) instead of a read-only view followed by a second form. The draft is
-  pinned to the version it was opened at, so a refetch while editing cannot
-  move the save onto a newer version; a conflict still keeps the draft and
-  offers a review. Delete is available from the editor, behind the same
-  confirmation. Template tasks stay read-only.
+  Android). The draft is pinned to the version it was opened at, so a refetch
+  while editing cannot move the save onto a newer version; a conflict keeps the
+  draft and offers a review. Delete is available from the editor, behind the
+  same confirmation. Template tasks open read-only.
 - **New task** on Today and Tasks opens the task editor with a list picker. The
   task still belongs to exactly one active list.
-- **List detail** adds a quick add (title only; details from the editor), keeps
+- **List detail** has a quick add (title only; details from the editor), keeps
   completed tasks collapsed behind a count, and puts Edit, Save as template,
-  Reorder (Android) and Delete in one menu.
+  Reorder (Android) and Delete in one menu. An empty list reads "No tasks yet".
 
 ## Templates
 
@@ -170,26 +136,22 @@ and tasks onto a new active list, resetting task runtime fields.
 
 ### Seed content
 
-`private.seed_lists`/`private.seed_tasks` are empty and stay empty. A new
-household starts with no templates and builds its own by saving a list it
-actually uses — settled by the owner on 2026-09-22, not a pending approval. The
-seed tables remain in the schema only so the decision is reversible.
-
-Because member-saved templates have no seed content behind them, the old
+A new household starts with no templates (`decisions.md` item 4); the seed
+tables stay empty. Because member-saved templates have no seed content behind them, the old
 `lists_template_seed_key` constraint — which required every template to carry a
 `seed_key` — was dropped. `unique (household_id, seed_key)` is unaffected;
 Postgres does not treat null as a duplicate.
 
 ## Notifications
 
-**Android only, and new on 2026-09-22** (`decisions.md`, notification
-amendment). The web client has no notification behaviour and did not change.
+**Android only** (`decisions.md`, notification amendment of 2026-09-22). The
+web client has no notification behaviour.
 
 Odin notifies a member about three things:
 
 | Trigger                   | Fires when                                                        |
 | ------------------------- | ----------------------------------------------------------------- |
-| A task becomes yours      | A task you were not assigned appears in your My Tasks             |
+| A task becomes yours      | A task you were not assigned is now assigned to you               |
 | A task of yours changed   | A task already assigned to you comes back with a higher `version` |
 | A deadline is approaching | 24 hours, then 4 hours, then 1 hour before it                     |
 
@@ -215,27 +177,21 @@ Odin notifies a member about three things:
 - **Signing out or switching account cancels every scheduled reminder**, so a
   task title cannot arrive on a phone after the account that owns it is gone.
 
-Nothing in the shared contract changed to support this. Both change triggers
-are a comparison of two readings of `getMyTasks`, using the `version` the
-contract already increments once per change.
-
-What this cannot do is in `known-risks.md` R9: deadline reminders are held by
-Android and survive the app closing, but a task becoming yours is only
-announced while Odin's process is alive.
+Both change triggers compare two readings of `getMyTasks`, using the `version`
+the contract already increments once per change. What this cannot do is risk
+R9 in `known-risks.md`.
 
 ## Deletion and archiving
 
 - **Lists and templates.** "Delete list" archives an open list of **either
   kind** by setting `status = 'archived'`. Its tasks stay for operator
   recovery. An archived list cannot be deleted again. An archived template
-  leaves Home and stops being copyable with no further change, because
-  Home reads and `copy_template` require `status = 'open'`.
+  leaves Lists and stops being copyable with no further change, because
+  list reads and `copy_template` require `status = 'open'`.
 
-  Templates became deletable on 2026-09-22. While the only templates were
-  seeded ones they were deliberately undeletable; once a member could save any
-  list as a template, a household that could not delete one would accumulate
-  them with no way out. Archiving rather than dropping the row keeps a mis-click
-  recoverable and keeps one rule for both kinds.
+  Templates became deletable on 2026-09-22, once members could save their own.
+  Archiving rather than dropping the row keeps a mis-click recoverable and
+  keeps one rule for both kinds.
 
   Nothing in either client lists, restores or purges an archived row — that is
   risk R2 in `known-risks.md`.
@@ -250,15 +206,15 @@ announced while Odin's process is alive.
 
 All of these are actor-scoped, idempotent by `request_id`, and available to any
 active household member. Both clients confirm destructive actions and
-invalidate Home, list detail, My Tasks, Unassigned and All Tasks after success.
+invalidate every affected read after success.
 
 ## Client compatibility
 
 Installed Android builds retain their original note-preserving create/update
-RPCs and the paged household reads. Updated clients use `*_v2` note commands
+RPCs and the paged household reads. Current clients use `*_v2` note commands
 and snapshot reads. Parsers tolerate a missing `notes`, `blocked` or list
-`sort_order` in legacy payloads, but the updated workflow clients still
-require both task-workflow migrations before they can call the new RPCs.
+`sort_order` in legacy payloads, but current clients need all three
+task-workflow migrations.
 
 The legacy API has no deprecation plan — risk R5 in `known-risks.md`. Exact
 signatures and migration order are in `contract.md` and `operations.md`.

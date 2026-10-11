@@ -49,10 +49,9 @@ function rowCommandError<TInput, TData>(
 }
 
 /**
- * The commands every task row offers -- complete, set state, move -- wired
- * once with one invalidation set, so a screen renders rows instead of
- * re-declaring the same three commands. Pass the list id on list detail so its
- * own read is refreshed rather than every open list's.
+ * The commands every task row offers, wired once with one invalidation set.
+ * Pass the list id on list detail so its own read is refreshed rather than
+ * every open list's.
  */
 export function useTaskRowActions(client: OdinSupabaseClient, listId?: string): TaskRowActions {
   const invalidate = useMemo(() => keysAffectedByTaskChange(listId), [listId]);

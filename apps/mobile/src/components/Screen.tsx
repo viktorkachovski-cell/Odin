@@ -12,15 +12,11 @@ export function Screen({
   title,
   backLabel,
   onBack,
-  headerActionLabel,
-  onHeaderAction,
 }: {
   readonly children: ReactNode;
   readonly title?: string | undefined;
   readonly backLabel?: string | undefined;
   readonly onBack?: (() => void) | undefined;
-  readonly headerActionLabel?: string | undefined;
-  readonly onHeaderAction?: (() => void) | undefined;
 }): ReactNode {
   const theme = useTheme();
   const { user, online, realtimeHealthy, lastSyncedAt, t, locale } = useOdin();
@@ -59,25 +55,6 @@ export function Screen({
             >
               {title}
             </Text>
-            {headerActionLabel !== undefined && onHeaderAction !== undefined && (
-              <Pressable
-                accessibilityLabel={headerActionLabel}
-                accessibilityRole="button"
-                android_ripple={{ color: theme.colors.surfaceMuted, borderless: true }}
-                hitSlop={4}
-                onPress={onHeaderAction}
-                style={[
-                  styles.headerAction,
-                  {
-                    borderRadius: theme.radius.pill,
-                    minHeight: theme.touchTarget,
-                    minWidth: theme.touchTarget,
-                  },
-                ]}
-              >
-                <Text style={[styles.headerActionGlyph, { color: theme.colors.accent }]}>☆</Text>
-              </Pressable>
-            )}
           </View>
         )}
         {user !== null && (
@@ -126,6 +103,4 @@ const styles = StyleSheet.create({
   inner: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   title: { flex: 1, fontSize: 24, fontWeight: '700' },
   topBar: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 12, minHeight: 48 },
-  headerAction: { alignItems: 'center', justifyContent: 'center' },
-  headerActionGlyph: { fontSize: 26, lineHeight: 30 },
 });

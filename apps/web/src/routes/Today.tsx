@@ -1,38 +1,40 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { taskRowFromHouseholdTask, type HouseholdTaskDto, type MemberDto } from '@odin/contracts';
-import { filterTasks, groupTasksByDeadline, sortTasksByDue, summarizeTasks } from '@odin/domain';
-import { formatDueShort, type Translator } from '@odin/i18n';
+import {
+  filterTasks,
+  groupMyTasksForToday,
+  sortTasksByDue,
+  summarizeTasks,
+  type TaskSummary,
+} from '@odin/domain';
+import { formatDueShort, formatLongDate, type Translator } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useHomeQuery, useHouseholdTasksQuery, useMembersQuery } from '../app/queries.ts';
-import { ErrorBanner } from '../components/Banner.tsx';
-import { Fab } from '../components/Fab.tsx';
-import { Icon } from '../components/Icon.tsx';
-import { NewTaskEditor } from '../components/NewTaskEditor.tsx';
+import { LoadFailure } from '../components/Banner.tsx';
+import { NewTaskAction } from '../components/NewTaskEditor.tsx';
 import { TaskRow } from '../components/TaskRow.tsx';
 import { TaskGroups, TaskTable } from '../components/TaskTable.tsx';
 import { useTaskWiring } from '../components/useTaskWiring.tsx';
 import { ListProgressLink } from './ListsParts.tsx';
 
 /**
- * Today: what needs attention, before anything else. Four counts that open the
- * matching Tasks filter, the member's own work by deadline, a short list of
- * unclaimed work and list progress. Everything comes from the one household
- * read Tasks also uses, so the two screens never disagree.
+ * Today: four counts that open the matching Tasks filter, the member's own work
+ * by deadline, a short list of unclaimed work and list progress, all from the
+ * household read Tasks also uses.
  */
 
 const GRAB_LIMIT = 3;
 const LIST_LIMIT = 5;
-const ALL = { preset: 'all' } as const;
 
 function Tiles({
   t,
   summary,
 }: {
   readonly t: Translator;
-  readonly summary: ReturnType<typeof summarizeTasks>;
+  readonly summary: TaskSummary;
 }): ReactNode {
   const tiles = [
     {
@@ -183,13 +185,7 @@ function MyTasksPanel({
   readonly members: readonly MemberDto[];
 }): ReactNode {
   const { t, locale } = useOdin();
-  const mine = filterTasks(items, { view: 'mine', userId, deadline: ALL }, now);
-  const groups = groupTasksByDeadline(mine, now);
-  // Undated work is summarised by a link unless it is all the member has.
-  const dated = groups.filter((group) => group.group !== 'undated');
-  const shown = dated.length > 0 ? dated : groups;
-  const undatedCount =
-    dated.length > 0 ? mine.length - dated.reduce((sum, group) => sum + group.tasks.length, 0) : 0;
+  const mine = groupMyTasksForToday(items, userId, now);
   return (
     <section aria-labelledby="mine-heading" className="panel">
       <div className="panel__header">
@@ -200,12 +196,12 @@ function MyTasksPanel({
           {t('today.mine.open_all')}
         </Link>
       </div>
-      {mine.length === 0 ? (
+      {mine.total === 0 ? (
         <p className="panel__empty">{t('today.mine.empty')}</p>
       ) : (
         <TaskTable showAssignee={false} showList t={t}>
           <TaskGroups
-            groups={shown}
+            groups={mine.groups}
             headingLevel={3}
             renderRow={(task) => (
               <TaskRow
@@ -221,9 +217,9 @@ function MyTasksPanel({
             )}
             t={t}
           />
-          {undatedCount > 0 && (
+          {mine.undated > 0 && (
             <Link className="task-table__more" to="/tasks?view=mine&deadline=undated">
-              {t('today.mine.undated_more', { count: undatedCount })}
+              {t('today.mine.undated_more', { count: mine.undated })}
             </Link>
           )}
         </TaskTable>
@@ -239,48 +235,23 @@ export function Today(): ReactNode {
   const members = useMembersQuery();
   const memberList = members.data ?? [];
   const wiring = useTaskWiring({ members: memberList });
-  const [creating, setCreating] = useState(false);
 
   if (query.isPending) return <p role="status">{t('state.loading')}</p>;
-  if (query.isError) {
-    return (
-      <ErrorBanner
-        error={{ code: 'UNKNOWN', message_key: 'error.unknown' }}
-        onRetry={() => void query.refetch()}
-        t={t}
-      />
-    );
-  }
+  if (query.isError) return <LoadFailure onRetry={() => void query.refetch()} t={t} />;
 
   const now = new Date();
   const items = query.data.items;
   const userId = user?.id ?? null;
-  const unassigned = sortTasksByDue(
-    filterTasks(items, { view: 'unassigned', userId, deadline: ALL }, now),
-  );
-  const canCreate = (home.data?.items ?? []).some((list) => list.kind === 'active');
-  const dateLine = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(now);
+  const unassigned = sortTasksByDue(filterTasks(items, { view: 'unassigned', userId }, now));
 
   return (
     <>
       <div className="page-header">
         <div className="page-header__titles">
           <h1>{t('today.title')}</h1>
-          <span className="page-header__sub">{dateLine}</span>
+          <span className="page-header__sub">{formatLongDate(now, locale)}</span>
         </div>
-        <button
-          className="button button--primary page-header__primary"
-          disabled={!canCreate}
-          onClick={() => setCreating(true)}
-          type="button"
-        >
-          <Icon name="plus" size={18} />
-          {t('tasks.new')}
-        </button>
+        <NewTaskAction lists={home.data?.items ?? []} members={memberList} />
       </div>
 
       {wiring.errors}
@@ -306,15 +277,7 @@ export function Today(): ReactNode {
         </div>
       </div>
 
-      {canCreate && <Fab label={t('tasks.new')} onClick={() => setCreating(true)} />}
       {wiring.overlays}
-      {creating && (
-        <NewTaskEditor
-          lists={home.data?.items ?? []}
-          members={memberList}
-          onClose={() => setCreating(false)}
-        />
-      )}
     </>
   );
 }

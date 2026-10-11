@@ -9,7 +9,6 @@ import type {
   TaskCollectionDto,
   TaskDto,
 } from '@odin/contracts';
-import type { TaskDeadlineFilter } from '@odin/domain';
 import {
   getAllTasks,
   getHome,
@@ -17,9 +16,7 @@ import {
   getMembers,
   getMyHousehold,
   getMyProfile,
-  getMyTasks,
   getTask,
-  getUnassigned,
   queryKeys,
 } from '@odin/data';
 
@@ -68,16 +65,6 @@ export function useListQuery(listId: string | undefined): UseQueryResult<ListDet
   });
 }
 
-export function useMyTasksQuery(): UseQueryResult<TaskCollectionDto> {
-  const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.myTasks, queryFn: () => getMyTasks(client) });
-}
-
-export function useUnassignedQuery(): UseQueryResult<TaskCollectionDto> {
-  const { client } = useOdin();
-  return useQuery({ queryKey: queryKeys.unassigned, queryFn: () => getUnassigned(client) });
-}
-
 export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {
   const { client } = useOdin();
   return useQuery({
@@ -87,25 +74,17 @@ export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {
   });
 }
 
-export function useAllTasksQuery(
-  filter: TaskDeadlineFilter,
-  enabled: boolean,
-): UseQueryResult<TaskCollectionDto> {
-  const { client } = useOdin();
-  return useQuery({
-    queryKey: [...queryKeys.allTasks, filter],
-    queryFn: () => getAllTasks(client, filter),
-    enabled,
-  });
-}
-
-const EVERY_TASK: TaskDeadlineFilter = { preset: 'all' };
+const EVERY_TASK = { preset: 'all' } as const;
 
 /**
  * Every task in the household's open active lists, done ones included, in one
- * read. Today, Tasks and the navigation badge all derive from this single
- * cache entry, so they always agree and share one refetch.
+ * read. Today, Tasks and the navigation badge all derive from this cache entry,
+ * the same one Android uses, so they always agree and share one refetch.
  */
 export function useHouseholdTasksQuery(): UseQueryResult<TaskCollectionDto> {
-  return useAllTasksQuery(EVERY_TASK, true);
+  const { client } = useOdin();
+  return useQuery({
+    queryKey: [...queryKeys.allTasks, EVERY_TASK],
+    queryFn: () => getAllTasks(client, EVERY_TASK),
+  });
 }

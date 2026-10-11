@@ -14,6 +14,7 @@ import { issueText, type Locale, type TranslationKey, type Translator } from '@o
 
 import { ErrorBanner } from './Banner.tsx';
 import { ConfirmDialog } from './ConfirmDialog.tsx';
+import { ReorderToggle } from './Controls.tsx';
 import { Icon } from './Icon.tsx';
 import { OverflowMenu } from './OverflowMenu.tsx';
 import { TaskRow } from './TaskRow.tsx';
@@ -21,7 +22,7 @@ import { TaskTable } from './TaskTable.tsx';
 import type { TaskRowHandlers } from './useTaskWiring.tsx';
 
 /** Row handlers a list screen passes down; a template passes none of them. */
-export type ListRowHandlers = Partial<TaskRowHandlers> & {
+type ListRowHandlers = Partial<TaskRowHandlers> & {
   readonly onOpenDetails: (task: TaskRowModel) => void;
 };
 
@@ -207,21 +208,8 @@ export function ListHeader({
           {subtitle !== null && <span className="page-header__sub">{subtitle}</span>}
         </div>
         <div className="action-group">
-          {canReorder && (
-            <button
-              aria-pressed={reorder}
-              className="button button--quiet"
-              onClick={onToggleReorder}
-              type="button"
-            >
-              <Icon name="reorder" size={18} />
-              {reorder ? t('lists.reorder.done') : t('lists.reorder')}
-            </button>
-          )}
-          {/*
-           * A template is read-only apart from being removable, so it gets the
-           * delete entry and nothing else.
-           */}
+          {canReorder && <ReorderToggle on={reorder} onToggle={onToggleReorder} t={t} />}
+          {/* A template is read-only apart from being removable. */}
           <OverflowMenu
             disabled={pending}
             items={[
@@ -283,10 +271,6 @@ export interface PendingConfirm {
   readonly bodyKey: TranslationKey;
   readonly confirmKey: TranslationKey;
   readonly run: () => void;
-}
-
-export function anyPending(states: readonly { readonly pending: boolean }[]): boolean {
-  return states.some((state) => state.pending);
 }
 
 export function DestructiveConfirm({

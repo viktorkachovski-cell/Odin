@@ -64,7 +64,45 @@ export function SecondaryButton(props: ButtonProps): ReactNode {
   return <Button {...props} primary={false} />;
 }
 
+/** An outlined accent action inside a row, such as Claim or Use template. */
+export function AccentButton({
+  label,
+  onPress,
+  disabled = false,
+  accessibilityLabel,
+}: Omit<ButtonProps, 'pending'>): ReactNode {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      android_ripple={{ color: theme.colors.accentSoft }}
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.accent,
+        {
+          borderColor: theme.colors.accent,
+          borderRadius: theme.radius.md,
+          minHeight: theme.touchTarget,
+          opacity: disabled ? 0.6 : 1,
+        },
+      ]}
+    >
+      <Text style={[styles.accentLabel, { color: theme.colors.accent }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  accent: {
+    alignItems: 'center',
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  accentLabel: { fontSize: 14, fontWeight: '700' },
   base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   body: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   label: { fontSize: 16, fontWeight: '500', textAlign: 'center' },

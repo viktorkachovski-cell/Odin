@@ -57,23 +57,12 @@ The `authenticated` role can select RLS-filtered rows and execute public RPCs. I
 
 All privileged helpers pin an empty `search_path`, derive the actor from `auth.uid()`, and are inaccessible through the exposed API schema. Public wrappers remain `SECURITY INVOKER`. Mutation receipts are scoped to actor/request ID; payload mismatches fail. Successful household-scoped receipts are not replayed after membership loss.
 
-Invitation raw tokens are never stored. A private random HMAC key is generated inside each database at runtime; a token can be deterministically rederived for an idempotent create retry. Database backups therefore contain the HMAC key and must be protected as secrets. Rotating that key invalidates outstanding invitations and requires a deliberate operational procedure.
+Invitation raw tokens are never stored. A private random HMAC key generated inside each database lets a token be rederived for an idempotent create retry; backups therefore contain the key (risk R6).
 
 ## Seed content
 
-`seed.sql` intentionally contains no production templates, and **owner decision 2026-09-22 settles that as the intended behaviour**: a new household starts empty and builds its own templates by saving a list it actually uses. This is no longer an open approval. `private.seed_lists` and `private.seed_tasks` stay in the schema so a reviewed, versioned seed migration remains possible if the owner ever reverses that, and empty seed tables do not block household creation.
+`seed.sql` contains no templates: a new household starts empty and saves its own (owner decision 2026-09-22, `docs/decisions.md` item 4). `private.seed_lists` and `private.seed_tasks` stay in the schema so a reviewed, versioned seed migration remains possible, and empty seed tables do not block household creation.
 
 ## Hosted state
 
-Odin has one hosted Supabase project, `mvltbhtsukorspmpyhpw` in
-`eu-central-1`, treated as production. It contains live household data; never
-reset it. The three task-workflow migrations were applied there on
-2026-09-27. Local schema replay and CI never change hosted state. Vercel
-previews use the same production backend, so a preview can only exercise RPCs
-that are already applied there.
-
-For the exact hosted migration history and smoke-test evidence, use
-`docs/deployment-log.md`. For deployment sequencing, build configuration and
-post-deployment checks, use `docs/operations.md`. Open risks, including the
-remaining concurrency gaps and preview access to production, are in
-`docs/known-risks.md`.
+One hosted project, `mvltbhtsukorspmpyhpw` in `eu-central-1`, treated as production and holding live household data; never reset it. Local replay and CI never change hosted state, and Vercel previews use the same backend (`docs/architecture.md`). What is applied there, with smoke evidence, is `docs/deployment-log.md`; how to apply a change is `docs/operations.md`; open risks are `docs/known-risks.md`.

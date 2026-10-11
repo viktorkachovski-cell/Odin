@@ -1,10 +1,16 @@
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { HouseholdTaskDto, MemberDto } from '@odin/contracts';
-import { filterTasks, groupTasksByDeadline, sortTasksByDue, summarizeTasks } from '@odin/domain';
-import { formatDueShort, type Translator } from '@odin/i18n';
+import {
+  filterTasks,
+  groupMyTasksForToday,
+  sortTasksByDue,
+  summarizeTasks,
+  type TaskSummary,
+} from '@odin/domain';
+import { formatDueShort, formatLongDate, type Translator } from '@odin/i18n';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
@@ -14,23 +20,22 @@ import {
   useHouseholdTasksQuery,
   useMembersQuery,
 } from '../../src/state/queries.ts';
-import { ErrorBanner } from '../../src/components/Banner.tsx';
+import { LoadFailure } from '../../src/components/Banner.tsx';
 import { PanelHeader, ProgressBar, Surface, TaskGroups } from '../../src/components/Blocks.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
-import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
-import { NewTaskEditor } from '../../src/components/NewTaskEditor.tsx';
+import { AccentButton } from '../../src/components/Button.tsx';
+import { NewTaskFab } from '../../src/components/NewTaskEditor.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
 import { rowFromHouseholdTask, TaskRow } from '../../src/components/TaskRow.tsx';
 import { useTaskWiring } from '../../src/components/useTaskWiring.tsx';
 import { useTheme } from '../../src/theme.ts';
 
 /**
- * Today: what needs attention first. Four counts that open the matching Tasks
- * filter, the member's own work by deadline, a few unclaimed tasks and list
- * progress -- all from the one household read the Tasks screen also uses.
+ * Today: four counts that open the matching Tasks filter, the member's own work
+ * by deadline, a few unclaimed tasks and list progress, all from the household
+ * read the Tasks screen also uses.
  */
 
-const ALL = { preset: 'all' } as const;
 const GRAB_LIMIT = 3;
 const LIST_LIMIT = 5;
 
@@ -39,7 +44,7 @@ function Tiles({
   summary,
 }: {
   readonly t: Translator;
-  readonly summary: ReturnType<typeof summarizeTasks>;
+  readonly summary: TaskSummary;
 }): ReactNode {
   const theme = useTheme();
   const tiles = [
@@ -134,26 +139,12 @@ function UpForGrabs({
                   : `${task.list_title} · ${formatDueShort(task.due_at, locale)}`}
               </Text>
             </View>
-            <Pressable
+            <AccentButton
               accessibilityLabel={t('task.claim', { title: task.title })}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: busy }}
               disabled={busy}
+              label={t('task.claim.short')}
               onPress={() => onClaim(task)}
-              style={[
-                styles.claim,
-                {
-                  borderColor: theme.colors.accent,
-                  borderRadius: theme.radius.md,
-                  minHeight: theme.touchTarget,
-                  opacity: busy ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.claimText, { color: theme.colors.accent }]}>
-                {t('task.claim.short')}
-              </Text>
-            </Pressable>
+            />
           </View>
         ))
       )}
@@ -216,13 +207,7 @@ function MyTasksPanel({
 }): ReactNode {
   const { t, locale } = useOdin();
   const theme = useTheme();
-  const mine = filterTasks(items, { view: 'mine', userId, deadline: ALL }, now);
-  const groups = groupTasksByDeadline(mine, now);
-  // Undated work is summarised by a link unless it is all the member has.
-  const dated = groups.filter((group) => group.group !== 'undated');
-  const shown = dated.length > 0 ? dated : groups;
-  const undatedCount =
-    dated.length > 0 ? mine.length - dated.reduce((sum, group) => sum + group.tasks.length, 0) : 0;
+  const mine = groupMyTasksForToday(items, userId, now);
   return (
     <Surface>
       <PanelHeader
@@ -230,11 +215,11 @@ function MyTasksPanel({
         onAction={() => router.navigate('/tasks?view=mine')}
         title={t('today.mine.heading')}
       />
-      {mine.length === 0 ? (
+      {mine.total === 0 ? (
         <EmptyState label={t('today.mine.empty')} />
       ) : (
         <TaskGroups
-          groups={shown}
+          groups={mine.groups}
           renderRow={(task) => (
             <TaskRow
               {...wiring.handlers}
@@ -250,14 +235,14 @@ function MyTasksPanel({
           t={t}
         />
       )}
-      {undatedCount > 0 && (
+      {mine.undated > 0 && (
         <Pressable
           accessibilityRole="link"
           onPress={() => router.navigate('/tasks?view=mine&deadline=undated')}
           style={[styles.more, { borderTopColor: theme.colors.border }]}
         >
           <Text style={[styles.moreText, { color: theme.colors.accent }]}>
-            {t('today.mine.undated_more', { count: undatedCount })}
+            {t('today.mine.undated_more', { count: mine.undated })}
           </Text>
         </Pressable>
       )}
@@ -273,22 +258,13 @@ export default function TodayScreen(): ReactNode {
   const home = useHomeQuery();
   const members = useMembersQuery().data ?? NO_MEMBERS;
   const wiring = useTaskWiring({ members });
-  const [creating, setCreating] = useState(false);
 
   if (query.isPending) return <LoadingState />;
 
   const now = new Date();
   const items = query.data?.items ?? [];
   const userId = user?.id ?? null;
-  const unassigned = sortTasksByDue(
-    filterTasks(items, { view: 'unassigned', userId, deadline: ALL }, now),
-  );
-  const canCreate = (home.data?.items ?? []).some((list) => list.kind === 'active');
-  const dateLine = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(now);
+  const unassigned = sortTasksByDue(filterTasks(items, { view: 'unassigned', userId }, now));
 
   return (
     <Screen title={t('today.title')}>
@@ -297,14 +273,10 @@ export default function TodayScreen(): ReactNode {
         onScroll={nav.onScroll}
         scrollEventThrottle={16}
       >
-        <Text style={[styles.date, { color: theme.colors.textMuted }]}>{dateLine}</Text>
-        {query.isError && (
-          <ErrorBanner
-            error={{ code: 'UNKNOWN', message_key: 'error.unknown' }}
-            onRetry={() => void query.refetch()}
-            t={t}
-          />
-        )}
+        <Text style={[styles.date, { color: theme.colors.textMuted }]}>
+          {formatLongDate(now, locale)}
+        </Text>
+        {query.isError && <LoadFailure onRetry={() => void query.refetch()} t={t} />}
         {wiring.errors}
 
         <Tiles summary={summarizeTasks(items, userId, now)} t={t} />
@@ -322,29 +294,13 @@ export default function TodayScreen(): ReactNode {
         <NavSpacer />
       </ScrollView>
 
-      {canCreate && (
-        <FloatingActionButton label={t('tasks.new')} onPress={() => setCreating(true)} />
-      )}
+      <NewTaskFab lists={home.data?.items ?? []} members={members} />
       {wiring.overlays}
-      {creating && (
-        <NewTaskEditor
-          lists={home.data?.items ?? []}
-          members={members}
-          onClose={() => setCreating(false)}
-        />
-      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  claim: {
-    alignItems: 'center',
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  claimText: { fontSize: 14, fontWeight: '700' },
   content: { gap: 16, paddingBottom: 16 },
   date: { fontSize: 15, marginTop: -10 },
   grabMeta: { fontSize: 13 },

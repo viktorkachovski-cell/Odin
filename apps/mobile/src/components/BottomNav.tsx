@@ -8,10 +8,7 @@ import type { TranslationKey, Translator } from '@odin/i18n';
 import { useTheme } from '../theme.ts';
 import { NavIcon, type NavIconName } from './NavIcon.tsx';
 
-/**
- * Four destinations: Today, Tasks (which replaced My Tasks, Unassigned and All
- * tasks), Lists and Settings. Tasks carries the member's open-task count.
- */
+/** Four destinations: Today, Tasks, Lists and Settings. Tasks carries the member's open-task count. */
 
 interface NavItem {
   readonly href: '/' | '/tasks' | '/lists' | '/settings';
