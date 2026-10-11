@@ -56,8 +56,8 @@ it('refuses to run at all while offline', async () => {
 it('holds off a second mail-sending call for the cooldown', async () => {
   const { result } = await renderHook(() => useAuthRequest(), { wrapper: wrapper(true) });
 
-  const operation = jest.fn(
-    (): Promise<CommandResult<null>> => Promise.resolve({ ok: true, data: null }),
+  const operation = jest.fn((): Promise<CommandResult<null>> =>
+    Promise.resolve({ ok: true, data: null }),
   );
 
   await act(async () => {
@@ -74,16 +74,16 @@ it('holds off a second mail-sending call for the cooldown', async () => {
 it('lets a non-mailing call through during that cooldown', async () => {
   const { result } = await renderHook(() => useAuthRequest(), { wrapper: wrapper(true) });
 
-  const send = jest.fn(
-    (): Promise<CommandResult<null>> => Promise.resolve({ ok: true, data: null }),
+  const send = jest.fn((): Promise<CommandResult<null>> =>
+    Promise.resolve({ ok: true, data: null }),
   );
   await act(async () => {
     await result.current.run(send, true);
   });
 
   // A resend cooldown must not lock the person out of signing in.
-  const signIn = jest.fn(
-    (): Promise<CommandResult<null>> => Promise.resolve({ ok: true, data: null }),
+  const signIn = jest.fn((): Promise<CommandResult<null>> =>
+    Promise.resolve({ ok: true, data: null }),
   );
   await act(async () => {
     await result.current.run(signIn);

@@ -33,8 +33,7 @@ export interface CommandError {
 }
 
 export type CommandResult<T> =
-  | { readonly ok: true; readonly data: T }
-  | { readonly ok: false; readonly error: CommandError };
+  { readonly ok: true; readonly data: T } | { readonly ok: false; readonly error: CommandError };
 
 const CODE_SET: ReadonlySet<string> = new Set(ERROR_CODES);
 

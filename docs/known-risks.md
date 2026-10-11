@@ -208,6 +208,36 @@ offline (now they wait for the network). What is left:
 - **Web rows are not memoized** and web reads still go stale after 15 seconds;
   both matter less on a desktop and were left as they are.
 
+### R13 — `npm audit` reports 66 advisories that SDK 57 cannot clear
+
+**Severity: low. Opened 2026-10-11 by the dependency update.**
+
+The update took every dependency to its newest release compatible with Expo
+SDK 57 and cleared the critical `shell-quote` and high `source-map-js`
+findings with in-range lockfile updates. The 66 left (16 moderate, 50 high)
+come from five packages:
+
+| Advisory               | Reached through                                  | Why it stays                                                           |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `braces` ≤3.0.3        | Jest 29 and Metro via `micromatch`               | No patched release exists; Jest 30 needs `jest-expo` 58                |
+| `sprintf-js` ≤1.1.3    | Jest 29 coverage via `js-yaml` 3                 | No patched release exists                                              |
+| `node-forge` ≤1.4.0    | `@expo/cli` code-signing certificates            | No patched release exists                                              |
+| `uuid` <11.1.1         | `expo-splash-screen` iOS config plugin (`xcode`) | `xcode` requires `uuid` 7; the app does not build for iOS              |
+| `decode-uri-component` | `expo-router` 57 via `query-string` 7            | The fix is outside `query-string` 7's range; `expo-router` 58 drops it |
+
+All but the last run only on a developer machine or in CI. The last ships in
+the APK: a crafted `odin://` link with deeply malformed percent-encoding could
+stall URL parsing on the device that opens it. `npm audit fix` cannot help: its
+"fix" downgrades Expo to SDK 44 and React Native to 0.72, so it fails with
+`ERESOLVE`. Do not run it with `--force`.
+
+**When to revisit.** Expo SDK 58 is still a pre-release (`next` tag, 58.0.7)
+that pins React Native `0.88.0-rc.4`. npm rejects that release candidate
+against the `react-native` peer ranges of Testing Library, Reanimated and
+Worklets, so it only installs with `--legacy-peer-deps`, which
+`code-standards.md` forbids. Upgrade when Expo tags SDK 58 as `latest` and React
+Native 0.88.0 is final.
+
 ## Accepted, not tracked
 
 These are real, known, and deliberately not being worked. They are here so

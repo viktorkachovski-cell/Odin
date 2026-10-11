@@ -135,18 +135,23 @@ workaround, and do not create a new identity for an existing user.
 
 ## Dependency warning triage
 
-Reviewed against the current lockfile after a successful deployment. These are
-maintenance signals, not evidence that the deployed application failed.
+Reviewed 2026-10-11 against the current lockfile. These are maintenance
+signals, not evidence that the deployed application failed.
 
 | Urgency | Warning                                                                   | Assessment and action                                                                                                                                            |
 | ------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| High    | `engines.node: >=22` permits an automatic future major                    | Fixed by pinning `22.x`, matching CI and preventing an unreviewed Vercel runtime jump                                                                            |
-| Medium  | `@testing-library/jest-dom` 6.10.x was withdrawn                          | Fixed by pinning 6.9.1, the upstream-recommended 6.x release; test-only, never in the production bundle                                                          |
+| High    | `engines.node: 22.x`                                                      | Pinned to match CI and Vercel. Node 24 locally prints an `EBADENGINE` warning; use Node 22 so local results match CI                                             |
+| Medium  | `npm audit`: 66 advisories in Expo, Metro and Jest tooling                | Open as R13 in `known-risks.md`. Cleared only by Expo SDK 58, which is still a pre-release. Never use `npm audit fix`: it proposes Expo SDK 44 and fails         |
 | Medium  | ESLint 9 is end-of-life                                                   | Open. ESLint 10 cannot be adopted until the accessibility plugin's published peer range supports it; keep accessibility linting enabled. See `code-standards.md` |
-| Low     | `glob@7`, `inflight`, `uuid@7`, `whatwg-encoding`, `abab`, `domexception` | Transitive development dependencies from Expo/Jest tooling; re-run `npm audit` for current findings and resolve through tested upgrades, not overrides           |
+| Low     | `glob@7`, `inflight`, `uuid@7`, `whatwg-encoding`, `abab`, `domexception` | Transitive development dependencies from Expo/Jest tooling; resolve through tested upgrades, not overrides                                                       |
 
-Re-run `npm audit`, all workspace tests, the Android bundle check and the Vercel
-production build when upgrading Expo, Jest or ESLint.
+`apps/mobile` declares `react-dom` at the SDK's version. `expo-router` lists it
+as an optional peer, and without a declaration npm installs the newest React DOM
+beside the app's pinned React, which `npm ls` reports as invalid.
+
+Prettier is held at 3.9.9 rather than 3.9.10 because 3.9.10 was one day old at
+review. Re-run `npm audit`, all workspace tests, the Android bundle check and
+the Vercel production build when upgrading Expo, Jest or ESLint.
 
 ## Standing advisor findings
 
