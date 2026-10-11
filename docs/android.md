@@ -8,10 +8,10 @@ app _does_ is `features.md`; this file is how Android does it.
 
 | Choice           | Version         | Why                                                          |
 | ---------------- | --------------- | ------------------------------------------------------------ |
-| Expo SDK         | 57.0.25         | SDK 57 patch required by Expo Doctor                         |
+| Expo SDK         | 57.0.27         | SDK 57 patch required by Expo Doctor                         |
 | React Native     | 0.86.3          | Prescribed by SDK 57                                         |
 | React            | 19.2.3          | Prescribed by SDK 57                                         |
-| Expo Router      | 57.0.23         | File-based routing, as the brief requires                    |
+| Expo Router      | 57.0.25         | File-based routing, as the brief requires                    |
 | Jest + jest-expo | 29.7.0 / 57.0.5 | React Native ships untranspiled source; Vitest cannot run it |
 
 **The web client was moved from React 19.3.0 to 19.2.3 to match.** React Native's
