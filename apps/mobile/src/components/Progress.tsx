@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { progressPercent } from '@odin/domain';
-import type { Translator } from '@odin/i18n';
+import { progressText, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 
@@ -21,7 +21,7 @@ export function Progress({
 }): ReactNode {
   const theme = useTheme();
   const percent = progressPercent(completed, total);
-  const label = t('home.progress', { completed, total, percent });
+  const label = progressText(t, completed, total, percent);
 
   return (
     <View style={styles.wrapper}>

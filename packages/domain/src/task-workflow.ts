@@ -39,6 +39,20 @@ export function taskStatusOptions(task: StatusSubject): readonly TaskStatusOptio
   }));
 }
 
+export type TaskRowAction = 'block' | 'unblock' | 'unassign' | 'delete';
+
+/** A task row's menu: the actions the task allows among those the screen wires. */
+export function taskRowActions(
+  task: StatusSubject,
+  wired: { readonly state: boolean; readonly unassign: boolean; readonly remove: boolean },
+): TaskRowAction[] {
+  const actions: TaskRowAction[] = [];
+  if (wired.state && !task.completed) actions.push(task.blocked === true ? 'unblock' : 'block');
+  if (wired.unassign && task.assignee_id !== null) actions.push('unassign');
+  if (wired.remove) actions.push('delete');
+  return actions;
+}
+
 /**
  * Whether the row at `index` can move one place up or down. Rows move only
  * within their group -- tasks within their completion group, lists within
@@ -65,6 +79,12 @@ export const TASK_DEADLINE_PRESETS = [
   'range',
 ] as const;
 export type TaskDeadlinePreset = (typeof TASK_DEADLINE_PRESETS)[number];
+
+export function isTaskDeadlinePreset(
+  value: string | null | undefined,
+): value is TaskDeadlinePreset {
+  return TASK_DEADLINE_PRESETS.some((preset) => preset === value);
+}
 
 export interface TaskDeadlineFilter {
   readonly preset: TaskDeadlinePreset;

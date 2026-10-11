@@ -1,21 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import {
-  createTask,
-  deleteList,
-  keysAffectedByListChange,
-  keysAffectedByTaskChange,
-  saveListTemplate,
-  updateList,
-  useCommand,
-} from '@odin/data';
+import { useListActions } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
+import { progressText } from '@odin/i18n';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useListQuery, useMembersQuery } from '../app/queries.ts';
 import {
-  anyPending,
   CommandErrors,
   DestructiveConfirm,
   ListHeader,
@@ -24,52 +16,19 @@ import {
   type PendingConfirm,
 } from '../components/ListDetailParts.tsx';
 import { ListEditor } from '../components/ListEditor.tsx';
-import { Toast } from '../components/Toast.tsx';
+import { TemplateSavedToast } from '../components/Toast.tsx';
 import { useTaskWiring } from '../components/useTaskWiring.tsx';
 import { ProgressBar } from './ListsParts.tsx';
 
 /**
  * List detail: header, progress, the shared note, then the tasks with a quick
- * add on top. Totals come from the server's whole-list counts. Editing a task
- * happens in the task panel opened from its title.
+ * add on top. Totals come from the server's whole-list counts.
  */
-
-function useListCommands(listId: string | undefined, onTemplateSaved: () => void) {
-  const { client } = useOdin();
-  const navigate = useNavigate();
-  const saveList = useCommand(
-    (
-      requestId,
-      input: {
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly subtitle: string | null;
-        readonly notes: string | null;
-      },
-    ) => updateList(client, requestId, { listId: listId ?? '', ...input }),
-    { invalidate: keysAffectedByListChange(listId) },
-  );
-  const saveTemplate = useCommand(
-    (requestId, input: { readonly listId: string }) =>
-      saveListTemplate(client, requestId, input.listId),
-    { invalidate: keysAffectedByListChange(), onSuccess: onTemplateSaved },
-  );
-  const removeList = useCommand(
-    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
-      deleteList(client, requestId, input),
-    { invalidate: keysAffectedByListChange(listId), onSuccess: () => void navigate('/lists') },
-  );
-  const addTask = useCommand(
-    (requestId, input: { readonly title: string }) =>
-      createTask(client, requestId, { listId: listId ?? '', title: input.title, notes: '' }),
-    { invalidate: keysAffectedByTaskChange(listId) },
-  );
-  return { saveList, saveTemplate, removeList, addTask };
-}
 
 export function ListDetail(): ReactNode {
   const { listId } = useParams<{ listId: string }>();
-  const { t, locale } = useOdin();
+  const { t, locale, client } = useOdin();
+  const navigate = useNavigate();
   const list = useListQuery(listId);
   const members = useMembersQuery();
   const memberList = members.data ?? [];
@@ -80,9 +39,15 @@ export function ListDetail(): ReactNode {
   const [reorder, setReorder] = useState(false);
   const [confirming, setConfirming] = useState<PendingConfirm | null>(null);
   const [toast, setToast] = useState(false);
-  const { saveList, saveTemplate, removeList, addTask } = useListCommands(listId, () =>
-    setToast(true),
-  );
+  const {
+    update: saveList,
+    saveTemplate,
+    remove: removeList,
+    addTask,
+  } = useListActions(client, listId, {
+    templateSaved: () => setToast(true),
+    deleted: () => void navigate('/lists'),
+  });
 
   if (list.isPending) return <p role="status">{t('state.loading')}</p>;
   if (!list.data) {
@@ -115,9 +80,9 @@ export function ListDetail(): ReactNode {
           })
         }
         onEdit={() => setEditingList(true)}
-        onSaveTemplate={() => void saveTemplate.run({ listId: page.list.id })}
+        onSaveTemplate={() => void saveTemplate.run(page.list.id)}
         onToggleReorder={() => setReorder((current) => !current)}
-        pending={anyPending([removeList.state, saveTemplate.state])}
+        pending={removeList.state.pending || saveTemplate.state.pending}
         reorder={reorder}
         subtitle={page.list.subtitle}
         t={t}
@@ -127,13 +92,7 @@ export function ListDetail(): ReactNode {
           <div className="list-progress-line">
             <ProgressBar completed={page.completed_tasks} total={page.total_tasks} />
             <span className="list-progress-line__label">
-              {page.total_tasks === 0
-                ? t('home.progress.empty')
-                : t('home.progress', {
-                    completed: page.completed_tasks,
-                    total: page.total_tasks,
-                    percent: page.progress_percent,
-                  })}
+              {progressText(t, page.completed_tasks, page.total_tasks, page.progress_percent)}
             </span>
           </div>
         )}
@@ -154,7 +113,7 @@ export function ListDetail(): ReactNode {
             <QuickAdd
               error={addTask.state.error}
               onAdd={(title, done) =>
-                void addTask.run({ title }).then((result) => {
+                void addTask.run(title).then((result) => {
                   if (result.ok) done();
                 })
               }
@@ -183,13 +142,7 @@ export function ListDetail(): ReactNode {
       />
       {wiring.overlays}
 
-      {toast && (
-        <Toast
-          action={{ label: t('toast.view'), to: '/lists?tab=templates' }}
-          message={t('toast.template_saved')}
-          onDismiss={() => setToast(false)}
-        />
-      )}
+      {toast && <TemplateSavedToast onDismiss={() => setToast(false)} t={t} />}
 
       {editingList && (
         <ListEditor

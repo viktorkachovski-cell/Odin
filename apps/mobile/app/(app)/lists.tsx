@@ -3,23 +3,14 @@ import { useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
-import {
-  copyTemplate,
-  createList,
-  deleteList,
-  keysAffectedByListChange,
-  keysAffectedByTaskChange,
-  moveList,
-  saveListTemplate,
-  useCommand,
-} from '@odin/data';
+import { useListActions } from '@odin/data';
 import { adjacentMoves } from '@odin/domain';
 
 import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHomeQuery } from '../../src/state/queries.ts';
 import { useEvent } from '../../src/state/useEvent.ts';
-import { ErrorBanner } from '../../src/components/Banner.tsx';
+import { ErrorBanner, LoadFailure } from '../../src/components/Banner.tsx';
 import { Segmented, Surface } from '../../src/components/Blocks.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
@@ -30,66 +21,14 @@ import { showToast } from '../../src/components/toast.ts';
 import { useTheme } from '../../src/theme.ts';
 
 /**
- * Lists: active lists and list templates as two tabs. Templates are used from
- * their own tab instead of taking the top of the first screen, and reordering
- * is a mode so the arrows are not on every row.
+ * Lists: active lists and list templates as two tabs. Reordering is a mode, so
+ * the arrows are not on every row.
  */
 
 type Tab = 'active' | 'templates';
 
-function useListCommands() {
-  const { t, client } = useOdin();
-  const copy = useCommand(
-    (requestId, input: { readonly templateId: string }) =>
-      copyTemplate(client, requestId, input.templateId),
-    {
-      invalidate: [...keysAffectedByListChange(), ...keysAffectedByTaskChange()],
-      onSuccess: (listId) => router.push({ pathname: '/list/[id]', params: { id: listId } }),
-    },
-  );
-  const create = useCommand(
-    (
-      requestId,
-      input: {
-        readonly title: string;
-        readonly subtitle: string | null;
-        readonly notes: string | null;
-      },
-    ) => createList(client, requestId, input),
-    {
-      invalidate: keysAffectedByListChange(),
-      onSuccess: (list) => router.push({ pathname: '/list/[id]', params: { id: list.id } }),
-    },
-  );
-  const saveTemplate = useCommand(
-    (requestId, input: { readonly listId: string }) =>
-      saveListTemplate(client, requestId, input.listId),
-    {
-      invalidate: keysAffectedByListChange(),
-      onSuccess: () => showToast(t('toast.template_saved')),
-    },
-  );
-  const remove = useCommand(
-    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
-      deleteList(client, requestId, input),
-    { invalidate: keysAffectedByListChange() },
-  );
-  const reorder = useCommand(
-    (
-      requestId,
-      input: {
-        readonly listId: string;
-        readonly expectedVersion: number;
-        readonly direction: MoveDirection;
-      },
-    ) => moveList(client, requestId, input),
-    { invalidate: keysAffectedByListChange() },
-  );
-  return { copy, create, saveTemplate, remove, reorder };
-}
-
 export default function ListsScreen(): ReactNode {
-  const { t } = useOdin();
+  const { t, client } = useOdin();
   const theme = useTheme();
   const nav = useNavVisibility();
   const home = useHomeQuery();
@@ -97,16 +36,17 @@ export default function ListsScreen(): ReactNode {
   const [tab, setTab] = useState<Tab>(params.tab === 'templates' ? 'templates' : 'active');
   const [reordering, setReordering] = useState(false);
   const [creating, setCreating] = useState(false);
-  const { copy, create, saveTemplate, remove, reorder } = useListCommands();
+  const { copy, create, saveTemplate, remove, move } = useListActions(client, undefined, {
+    opened: (id) => router.push({ pathname: '/list/[id]', params: { id } }),
+    templateSaved: () => showToast(t('toast.template_saved')),
+  });
 
-  const copyList = useEvent((list: ListSummaryDto) => void copy.run({ templateId: list.id }));
-  const move = useEvent(
+  const copyList = useEvent((list: ListSummaryDto) => void copy.run(list.id));
+  const moveList = useEvent(
     (list: ListSummaryDto, direction: MoveDirection) =>
-      void reorder.run({ listId: list.id, expectedVersion: list.version, direction }),
+      void move.run({ listId: list.id, expectedVersion: list.version, direction }),
   );
-  const saveAsTemplate = useEvent(
-    (list: ListSummaryDto) => void saveTemplate.run({ listId: list.id }),
-  );
+  const saveAsTemplate = useEvent((list: ListSummaryDto) => void saveTemplate.run(list.id));
   const confirmDelete = useEvent((list: ListSummaryDto) =>
     Alert.alert(t('list.delete.title'), t('list.delete.confirm'), [
       { text: t('action.cancel'), style: 'cancel' },
@@ -123,7 +63,7 @@ export default function ListsScreen(): ReactNode {
   const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
   const active = home.data?.items.filter((item) => item.kind === 'active') ?? [];
   const shown = tab === 'templates' ? templates : active;
-  const errors = [copy, saveTemplate, remove, reorder].flatMap((command) =>
+  const errors = [copy, saveTemplate, remove, move].flatMap((command) =>
     command.state.error === null ? [] : [command.state.error],
   );
 
@@ -145,13 +85,7 @@ export default function ListsScreen(): ReactNode {
           ]}
           value={tab}
         />
-        {home.isError && (
-          <ErrorBanner
-            error={{ code: 'UNKNOWN', message_key: 'error.unknown' }}
-            onRetry={() => void home.refetch()}
-            t={t}
-          />
-        )}
+        {home.isError && <LoadFailure onRetry={() => void home.refetch()} t={t} />}
         {errors.map((error, index) => (
           <ErrorBanner error={error} key={`${error.message_key}-${String(index)}`} t={t} />
         ))}
@@ -187,10 +121,10 @@ export default function ListsScreen(): ReactNode {
                   list={list}
                   moveDownDisabled={!moves.down}
                   moveUpDisabled={!moves.up}
-                  movePending={reorder.state.pending}
+                  movePending={move.state.pending}
                   onCopy={copyList}
                   onDelete={confirmDelete}
-                  onMove={move}
+                  onMove={moveList}
                   onSaveTemplate={saveAsTemplate}
                   reorder={reordering}
                   saveTemplatePending={saveTemplate.state.pending}

@@ -53,12 +53,6 @@ export async function readRpc<T>(
   }
 }
 
-export async function getSession(client: OdinSupabaseClient): Promise<string | null> {
-  const { data, error } = await client.auth.getSession();
-  if (error !== null) throw new OdinError(mapPostgrestError(error));
-  return data.session?.user.id ?? null;
-}
-
 /**
  * Own profile, read directly under RLS (`profiles_select_self`). Onboarding
  * needs to know whether a profile exists yet, which `get_my_household` does not

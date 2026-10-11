@@ -52,33 +52,25 @@ export function TaskDetailsErrorSheet({
   );
 }
 
+/** A template task, read-only: it has no assignee, deadline or state to edit. */
 export function TaskDetailsSheet({
   task,
   members,
   locale,
   t,
-  editable,
   onClose,
-  onEdit,
 }: {
   readonly task: TaskDto;
   readonly members: readonly MemberDto[];
   readonly locale: Locale;
   readonly t: Translator;
-  readonly editable: boolean;
   readonly onClose: () => void;
-  readonly onEdit: () => void;
 }): ReactNode {
   const assignee = members.find((member) => member.user_id === task.assignee_id);
 
   return (
     <Sheet
-      footer={
-        <>
-          <SecondaryButton label={t('task.details.close')} onPress={onClose} />
-          {editable && <PrimaryButton label={t('task.details.edit')} onPress={onEdit} />}
-        </>
-      }
+      footer={<SecondaryButton label={t('task.details.close')} onPress={onClose} />}
       onClose={onClose}
       title={task.title}
     >

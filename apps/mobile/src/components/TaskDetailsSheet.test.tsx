@@ -23,16 +23,13 @@ const task: TaskDto = {
 };
 
 describe('TaskDetailsSheet', () => {
-  it('shows the full notes, assignee and deadline and opens editing separately', async () => {
-    const onEdit = jest.fn();
+  it('shows the full notes, assignee and deadline with only a close action', async () => {
     const onClose = jest.fn();
     await render(
       <TaskDetailsSheet
-        editable
         locale="en"
         members={[{ user_id: 'u1', display_name: 'Ana', avatar_ref: null }]}
         onClose={onClose}
-        onEdit={onEdit}
         t={t}
         task={task}
       />,
@@ -42,20 +39,16 @@ describe('TaskDetailsSheet', () => {
     expect(screen.getByText('Ana')).toBeTruthy();
     expect(screen.getByText(/2030/)).toBeTruthy();
 
-    await fireEvent.press(screen.getByLabelText('Edit task'));
-    expect(onEdit).toHaveBeenCalledTimes(1);
-    expect(onClose).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText('Close'));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps template task details read-only', async () => {
-    const onEdit = jest.fn();
+  it('says plainly when a template task has no assignee or deadline', async () => {
     await render(
       <TaskDetailsSheet
-        editable={false}
         locale="en"
         members={[]}
         onClose={jest.fn()}
-        onEdit={onEdit}
         t={t}
         task={{ ...task, assignee_id: null, due_at: null, notes: null }}
       />,
@@ -63,7 +56,5 @@ describe('TaskDetailsSheet', () => {
 
     expect(screen.getByText('Unassigned')).toBeTruthy();
     expect(screen.getByText('No deadline')).toBeTruthy();
-    expect(screen.queryByLabelText('Edit task')).toBeNull();
-    expect(onEdit).not.toHaveBeenCalled();
   });
 });

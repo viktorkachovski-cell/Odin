@@ -1,6 +1,6 @@
 # Product decisions and boundaries
 
-## Confirmed by the user in this task
+## Confirmed by the owner
 
 | Topic               | Decision                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -17,30 +17,47 @@
 
 One active household per account in MVP; equal task permissions for every member; at most one task assignee; deadlines only on tasks. Any member may create, assign, reassign, claim, complete or reopen tasks. Template copying copies text/order only and resets ownership, deadlines and completion. Templates and active lists remain independent.
 
-Home keeps bordered template cards and unbordered active cards in separately labeled sections. The question-mark control opens Unassigned, the person control opens My Tasks, and scrolling hides/reveals the bottom navigation. My Tasks and Unassigned exclude completed/template tasks. Empty-list progress is 0 percent.
+Scrolling hides/reveals the bottom navigation. The Mine and Unassigned views exclude completed/template tasks. Empty-list progress is 0 percent. The source Home screen and its question-mark/person controls were replaced on 2026-10-11; see below.
+
+Outside this MVP: automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel. Tasks have one shared editable notes field, not an authored discussion thread. Notifications left this list on 2026-09-22 and list/task removal on 2026-09-21; see the amendments below.
 
 ## Task workflow — confirmed 2026-09-27
 
-The owner requested task details, up/down movement for tasks and lists, an
-inline save-template icon, deadline filtering across all tasks, four task
-statuses, and mobile visual polish that retains Odin's palette. It merged and
-reached production on 2026-09-27.
+The owner requested task details, up/down movement for tasks and lists,
+deadline filtering across all tasks, four task statuses, and mobile visual
+polish that retains Odin's palette.
 
 The owner confirmed that Unassigned follows assignment automatically, order is
 shared across household members, and date filters refer to task deadlines.
 Blocked and Done are explicit choices. Task movement preserves the existing
 incomplete-first groups; list movement is within the existing active/template
-sections. New tasks and lists still append before a member moves them.
+sections. New tasks and lists still append before a member moves them. No list
+deadline, multi-assignee, permission hierarchy or template runtime state is
+introduced.
 
-All Tasks filters are overdue, today, upcoming, no deadline and a custom
-inclusive local-date range, plus an unfiltered view. No list deadline,
-multi-assignee, permission hierarchy or template runtime state is introduced.
+Implementation choices, with their tradeoffs in `known-risks.md`: the stored
+lifecycle is Open/Blocked/Done, and Unassigned and To-do are display labels
+derived from assignment, never command input. Lists, list detail and the
+cross-list task reads each return one snapshot; a view above 1,000 rows fails
+visibly instead of truncating (R10).
 
-The reviewed branch implements the stored task lifecycle as Open/Blocked/Done.
-Unassigned and To-do are display labels derived from assignment, never command
-input. Home, list detail and cross-list tasks each read one snapshot; a view
-above 1,000 rows fails visibly instead of truncating. These are implementation
-choices recorded with their tradeoffs in `known-risks.md`.
+## Navigation and task views — confirmed 2026-10-11
+
+The owner approved the client overhaul shipped on 2026-10-11, which amends the
+source Home and navigation (FR 03–04, FR 21):
+
+- Four destinations on both clients: Today, Tasks, Lists and Settings. Today
+  and the Tasks register (Mine / Unassigned / Everyone) replace Home, My Tasks,
+  Unassigned and All Tasks; the old routes redirect.
+- Templates live on their own Lists tab rather than as bordered cards above the
+  active lists; each is still visibly a template and is used through Use
+  template.
+- List detail collapses completed tasks behind a count. They stay in the
+  totals and one tap away. This settles the open question below.
+- Reordering is an explicit mode; saving a list as a template moved from an
+  icon beside the title into the list's menu.
+
+Hide-on-scroll navigation on narrow web and Android is unchanged.
 
 ## Proposed implementation defaults
 
@@ -60,7 +77,7 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 | Templates             | Superseded 2026-09-22: no seed content. A household saves its own list templates; see item 4 below and `features.md`               |
 | Seed selection        | Household chooses seed language during creation; UI language changes never translate existing user content                         |
 | Offline               | Visible stale data and retained in-session drafts; no automatic offline write queue                                                |
-| Sorting               | My Tasks: due timestamp ascending, nulls last, then stable list/task ID tie-breaker; Unassigned uses same deterministic sort       |
+| Sorting               | Cross-list views: due timestamp ascending, nulls last, then stable list/task ID tie-breaker                                        |
 
 ## Decisions still required before release
 
@@ -90,9 +107,8 @@ judgement:
   focus and reduced-motion accommodations. Android already keeps the bar
   visible under system reduce-motion, which is an accessibility accommodation
   recorded for review rather than applied silently.
-- **Collapsing completed tasks** would shorten long lists but must keep them
-  discoverable and in the totals. The source's visible completed group is the
-  default until approved.
+- ~~**Collapsing completed tasks**~~ — **settled 2026-10-11**: list detail
+  collapses them behind a count, kept in the totals (see above).
 - **FR 27 read-only template preview** is optional and unimplemented. It must
   never block Must scope, and tapping Copy must never also trigger preview.
 - **Rewards, streaks or fairness rankings** are excluded. They change what the
@@ -102,9 +118,9 @@ judgement:
 
 The owner requested email registration and password login on the Vercel app, followed by the Android implementation. This supersedes the original web OTP decision. Confirm email remains enabled. Confirmation links establish a session; subsequent sign-ins use email/password. Password recovery also lets existing OTP users set a password without replacing their account. New passwords require at least eight characters; existing passwords are never rejected by new client-side registration rules at login.
 
-Shared APIs were added, the old mobile OTP API and translations were preserved for installed builds, and the Android password screens shipped. No household rule or database identity changed.
+Shared APIs were added and the Android password screens shipped. No household rule or database identity changed. The client one-time-code helpers, their strings and Android's `/verify-code` redirect were removed on 2026-10-11 by owner decision: installed builds bundle their own copy, so the repository copy served no one. Accounts created under the code flow still gain a password through Forgot password.
 
-Automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel are outside this MVP. Notifications left that list on 2026-09-22 — see the amendment below. Tasks have one shared editable notes field, not an authored discussion thread.
+## Removal — 2026-09-21
 
 List and task removal, mentioned in BR 10 but originally deferred, was approved on 2026-09-21 and extended to templates on 2026-09-22. Deleting a list of either kind archives it; deleting a task removes it. See `features.md`.
 
@@ -135,7 +151,6 @@ is recorded as risk R9 in `known-risks.md` — Android holds the deadline
 reminders and fires them with Odin closed, but a task becoming yours is only
 announced while the Odin process is alive.
 
-Nothing in the shared contract changed. Both triggers are derived from
+Nothing in the shared contract changed: both triggers are derived from
 `getMyTasks` and `getUnassigned`, whose per-task `version` the contract already
-increments once per change, so no schema, RPC, DTO or error code moved and the
-two clients did not need coordinating.
+increments once per change.

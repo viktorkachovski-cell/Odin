@@ -6,9 +6,12 @@ import type { HouseholdTaskDto, MemberDto } from '@odin/contracts';
 import {
   filterTasks,
   groupTasksByDeadline,
+  isTaskDeadlinePreset,
   isTaskView,
   resolveTaskDeadlineFilter,
+  summarizeTasks,
   TASK_DEADLINE_PRESETS,
+  TASK_VIEWS,
   type TaskDeadlineFilter,
   type TaskDeadlinePreset,
   type TaskView,
@@ -22,33 +25,27 @@ import {
   useHouseholdTasksQuery,
   useMembersQuery,
 } from '../../src/state/queries.ts';
-import { ErrorBanner } from '../../src/components/Banner.tsx';
+import { LoadFailure } from '../../src/components/Banner.tsx';
 import { Chip, Segmented, Surface, TaskGroups } from '../../src/components/Blocks.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { SecondaryButton } from '../../src/components/Button.tsx';
 import { Field } from '../../src/components/Field.tsx';
-import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
-import { NewTaskEditor } from '../../src/components/NewTaskEditor.tsx';
+import { NewTaskFab } from '../../src/components/NewTaskEditor.tsx';
 import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
 import { rowFromHouseholdTask, TaskRow } from '../../src/components/TaskRow.tsx';
 import { useTaskWiring } from '../../src/components/useTaskWiring.tsx';
 import { useTheme } from '../../src/theme.ts';
 
 /**
- * Tasks: one register that replaced My Tasks, Unassigned and All tasks. Whose
- * tasks, deadline, search and done are filters over a single household read.
- * Today's tiles open it with a filter already chosen.
+ * Tasks: whose tasks, deadline, search and done are filters over the one
+ * household read. Today's tiles open it with a filter already chosen.
  */
-
-function isPreset(value: string | undefined): value is TaskDeadlinePreset {
-  return value !== undefined && TASK_DEADLINE_PRESETS.some((preset) => preset === value);
-}
 
 function useInitialFilters() {
   const params = useLocalSearchParams<{ view?: string; deadline?: string; blocked?: string }>();
   const [view, setView] = useState<TaskView>(isTaskView(params.view) ? params.view : 'mine');
   const [deadline, setDeadline] = useState<TaskDeadlineFilter>({
-    preset: isPreset(params.deadline) ? params.deadline : 'all',
+    preset: isTaskDeadlinePreset(params.deadline) ? params.deadline : 'all',
   });
   const [blockedOnly, setBlockedOnly] = useState(params.blocked === '1');
   return { view, setView, deadline, setDeadline, blockedOnly, setBlockedOnly };
@@ -194,17 +191,6 @@ function TaskResults({
   );
 }
 
-function LoadFailure({ onRetry }: { readonly onRetry: () => void }): ReactNode {
-  const { t } = useOdin();
-  return (
-    <ErrorBanner
-      error={{ code: 'UNKNOWN', message_key: 'error.unknown' }}
-      onRetry={onRetry}
-      t={t}
-    />
-  );
-}
-
 export default function TasksScreen(): ReactNode {
   const { t, user } = useOdin();
   const theme = useTheme();
@@ -216,16 +202,13 @@ export default function TasksScreen(): ReactNode {
   const filters = useInitialFilters();
   const [search, setSearch] = useState('');
   const [showDone, setShowDone] = useState(false);
-  const [creating, setCreating] = useState(false);
 
   if (query.isPending) return <LoadingState />;
 
   const now = new Date();
   const userId = user?.id ?? null;
   const items = query.data?.items ?? [];
-  const all = { preset: 'all' } as const;
-  const count = (view: TaskView): number =>
-    filterTasks(items, { view, userId, deadline: all }, now).length;
+  const counts = summarizeTasks(items, userId, now);
   const shown = filterTasks(
     items,
     {
@@ -238,7 +221,6 @@ export default function TasksScreen(): ReactNode {
     },
     now,
   );
-  const canCreate = (home.data?.items ?? []).some((list) => list.kind === 'active');
 
   return (
     <Screen title={t('tasks.title')}>
@@ -253,11 +235,11 @@ export default function TasksScreen(): ReactNode {
             filters.setView(view);
             router.setParams({ view });
           }}
-          options={[
-            { key: 'mine', label: t('tasks.view.mine'), count: count('mine') },
-            { key: 'unassigned', label: t('tasks.view.unassigned'), count: count('unassigned') },
-            { key: 'everyone', label: t('tasks.view.everyone'), count: count('everyone') },
-          ]}
+          options={TASK_VIEWS.map((key: TaskView) => ({
+            key,
+            label: t(`tasks.view.${key}`),
+            count: counts[key],
+          }))}
           value={filters.view}
         />
         <TextInput
@@ -285,24 +267,15 @@ export default function TasksScreen(): ReactNode {
         />
         {filters.view === 'everyone' && <ShowDone onChange={setShowDone} value={showDone} />}
 
-        {query.isError && <LoadFailure onRetry={() => void query.refetch()} />}
+        {query.isError && <LoadFailure onRetry={() => void query.refetch()} t={t} />}
         {wiring.errors}
 
         <TaskResults members={members} now={now} tasks={shown} wiring={wiring} />
         <NavSpacer />
       </ScrollView>
 
-      {canCreate && (
-        <FloatingActionButton label={t('tasks.new')} onPress={() => setCreating(true)} />
-      )}
+      <NewTaskFab lists={home.data?.items ?? []} members={members} />
       {wiring.overlays}
-      {creating && (
-        <NewTaskEditor
-          lists={home.data?.items ?? []}
-          members={members}
-          onClose={() => setCreating(false)}
-        />
-      )}
     </Screen>
   );
 }

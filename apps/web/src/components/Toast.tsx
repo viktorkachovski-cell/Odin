@@ -1,10 +1,11 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
+import type { Translator } from '@odin/i18n';
+
 /**
- * A short confirmation that disappears on its own, replacing sentences that
- * used to stay on the page after the thing they confirmed was already visible.
- * Announced politely; errors never use this, they stay as banners.
+ * A short confirmation that disappears on its own, announced politely. Errors
+ * never use this; they stay as banners.
  */
 
 const TOAST_MS = 5000;
@@ -32,5 +33,21 @@ export function Toast({
         </Link>
       )}
     </div>
+  );
+}
+
+export function TemplateSavedToast({
+  t,
+  onDismiss,
+}: {
+  readonly t: Translator;
+  readonly onDismiss: () => void;
+}): ReactNode {
+  return (
+    <Toast
+      action={{ label: t('toast.view'), to: '/lists?tab=templates' }}
+      message={t('toast.template_saved')}
+      onDismiss={onDismiss}
+    />
   );
 }

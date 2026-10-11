@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { CommandError } from '@odin/contracts';
+import { commandError, type CommandError } from '@odin/contracts';
 import { errorMessage, type Translator } from '@odin/i18n';
 
 export function ErrorBanner({
@@ -25,6 +25,17 @@ export function ErrorBanner({
       )}
     </div>
   );
+}
+
+/** A screen's read failed; the cause is never shown, only a retry. */
+export function LoadFailure({
+  t,
+  onRetry,
+}: {
+  readonly t: Translator;
+  readonly onRetry: () => void;
+}): ReactNode {
+  return <ErrorBanner error={commandError('UNKNOWN')} onRetry={onRetry} t={t} />;
 }
 
 /** Offline and reconnecting states are announced politely, not as alerts. */

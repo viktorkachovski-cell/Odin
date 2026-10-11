@@ -34,7 +34,6 @@ describe('safeAuthDestination', () => {
     ['/register', 'registration'],
     ['/forgot-password', 'recovery request'],
     ['/reset-password', 'the browser reset page'],
-    ['/verify-code', 'the retired code screen'],
     ['/%73ign-in', 'a percent-encoded spelling'],
   ])('refuses %s (%s) so login cannot loop', (candidate) => {
     expect(safeAuthDestination(candidate)).toBe('/');

@@ -4,14 +4,44 @@ import type { ListSummaryDto, MemberDto } from '@odin/contracts';
 import { createTask, keysAffectedByTaskChange, useCommand } from '@odin/data';
 
 import { useOdin } from '../app/OdinContext.ts';
+import { Fab } from './Fab.tsx';
+import { Icon } from './Icon.tsx';
 import { TaskEditor } from './TaskEditor.tsx';
 
 /**
- * "New task" from Today or Tasks, where no list is open: the ordinary task
- * editor with a List picker on top. A task still always belongs to exactly one
- * active list; this only lets the member choose which.
+ * "New task" from Today or Tasks, where no list is open: the header button, its
+ * compact-viewport Fab, and the ordinary task editor with a List picker on top.
+ * A task still belongs to exactly one active list; this only lets the member
+ * choose which.
  */
-export function NewTaskEditor({
+export function NewTaskAction({
+  lists,
+  members,
+}: {
+  readonly lists: readonly ListSummaryDto[];
+  readonly members: readonly MemberDto[];
+}): ReactNode {
+  const { t } = useOdin();
+  const [open, setOpen] = useState(false);
+  const canCreate = lists.some((list) => list.kind === 'active');
+  return (
+    <>
+      <button
+        className="button button--primary page-header__primary"
+        disabled={!canCreate}
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        <Icon name="plus" size={18} />
+        {t('tasks.new')}
+      </button>
+      {canCreate && <Fab label={t('tasks.new')} onClick={() => setOpen(true)} />}
+      {open && <NewTaskEditor lists={lists} members={members} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function NewTaskEditor({
   lists,
   members,
   onClose,
@@ -60,7 +90,6 @@ export function NewTaskEditor({
 
   return (
     <TaskEditor
-      conflict={false}
       error={save.state.error}
       listField={listField}
       members={members}
@@ -75,7 +104,6 @@ export function NewTaskEditor({
       pending={save.state.pending || listId.length === 0}
       t={t}
       task={null}
-      variant="side"
     />
   );
 }

@@ -7,7 +7,6 @@ import type { MemberDto, TaskRowModel } from '@odin/contracts';
 import { createTranslator } from '@odin/i18n';
 
 import { Dialog } from './Dialog.tsx';
-import { Progress } from './Progress.tsx';
 import { TaskRow } from './TaskRow.tsx';
 
 const t = createTranslator('en');
@@ -209,26 +208,6 @@ describe('TaskRow', () => {
 
     expect(onOpenDetails).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
     expect(onToggleCompleted).not.toHaveBeenCalled();
-  });
-});
-
-describe('Progress', () => {
-  it('shows the count and the percentage together', () => {
-    render(<Progress completed={1} t={t} total={3} />);
-    expect(screen.getByText('1 of 3 done · 33%')).toBeDefined();
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '33');
-  });
-
-  it('reports an empty list as nothing to do, not nothing done', () => {
-    render(<Progress completed={0} t={t} total={0} />);
-    expect(screen.getByText('No tasks yet · 0%')).toBeDefined();
-    expect(screen.queryByText('0 of 0 done · 0%')).toBeNull();
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
-  });
-
-  it('labels the bar with the same sentence it shows', () => {
-    render(<Progress completed={0} t={tBg} total={0} />);
-    expect(screen.getByRole('progressbar', { name: 'Няма задачи още · 0%' })).toBeDefined();
   });
 });
 

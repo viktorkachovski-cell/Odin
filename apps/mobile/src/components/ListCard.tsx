@@ -7,7 +7,8 @@ import type { Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
-import { ProgressBar } from './Blocks.tsx';
+import { MoveButtons, ProgressBar } from './Blocks.tsx';
+import { AccentButton } from './Button.tsx';
 
 /**
  * One list on the Lists screen, as a compact row rather than a card: title,
@@ -15,52 +16,6 @@ import { ProgressBar } from './Blocks.tsx';
  * it holds and offers Use template. In reorder mode the menu gives way to the
  * move controls, so the arrows are not on every row all the time.
  */
-
-function MoveControls({
-  list,
-  t,
-  onMove,
-  pending,
-  moveUpDisabled,
-  moveDownDisabled,
-}: {
-  readonly list: ListSummaryDto;
-  readonly t: Translator;
-  readonly onMove: (list: ListSummaryDto, direction: MoveDirection) => void;
-  readonly pending: boolean;
-  readonly moveUpDisabled: boolean;
-  readonly moveDownDisabled: boolean;
-}): ReactNode {
-  const theme = useTheme();
-  return (
-    <View style={styles.moves}>
-      {(['up', 'down'] as const).map((direction) => {
-        const disabled = pending || (direction === 'up' ? moveUpDisabled : moveDownDisabled);
-        return (
-          <Pressable
-            accessibilityLabel={t(`list.move.${direction}`, { title: list.title })}
-            accessibilityRole="button"
-            accessibilityState={{ disabled }}
-            disabled={disabled}
-            hitSlop={4}
-            key={direction}
-            onPress={() => onMove(list, direction)}
-            style={[styles.move, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
-          >
-            <Text
-              style={[
-                styles.moveGlyph,
-                { color: disabled ? theme.colors.disabledText : theme.colors.text },
-              ]}
-            >
-              {direction === 'up' ? '↑' : '↓'}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
 
 interface ListCardProps {
   readonly list: ListSummaryDto;
@@ -119,42 +74,6 @@ function ListText({ list, t }: Pick<ListCardProps, 'list' | 't'>): ReactNode {
   );
 }
 
-function UseTemplate({
-  list,
-  t,
-  pending,
-  onCopy,
-}: {
-  readonly list: ListSummaryDto;
-  readonly t: Translator;
-  readonly pending: boolean;
-  readonly onCopy: (list: ListSummaryDto) => void;
-}): ReactNode {
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityLabel={t('home.copy_template', { title: list.title })}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: pending }}
-      disabled={pending}
-      onPress={() => onCopy(list)}
-      style={[
-        styles.use,
-        {
-          borderColor: theme.colors.accent,
-          borderRadius: theme.radius.md,
-          minHeight: theme.touchTarget,
-          opacity: pending ? 0.6 : 1,
-        },
-      ]}
-    >
-      <Text style={[styles.useText, { color: theme.colors.accent }]}>
-        {t('lists.use_template')}
-      </Text>
-    </Pressable>
-  );
-}
-
 export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode {
   const { list, t, onMove, onCopy } = props;
   const theme = useTheme();
@@ -173,16 +92,19 @@ export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode 
         </Link>
       )}
       {template && onCopy !== undefined && !reorder && (
-        <UseTemplate list={list} onCopy={onCopy} pending={props.copyPending === true} t={t} />
+        <AccentButton
+          accessibilityLabel={t('home.copy_template', { title: list.title })}
+          disabled={props.copyPending === true}
+          label={t('lists.use_template')}
+          onPress={() => onCopy(list)}
+        />
       )}
       {reorder && onMove !== undefined ? (
-        <MoveControls
-          list={list}
-          moveDownDisabled={props.moveDownDisabled === true}
-          moveUpDisabled={props.moveUpDisabled === true}
-          onMove={onMove}
-          pending={props.movePending === true}
-          t={t}
+        <MoveButtons
+          downDisabled={props.movePending === true || props.moveDownDisabled === true}
+          label={(direction) => t(`list.move.${direction}`, { title: list.title })}
+          onMove={(direction) => onMove(list, direction)}
+          upDisabled={props.movePending === true || props.moveUpDisabled === true}
         />
       ) : (
         <ActionMenu
@@ -197,9 +119,6 @@ export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode 
 
 const styles = StyleSheet.create({
   count: { fontSize: 13 },
-  move: { alignItems: 'center', justifyContent: 'center' },
-  moveGlyph: { fontSize: 18, fontWeight: '700' },
-  moves: { flexDirection: 'row' },
   progress: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
   row: {
     alignItems: 'center',
@@ -213,6 +132,4 @@ const styles = StyleSheet.create({
   sub: { fontSize: 13 },
   text: { flex: 1, gap: 2, minWidth: 0 },
   title: { fontSize: 16, fontWeight: '700' },
-  use: { alignItems: 'center', borderWidth: 1.5, justifyContent: 'center', paddingHorizontal: 12 },
-  useText: { fontSize: 14, fontWeight: '700' },
 });

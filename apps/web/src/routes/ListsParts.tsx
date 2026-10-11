@@ -5,7 +5,7 @@ import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import { progressPercent } from '@odin/domain';
 import type { Translator } from '@odin/i18n';
 
-import { Icon } from '../components/Icon.tsx';
+import { MoveButtons } from '../components/Controls.tsx';
 import { OverflowMenu, type OverflowItem } from '../components/OverflowMenu.tsx';
 
 /** A thin progress bar; the numbers beside it carry the meaning. */
@@ -47,46 +47,18 @@ export function ListProgressLink({
   );
 }
 
-function MoveButtons({
-  list,
-  t,
-  busy,
-  moveUpDisabled,
-  moveDownDisabled,
-  onMove,
-}: {
-  readonly list: ListSummaryDto;
-  readonly t: Translator;
-  readonly busy: boolean;
-  readonly moveUpDisabled: boolean;
-  readonly moveDownDisabled: boolean;
-  readonly onMove: (direction: MoveDirection) => void;
-}): ReactNode {
+function ListMoves({ list, t, busy, moveUpDisabled, moveDownDisabled, onMove }: ListRowProps) {
   return (
-    <>
-      <button
-        aria-label={t('list.move.up', { title: list.title })}
-        className="button button--quiet button--icon"
-        disabled={busy || moveUpDisabled}
-        onClick={() => onMove('up')}
-        type="button"
-      >
-        <Icon name="arrow-up" />
-      </button>
-      <button
-        aria-label={t('list.move.down', { title: list.title })}
-        className="button button--quiet button--icon"
-        disabled={busy || moveDownDisabled}
-        onClick={() => onMove('down')}
-        type="button"
-      >
-        <Icon name="arrow-down" />
-      </button>
-    </>
+    <MoveButtons
+      downDisabled={busy || moveDownDisabled}
+      label={(direction) => t(`list.move.${direction}`, { title: list.title })}
+      onMove={onMove}
+      upDisabled={busy || moveUpDisabled}
+    />
   );
 }
 
-export interface ListRowProps {
+interface ListRowProps {
   readonly list: ListSummaryDto;
   readonly t: Translator;
   readonly busy: boolean;
@@ -129,7 +101,7 @@ export function ActiveListRow(props: ListRowProps): ReactNode {
         {open}
       </span>
       <span className="list-row__actions">
-        {reorder && <MoveButtons {...props} />}
+        {reorder && <ListMoves {...props} />}
         <OverflowMenu disabled={busy} items={rowMenu(props)} label={t('list.actions')} />
       </span>
     </li>
@@ -150,7 +122,7 @@ export function TemplateRow(props: ListRowProps): ReactNode {
         </span>
       </span>
       <span className="list-row__actions">
-        {reorder && <MoveButtons {...props} />}
+        {reorder && <ListMoves {...props} />}
         {onCopy !== undefined && !reorder && (
           <button
             aria-label={t('home.copy_template', { title: list.title })}

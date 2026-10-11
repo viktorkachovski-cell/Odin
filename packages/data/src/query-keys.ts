@@ -6,7 +6,6 @@
 import type { ChangeKind } from './realtime.ts';
 
 export const queryKeys = {
-  session: ['session'] as const,
   profile: ['profile'] as const,
   household: ['household'] as const,
   members: ['members'] as const,
@@ -20,8 +19,8 @@ export const queryKeys = {
 } as const;
 
 /**
- * A task write can move a task between Home counts, the open list, My Tasks and
- * Unassigned, so all four are invalidated together rather than guessing.
+ * A task or list write can move a task between list counts, the open list and
+ * every cross-list read, so they are invalidated together rather than guessed.
  */
 export function keysAffectedByTaskChange(listId?: string): readonly (readonly string[])[] {
   return [
@@ -38,16 +37,7 @@ export function keysAffectedByTaskTemplateChange(): readonly (readonly string[])
   return [queryKeys.taskTemplates];
 }
 
-export function keysAffectedByListChange(listId?: string): readonly (readonly string[])[] {
-  return [
-    queryKeys.allTasks,
-    ['task'],
-    queryKeys.home,
-    queryKeys.myTasks,
-    queryKeys.unassigned,
-    listId === undefined ? ['list'] : queryKeys.list(listId),
-  ];
-}
+export const keysAffectedByListChange = keysAffectedByTaskChange;
 
 /**
  * The keys a batch of realtime hints invalidates, each once. Invalidating the

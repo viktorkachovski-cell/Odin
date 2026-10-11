@@ -86,6 +86,7 @@ describe('TaskDetailsFlow', () => {
       <TaskDetailsFlow canEdit={false} members={members} onClose={vi.fn()} taskId={task.id} />,
       { wrapper },
     );
-    expect(screen.queryByRole('button', { name: 'Edit task' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Water the plants' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Task title')).not.toBeInTheDocument();
   });
 });

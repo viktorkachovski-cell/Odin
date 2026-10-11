@@ -26,8 +26,6 @@ export const LIMITS = {
   householdName: { min: 1, max: 160 },
 } as const;
 
-export const PAGE_SIZE = 50;
-
 /**
  * The stored task lifecycle `set_task_state` accepts. Whether an open task is
  * shown as Unassigned or To-do is derived from its assignee (see

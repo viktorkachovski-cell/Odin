@@ -14,46 +14,32 @@ app _does_ is `features.md`; this file is how Android does it.
 | Expo Router      | 57.0.25         | File-based routing, as the brief requires                    |
 | Jest + jest-expo | 29.7.0 / 57.0.5 | React Native ships untranspiled source; Vitest cannot run it |
 
-**The web client was moved from React 19.3.0 to 19.2.3 to match.** React Native's
-renderer is built against one React version, so the app has to take the version
-the SDK prescribes. Transitive `react: "*"` peers would otherwise install a
-second, newer copy and hoist it above the app's own, which breaks hooks at
-runtime. An `overrides` block in the root `package.json` pins one React for the
-whole workspace; `npm ls react` shows a single copy. Web typecheck, its
-component tests and its production build all pass on 19.2.3.
+React Native's renderer is built against one React version, so the whole
+workspace, web included, takes the version the SDK prescribes through the root
+`overrides` block (`architecture.md`); `npm ls react` shows a single copy.
 
 ## What is shared rather than reimplemented
 
 Cross-platform rules and actions live in shared packages so the clients use
 the same behaviour:
 
-- `useCommand` → `@odin/data`. It holds one request ID across an ambiguous
-  `NETWORK` retry and mints a fresh one after any settled outcome. That is the
-  client half of the idempotency contract, not presentation.
+- `useCommand`, `useTaskRowActions` and `useListActions` → `@odin/data`.
+  `useCommand` holds one request ID across an ambiguous `NETWORK` retry and
+  mints a fresh one after any settled outcome, the client half of the
+  idempotency contract; the other two wire every row and list command with
+  its invalidation set.
 - `resolveDueInput` and `dueDraftFromIso` → `@odin/domain`. Both-or-neither
   deadline entry and the DST-gap rejection.
-- `taskState`, `taskStatusOptions`, `adjacentMoves` and deadline presets →
-  `@odin/domain`. They keep status choices, move availability and All Tasks
-  filters consistent with web.
-- `useTaskRowActions` → `@odin/data`. It coordinates task commands and cache
-  invalidation across the task views.
-- `formatDueAt` → `@odin/i18n`. Both clients show deadlines consistently.
-- `task.claim.short` / `task.edit_action.short` → `@odin/i18n`. The existing
-  keys are accessible labels ("Claim {title}"); a compact button needs its own
-  short text in both languages.
+- `filterTasks`, `groupTasksByDeadline`, `groupMyTasksForToday`,
+  `summarizeTasks`, `taskRowActions`, `taskState`, `taskStatusOptions`,
+  `adjacentMoves` and the deadline presets → `@odin/domain`. Today, Tasks, row
+  menus and move availability match web.
+- `formatDueAt`, `formatDueShort`, `formatLongDate`, `progressText` and
+  `TASK_ACTION_KEYS` → `@odin/i18n`, with every string in both languages.
 
 The read hooks in `src/state/queries.ts` are deliberately **not** shared: they
 are per-app glue binding an app-specific context to the already-shared
 repositories and query keys.
-
-The task-workflow branch opens `TaskDetailsFlow` from every task row, list
-detail included, with completion and status actions as separate touch targets
-wired through the shared `useTaskRowActions` hook. All Tasks provides deadline
-presets and a local-date range. Lists and tasks have up/down actions,
-including a template's tasks, and list moves are disabled while one is in
-flight; the save-template icon sits beside the list title. The layout retains
-Odin's palette while using clearer spacing, task hierarchy and touch targets.
-The updated client requires both branch migrations on its test database.
 
 ## Android specifics
 
@@ -83,24 +69,23 @@ The updated client requires both branch migrations on its test database.
   but the stored time only changes when the minute the stale banner shows
   changes, so a refresh does not re-render every screen. The stale banner only
   shows once signed in; the auth forms say offline in their own words.
-- **Only changed rows render.** Task rows and list cards are memoized, row
+- **Only changed rows render.** Task rows and list rows are memoized, row
   models are cached per task object (a refetch keeps an unchanged task's
   object), and row handlers keep one identity (`useEvent`). Deadline
   formatters are built once per locale and time zone.
-- **Reads wait for the network.** NetInfo feeds React Query's online state, so
-  a read made offline pauses and resumes on reconnect instead of failing, and a
-  screen with nothing loaded says it is offline rather than spinning. Reads go
-  stale after five minutes; realtime hints and reconciles cover the rest.
-- **Offline.** `@react-native-community/netinfo` drives the offline banner. A
-  still-running reachability probe is not treated as offline.
+- **Reads wait for the network.** `@react-native-community/netinfo` drives the
+  offline banner and React Query's online state, so a read made offline pauses
+  and resumes on reconnect instead of failing, and a screen with nothing loaded
+  says it is offline rather than spinning. A still-running reachability probe
+  is not treated as offline. Reads go stale after five minutes; realtime hints
+  and reconciles cover the rest.
 - **Bottom navigation** hides on downward scroll and reveals on upward scroll,
   and stays visible at the top of the content, at the end of it, while a screen
   pins it, and when the system reduce-motion setting is on. That last case is an
   accessibility accommodation, recorded here for product review rather than
   applied silently.
 - **`src/state/`, not `src/app/`.** Expo Router treats a `src/app` directory as
-  the routes root, which silently captured the state modules until the export
-  surfaced it.
+  the routes root.
 
 ## Email and password sign-in
 
@@ -143,19 +128,14 @@ reimplemented here, and no schema change was needed.
   signing out discards it. Killing the app drops it, and the invite screen then
   asks the person to reopen the original invitation. Confirming an email never
   redeems an invitation or creates a household on its own.
-- **`/verify-code` still resolves**, redirecting to sign-in, so an older build
-  or a back-stack entry does not hit an unresolvable route. The OTP exports in
-  `@odin/data` are left in place for builds still on the old flow.
 
 ## Presentation
 
-Android adapts the presentation, never the rules. Shared commands, labels,
-permissions and task behaviour stay aligned with the web client.
+Android adapts the presentation, never the rules; the screens themselves are
+in `features.md`.
 
-- Four bottom-navigation tabs -- Today, Tasks, Lists, Settings -- with icons
-  drawn from views (no icon font or native dependency) and the member's
-  open-task count on Tasks. `/my-tasks`, `/unassigned` and `/all-tasks`
-  redirect to Tasks with the matching view.
+- Bottom-navigation icons are drawn from views, with no icon font or native
+  dependency.
 - Extended floating action buttons for the primary create action on Today
   (New task), Tasks (New task) and Lists (New list). List detail has a quick
   add docked above the navigation instead, and pins the navigation visible.
@@ -167,14 +147,8 @@ permissions and task behaviour stay aligned with the web client.
   back.
 - Destructive actions keep the native confirmation alert.
 - Completion and Claim stay directly reachable: they are the primary action of
-  their row.
-- Lists are compact rows on one surface, split into Active and Templates tabs;
-  a template row offers Use template. Reorder is a mode, from the Lists toolbar
-  or the list-detail menu.
-- A task opens straight into its editor sheet; saving a list as a template
-  confirms with an Android toast.
-- A template's tasks can be reordered but have no completion, edit, delete or
-  unassign controls.
+  their row. Reorder is in the Lists toolbar or the list-detail menu.
+- Confirmations such as a saved template use an Android toast.
 - Touch targets stay at least 48 dp, every control carries a TalkBack label,
   and English/Bulgarian text is shared with web.
 
@@ -187,13 +161,10 @@ permissions and task behaviour stay aligned with the web client.
 | Read a list's shared note  | Lists row; collapsible Notes on list detail       | `get_home_v2`/`get_list_v2` |
 | Write a list's shared note | Note field under the subtitle field in the editor | `update_list_v2`            |
 
-- Save as list template is in the overflow of an active list's row and of list
-  detail. It takes no confirmation alert; a toast confirms the save. The source
-  list stays unchanged and keeps its version.
-- `Delete list` appears on template cards as well as active ones, with the same
-  destructive alert and the same `expected_version` from the summary. The
-  summary DTO already carries `version`, so deleting from Lists needs no extra
-  read.
+- Save as list template takes no confirmation alert; a toast confirms it. The
+  source list keeps its version.
+- `Delete list` appears on template rows as well as active ones, with the same
+  destructive alert and the `expected_version` the summary already carries.
 - Saving a list writes **one list template** and never a task template, so the
   task editor's picker keeps reading `get_task_templates` alone.
 - The list note is a `multiline` field with `numberOfLines={4}` under the
@@ -208,9 +179,9 @@ permissions and task behaviour stay aligned with the web client.
 What they do is `features.md`; this is how Android does it. Added 2026-09-22
 by owner amendment (`decisions.md`).
 
-`expo-notifications` 57.0.20 — the version Expo SDK 57 bundles — and its config
-plugin are new native dependencies, so **an installed build does not gain
-notifications until the Android binary is rebuilt.**
+`expo-notifications` 57.0.22, the SDK 57 version, and its config plugin are
+native dependencies, so **an installed build does not gain notifications until
+the Android binary is rebuilt.**
 
 | Piece                               | Lives in                                |
 | ----------------------------------- | --------------------------------------- |
@@ -231,8 +202,7 @@ notifications until the Android binary is rebuilt.**
   needed no contract change and why the web client is untouched.
 - **It is mounted on the `(app)` layout, not a screen.** The watcher has to
   keep both queries live whichever section is open, and while no screen is
-  focused at all. Mounting it on My Tasks would have meant no notification
-  unless that tab happened to be the one left open.
+  focused at all.
 - **Announcements are suppressed in the foreground.** This is the whole of the
   self-notification defence: a member cannot be tapping Claim in the foreground
   and be somewhere else at the same time. The alternative — a list of task IDs
@@ -304,15 +274,8 @@ undone by accident.
 
 ## Device verification
 
-Nothing in the Android client has been exercised on an emulator or a physical
-device: this environment has no Android SDK, emulator or device, and an export
-is not an installation. Everything Android is proven by Jest, typecheck, Expo
-Doctor and a production export only.
-
-Device verification is **deferred by owner decision of 2026-09-22** and is not
-tracked as an open risk; see the accepted section of `known-risks.md`. The gap
-is real, so revisit it before any release claim or store listing. What a device
-pass would have to cover is listed in `verification.md`.
-
-Native dependency changes require rebuilding the Android binary. Deploying the
-web app does not update an Android install.
+Nothing in the Android client has run on an emulator or a physical device; an
+export is not an installation. Device verification is deferred by owner
+decision of 2026-09-22 (accepted section of `known-risks.md`), and what a
+device pass must cover is listed in `verification.md`. Revisit it before any
+release claim or store listing.

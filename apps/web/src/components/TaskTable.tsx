@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-import type { DeadlineGroup, TaskGroup } from '@odin/domain';
+import type { TaskGroup } from '@odin/domain';
 import type { Translator } from '@odin/i18n';
 
 /**
@@ -53,28 +53,17 @@ export function TaskTable({
   );
 }
 
-const GROUP_KEYS: Record<DeadlineGroup, `tasks.group.${DeadlineGroup}`> = {
-  overdue: 'tasks.group.overdue',
-  today: 'tasks.group.today',
-  upcoming: 'tasks.group.upcoming',
-  undated: 'tasks.group.undated',
-  done: 'tasks.group.done',
-};
-
 /** Deadline groups, each under its own heading with a count. */
 export function TaskGroups<T>({
   groups,
   t,
   headingLevel = 2,
   renderRow,
-  limit,
 }: {
   readonly groups: readonly TaskGroup<T>[];
   readonly t: Translator;
   readonly headingLevel?: 2 | 3;
   readonly renderRow: (task: T) => ReactNode;
-  /** Rows per group; the rest are summarised by the caller. */
-  readonly limit?: number;
 }): ReactNode {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
@@ -82,11 +71,9 @@ export function TaskGroups<T>({
       {groups.map(({ group, tasks }) => (
         <section className="task-group" key={group}>
           <Heading className={`task-group__heading task-group__heading--${group}`}>
-            {t(GROUP_KEYS[group])} · {tasks.length}
+            {t(`tasks.group.${group}`)} · {tasks.length}
           </Heading>
-          <ul className="task-list">
-            {(limit === undefined ? tasks : tasks.slice(0, limit)).map(renderRow)}
-          </ul>
+          <ul className="task-list">{tasks.map(renderRow)}</ul>
         </section>
       ))}
     </>

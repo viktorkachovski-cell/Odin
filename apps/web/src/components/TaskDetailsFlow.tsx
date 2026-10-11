@@ -5,16 +5,14 @@ import { keysAffectedByTaskChange, updateTask, useCommand } from '@odin/data';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useTaskQuery } from '../app/queries.ts';
-import { Dialog } from './Dialog.tsx';
 import { TaskDetailsDialog } from './TaskDetailsDialog.tsx';
 import { TaskEditor } from './TaskEditor.tsx';
 
 /**
- * Opening a task from any row: a side panel that is the editor itself, so
- * viewing and changing a task is one step rather than a read-only dialog
- * followed by a second form. A template task has no runtime fields and stays
- * read-only. A conflicting save keeps the member's draft and reloads the task,
- * so resubmitting targets the latest version -- the same flow as Android.
+ * Opening a task from any row: a side panel that is the editor itself. A
+ * template task has no runtime fields and stays read-only. A conflicting save
+ * keeps the draft and reloads the task, so resubmitting targets the latest
+ * version -- the same flow as Android.
  */
 export function TaskDetailsFlow({
   taskId,
@@ -53,51 +51,21 @@ export function TaskDetailsFlow({
     { invalidate: keysAffectedByTaskChange(), onSuccess: onClose },
   );
 
-  if (!canEdit) {
+  const editing = base ?? loaded;
+  if (!canEdit || editing === undefined) {
     return (
       <TaskDetailsDialog
-        canEdit={false}
         locale={locale}
         members={members}
         onClose={onClose}
-        onEdit={() => undefined}
         t={t}
         taskId={taskId}
-        variant="side"
       />
-    );
-  }
-
-  const editing = base ?? loaded;
-  if (editing === undefined) {
-    return (
-      <Dialog
-        footer={
-          <button className="button" onClick={onClose} type="button">
-            {t('task.details.close')}
-          </button>
-        }
-        onClose={onClose}
-        title={t('task.details.title')}
-        variant="side"
-      >
-        {task.isError ? (
-          <div className="banner banner--danger" role="alert">
-            <span className="banner__text">{t('task.details.error')}</span>
-            <button className="button" onClick={() => void task.refetch()} type="button">
-              {t('state.retry')}
-            </button>
-          </div>
-        ) : (
-          <p role="status">{t('task.details.loading')}</p>
-        )}
-      </Dialog>
     );
   }
 
   return (
     <TaskEditor
-      conflict={save.state.error?.code === 'CONFLICT'}
       error={save.state.error}
       key={editing.id}
       members={members}
@@ -118,7 +86,6 @@ export function TaskDetailsFlow({
       pending={save.state.pending}
       t={t}
       task={editing}
-      variant="side"
     />
   );
 }

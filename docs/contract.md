@@ -27,14 +27,14 @@ Select projections must not leak `profiles.locale`, invite metadata or receipts 
 
 ## Read adapter API
 
-`@odin/data` exposes `getSession`, `getMyHousehold`, `getMembers`, `getHome`, `getList`, `getUnassigned`, `getMyTasks`, `getAllTasks`, `getTask`, `getTaskTemplates`, and the commands below. App-specific React Query hooks wrap these pure repositories. Clients supply platform storage and public Supabase configuration at bootstrap.
+`@odin/data` exposes `getCurrentUser`, `getMyProfile`, `getMyHousehold`, `getMembers`, `getHome`, `getList`, `getUnassigned`, `getMyTasks`, `getAllTasks`, `getTask`, `getTaskTemplates`, and a wrapper for each command below. App-specific React Query hooks wrap these pure repositories; `useCommand`, `useTaskRowActions` and `useListActions` wire commands with their invalidation sets. Clients supply platform storage and public Supabase configuration at bootstrap.
 
 - `getHome` calls `get_home_v2()`: open list templates, then open active lists, each ordered by shared `sort_order` and ID. Summaries include notes, subtitle, version and full-list total/completed counts. Task templates are read separately by `getTaskTemplates`.
 - `getList(listId)` calls `get_list_v2(p_list_id)`: one open list and all its tasks ordered `(completed ASC, sort_order ASC, id ASC)`, with full-list counts and progress.
-- `getMyTasks` and `getUnassigned` call their `_v2` RPCs: full task rows plus list title from open active lists, incomplete only, filtered by the authenticated user's assignment or null assignee respectively. Both order by due timestamp ascending, undated last, then list/task ID.
-- `getAllTasks` calls `get_all_tasks(p_due_from, p_due_before, p_undated, p_incomplete_only)`. It returns full task rows plus list title from open active lists, including done tasks unless the overdue filter requests incomplete only. Deadline bounds are inclusive below and exclusive above; the Undated filter cannot be combined with bounds. Invalid combinations return `VALIDATION`.
+- `getMyTasks` and `getUnassigned` call their `_v2` RPCs: full task rows plus list title from open active lists, incomplete only, filtered by the authenticated user's assignment or null assignee respectively. Both order by due timestamp ascending, undated last, then list/task ID. Android's notifications read them; screens do not.
+- `getAllTasks` calls `get_all_tasks(p_due_from, p_due_before, p_undated, p_incomplete_only)`. It returns full task rows plus list title from open active lists, in the same order, including done tasks unless the overdue filter requests incomplete only. Deadline bounds are inclusive below and exclusive above; the Undated filter cannot be combined with bounds. Invalid combinations return `VALIDATION`. Both clients read it unfiltered and filter on the client with the same bounds (`features.md`).
 - `getTask(taskId)` reads one full task through RLS with an open parent. Missing, archived and inaccessible tasks have the same `NOT_FOUND` result.
-- Home, list detail and the three cross-list task collections each return one snapshot without a cursor. Above 1,000 rows they return `TOO_LARGE` instead of a partial result. Legacy paged RPCs remain callable for installed clients, with 50-row keyset pages and unchanged signatures.
+- Lists, list detail and the three cross-list task collections each return one snapshot without a cursor. Above 1,000 rows they return `TOO_LARGE` instead of a partial result. Legacy paged RPCs remain callable for installed clients, with 50-row keyset pages and unchanged signatures.
 - Shared progress: `total === 0 ? 0 : Math.round(completed * 100 / total)`. Server aggregate and client use identical positive-half-up rounding. Test 0/0, 1/3, 2/3, 1/8, 1/1.
 
 ## Mutation envelope
@@ -73,7 +73,7 @@ Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `A
 
 For create-invitation retries, do not store raw tokens in plaintext receipts. Use a server-side encrypted short-lived response for the original operation, or deterministically rederive the token with a server-only secret and recorded nonce. The chosen implementation must return the same usable link for a retry, keep token hashes as lookup keys, and have a tested key-rotation policy. This is a backend concern; no client token generation from predictable IDs.
 
-Authentication uses supported Supabase Auth APIs, never custom password/OTP storage. Web and current Android builds use email/password; legacy mobile OTP helpers remain exported for older installed versions. Invite links carry no email or household name. Reject open redirects. Prefer a URL fragment token for web redemption so tokens are not sent in hosting request paths; strip it from visible history after capture and redact logs. Configure Android app links/deep links and web fallback explicitly.
+Authentication uses supported Supabase Auth APIs, never custom password/OTP storage. Both clients use email/password. Invite links carry no email or household name. Reject open redirects. Prefer a URL fragment token for web redemption so tokens are not sent in hosting request paths; strip it from visible history after capture and redact logs. Configure Android app links/deep links and web fallback explicitly.
 
 ### Additive authentication contract — 2026-09-21
 
@@ -90,7 +90,7 @@ All functions below are exported by `@odin/data`, accept the existing `OdinSupab
 
 Email is trimmed; password is passed unchanged. `validateNewPassword(password, confirmation)` and `PASSWORD_MIN_LENGTH` live in `@odin/domain`; validation applies only to registration and password updates. Provider errors map to safe `auth.password.*` translation keys or existing command errors. Duplicate registrations and reset acknowledgements must not reveal account existence. Destinations are application-owned constants or the current trusted web origin plus fixed paths, never user-supplied URLs.
 
-Compatibility: no SQL migration, DTO change, error-code enum change, or identity replacement. Web and the current Android client consume the password APIs. Retain `requestSignInCode`/`verifySignInCode` exports and legacy translations for older installed mobile versions; new Android builds use email/password and the allowlisted web confirmation/recovery routes. The current default email template sends a link, so neither client depends on a code-entry email.
+Compatibility: no SQL migration, DTO change, error-code enum change, or identity replacement. Both clients consume the password APIs and the allowlisted web confirmation/recovery routes. The current default email template sends a link, so neither client depends on a code-entry email.
 
 ## Concurrency and revocation
 
@@ -102,21 +102,18 @@ If a future approved operation deactivates membership, its transaction clears th
 
 ## Synchronization contract
 
-Subscribe to RLS-protected list/task/membership changes for the active household, and identity updates where authorized. Treat payloads as invalidation hints. Refetch affected Home, list detail, task detail, My Tasks, Unassigned and All Tasks reads; apply the result immediately in the initiating client. Keep mutation controls pending until affected reads refetch, so a rapid second action cannot send a stale version. A stale fetch cannot overwrite a newer mutation result; cancel/reconcile query requests and compare versions. On subscription establishment/reconnect, window focus, Android foreground or expired-session recovery, refetch authoritative membership then data.
+Subscribe to RLS-protected list/task/membership changes for the active household, and identity updates where authorized. Treat payloads as invalidation hints, coalesced as `architecture.md` describes. Refetch every affected read (`keysAffectedBy*` in `@odin/data`); apply the result immediately in the initiating client. Keep mutation controls pending until affected reads refetch, so a rapid second action cannot send a stale version. A stale fetch cannot overwrite a newer mutation result; cancel/reconcile query requests and compare versions. On subscription establishment/reconnect, window focus, Android foreground or expired-session recovery, refetch authoritative membership then data.
 
-Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. Provide a 3-second foreground fallback refetch while realtime is unhealthy, with backoff during actual network failure. Verify the normal connected update budget of 5 seconds; do not promise background delivery.
+Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. While realtime is unhealthy, refetch on a foreground fallback timer: web every 3 seconds, Android after 5 seconds backing off to once a minute and not at all offline or in the background (R12). Verify the normal connected update budget of 5 seconds; do not promise background delivery.
 
 ## Task-workflow compatibility — 2026-09-27
 
 The current contract requires `20260927121823_task_workflow_polish.sql`,
 `20260927154349_task_workflow_review_fixes.sql` and
-`20260927194500_task_workflow_function_permissions.sql`, in that order. All
-three were applied to the hosted database on 2026-09-27; the third removes the
-anonymous execute grants that hosted default privileges add to new functions.
-The second migration replaces first-draft
-RPCs that existed only on the feature branch: `set_task_status` becomes
-`set_task_state`, while the draft paged `get_home_v2` and `get_all_tasks` become
-snapshot reads. No installed client uses those draft signatures.
+`20260927194500_task_workflow_function_permissions.sql`, in that order; all
+three are on the hosted database (`deployment-log.md`). The second replaces
+draft RPCs that never shipped in a client (`set_task_status`, paged
+`get_home_v2` and `get_all_tasks`).
 
 Installed clients keep their paged `get_home`, `get_list`, `get_my_tasks` and
 `get_unassigned` RPCs and the legacy `set_task_completed` command. Its
@@ -124,5 +121,14 @@ Installed clients keep their paged `get_home`, `get_list`, `get_my_tasks` and
 without `blocked` or `sort_order`, defaulting them to false or zero; the new
 clients still require the new RPCs.
 `TOO_LARGE` belongs only to the new snapshot reads and is localized in both
-updated clients. Any database the updated clients use needs all three
-migrations; `deployment-log.md` records what reached the host.
+clients.
+
+## Adapter cleanup — 2026-10-11
+
+Client-side only; no RPC, DTO, error code or migration changed. `@odin/data`
+dropped `getSession` (duplicating `getCurrentUser`) and the one-time-code
+helpers `requestSignInCode`/`verifySignInCode`, and gained `useListActions`.
+Both clients were updated in the same change. Installed Android builds bundle
+their own copy of the adapter, so they are unaffected; `revokeInvitation`
+stays exported for the `revoke_invitation` command although no screen calls it
+yet.

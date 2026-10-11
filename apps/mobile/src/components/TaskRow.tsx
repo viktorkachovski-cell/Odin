@@ -11,23 +11,21 @@ import {
   type TaskRowModel,
   type TaskState,
 } from '@odin/contracts';
-import { isOverdue } from '@odin/domain';
-import { formatDueShort, type Locale, type Translator } from '@odin/i18n';
+import { isOverdue, taskRowActions, type TaskRowAction } from '@odin/domain';
+import { formatDueShort, TASK_ACTION_KEYS, type Locale, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
 import { Avatar } from './Avatar.tsx';
+import { MoveButtons } from './Blocks.tsx';
+import { AccentButton } from './Button.tsx';
 
 /**
  * A task row: completion, the task, who has it, and one overflow menu. It
  * shows exceptions rather than defaults -- a status label only when Blocked, no
- * "No deadline" text, and Claim instead of an "Unassigned" label wherever
- * claiming is offered. Completing a task and opening it are separate targets,
- * so completion can never open the task by accident. Move controls appear only
- * in reorder mode.
- *
- * It renders a `TaskRowModel`, so the full list-detail task and the household
- * projection share one component.
+ * "No deadline" text, and Claim instead of an "Unassigned" label. Completing a
+ * task and opening it are separate targets. Move controls appear only in
+ * reorder mode.
  */
 
 /**
@@ -77,25 +75,22 @@ function menuActions({
   onUnassign,
   onDelete,
 }: Pick<TaskRowProps, 'task' | 't' | 'onSetState' | 'onUnassign' | 'onDelete'>): ActionMenuItem[] {
-  const actions: ActionMenuItem[] = [];
-  if (onSetState !== undefined && !task.completed) {
-    actions.push(
-      task.blocked === true
-        ? { label: t('task.unblock'), onPress: () => onSetState(task, 'open') }
-        : { label: t('task.block'), onPress: () => onSetState(task, 'blocked') },
-    );
-  }
-  if (onUnassign !== undefined && task.assignee_id !== null) {
-    actions.push({ label: t('task.unassign.short'), onPress: () => onUnassign(task) });
-  }
-  if (onDelete !== undefined) {
-    actions.push({
-      label: t('task.delete.short'),
-      onPress: () => onDelete(task),
-      destructive: true,
-    });
-  }
-  return actions;
+  const run: Record<TaskRowAction, () => void> = {
+    block: () => onSetState?.(task, 'blocked'),
+    unblock: () => onSetState?.(task, 'open'),
+    unassign: () => onUnassign?.(task),
+    delete: () => onDelete?.(task),
+  };
+  const wired = {
+    state: onSetState !== undefined,
+    unassign: onUnassign !== undefined,
+    remove: onDelete !== undefined,
+  };
+  return taskRowActions(task, wired).map((action) => ({
+    label: t(TASK_ACTION_KEYS[action]),
+    onPress: run[action],
+    destructive: action === 'delete',
+  }));
 }
 
 function MetaLine({
@@ -132,7 +127,6 @@ function Who({
   busy,
   onClaim,
 }: Pick<TaskRowProps, 'task' | 'members' | 't' | 'busy' | 'onClaim'>): ReactNode {
-  const theme = useTheme();
   const assignee = members.find((member) => member.user_id === task.assignee_id);
   if (assignee !== undefined) {
     return (
@@ -145,27 +139,12 @@ function Who({
   }
   if (task.assignee_id === null && onClaim !== undefined && !task.completed) {
     return (
-      <Pressable
+      <AccentButton
         accessibilityLabel={t('task.claim', { title: task.title })}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: busy === true }}
-        android_ripple={{ color: theme.colors.accentSoft }}
-        disabled={busy}
+        disabled={busy === true}
+        label={t('task.claim.short')}
         onPress={() => onClaim(task)}
-        style={[
-          styles.claim,
-          {
-            borderColor: theme.colors.accent,
-            borderRadius: theme.radius.md,
-            minHeight: theme.touchTarget,
-            opacity: busy === true ? 0.6 : 1,
-          },
-        ]}
-      >
-        <Text style={[styles.claimText, { color: theme.colors.accent }]}>
-          {t('task.claim.short')}
-        </Text>
-      </Pressable>
+      />
     );
   }
   // Read by TalkBack only: the row says nobody has it without a visible label.
@@ -279,59 +258,16 @@ export const TaskRow = memo(function TaskRow(props: TaskRowProps): ReactNode {
           disabled={busy}
         />
       ) : (
-        <MoveControls
-          busy={busy}
-          moveDownDisabled={props.moveDownDisabled}
-          moveUpDisabled={props.moveUpDisabled}
-          onMove={onMove}
-          t={t}
-          task={task}
+        <MoveButtons
+          downDisabled={busy || props.moveDownDisabled === true}
+          label={(direction) => t(`task.move.${direction}`, { title: task.title })}
+          onMove={(direction) => onMove(task, direction)}
+          upDisabled={busy || props.moveUpDisabled === true}
         />
       )}
     </View>
   );
 });
-
-function MoveControls({
-  task,
-  t,
-  busy,
-  onMove,
-  moveUpDisabled,
-  moveDownDisabled,
-}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'moveUpDisabled' | 'moveDownDisabled'> & {
-  readonly onMove: (task: TaskRowModel, direction: MoveDirection) => void;
-}): ReactNode {
-  const theme = useTheme();
-  const button = (direction: MoveDirection, disabled: boolean): ReactNode => (
-    <Pressable
-      accessibilityLabel={t(direction === 'up' ? 'task.move.up' : 'task.move.down', {
-        title: task.title,
-      })}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || busy === true }}
-      disabled={disabled || busy}
-      hitSlop={4}
-      onPress={() => onMove(task, direction)}
-      style={[styles.moveButton, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
-    >
-      <Text
-        style={[
-          styles.moveGlyph,
-          { color: disabled ? theme.colors.disabledText : theme.colors.text },
-        ]}
-      >
-        {direction === 'up' ? '↑' : '↓'}
-      </Text>
-    </Pressable>
-  );
-  return (
-    <View style={styles.moveActions}>
-      {button('up', moveUpDisabled === true)}
-      {button('down', moveDownDisabled === true)}
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   body: { flex: 1, gap: 2, minWidth: 0, paddingVertical: 10 },
@@ -344,19 +280,9 @@ const styles = StyleSheet.create({
     width: 22,
   },
   check: { fontSize: 14, fontWeight: '700', lineHeight: 16 },
-  claim: {
-    alignItems: 'center',
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  claimText: { fontSize: 14, fontWeight: '700' },
   headline: { alignItems: 'center', columnGap: 6, flexDirection: 'row', flexWrap: 'wrap' },
   meta: { fontSize: 13 },
   metaStrong: { fontWeight: '700' },
-  moveActions: { flexDirection: 'row' },
-  moveButton: { alignItems: 'center', justifyContent: 'center' },
-  moveGlyph: { fontSize: 18, fontWeight: '700' },
   pill: { paddingHorizontal: 7, paddingVertical: 1 },
   pillText: { fontSize: 12, fontWeight: '700' },
   row: {

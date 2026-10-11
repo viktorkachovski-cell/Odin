@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { progressPercent, type DeadlineGroup, type TaskGroup } from '@odin/domain';
+import { MOVE_DIRECTIONS, type MoveDirection } from '@odin/contracts';
+import { progressPercent, type TaskGroup } from '@odin/domain';
 import type { Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 
 /**
  * Small building blocks the Today, Tasks and Lists screens share: a raised
- * surface, a panel header, a segmented control, filter chips, a thin progress
- * bar and deadline-grouped task sections.
+ * surface, a panel header, a segmented control, chips, move controls, a thin
+ * progress bar and deadline-grouped task sections.
  */
 
 export function Surface({ children }: { readonly children: ReactNode }): ReactNode {
@@ -57,7 +58,7 @@ export function PanelHeader({
   );
 }
 
-export interface SegmentOption<K extends string> {
+interface SegmentOption<K extends string> {
   readonly key: K;
   readonly label: string;
   readonly count?: number;
@@ -113,20 +114,24 @@ export function Segmented<K extends string>({
   );
 }
 
+/** 40dp tall; the hit slop brings the target to 48dp. */
 export function Chip({
   label,
   selected,
   onPress,
+  role = 'button',
 }: {
   readonly label: string;
   readonly selected: boolean;
   readonly onPress: () => void;
+  readonly role?: 'button' | 'radio';
 }): ReactNode {
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={role}
       accessibilityState={{ selected }}
+      hitSlop={4}
       onPress={onPress}
       style={[
         styles.chip,
@@ -177,13 +182,48 @@ export function ProgressBar({
   );
 }
 
-const GROUP_KEYS: Record<DeadlineGroup, `tasks.group.${DeadlineGroup}`> = {
-  overdue: 'tasks.group.overdue',
-  today: 'tasks.group.today',
-  upcoming: 'tasks.group.upcoming',
-  undated: 'tasks.group.undated',
-  done: 'tasks.group.done',
-};
+/** Up and down, for a task or a list in reorder mode. */
+export function MoveButtons({
+  label,
+  onMove,
+  upDisabled,
+  downDisabled,
+}: {
+  readonly label: (direction: MoveDirection) => string;
+  readonly onMove: (direction: MoveDirection) => void;
+  readonly upDisabled: boolean;
+  readonly downDisabled: boolean;
+}): ReactNode {
+  const theme = useTheme();
+  return (
+    <View style={styles.moves}>
+      {MOVE_DIRECTIONS.map((direction) => {
+        const disabled = direction === 'up' ? upDisabled : downDisabled;
+        return (
+          <Pressable
+            accessibilityLabel={label(direction)}
+            accessibilityRole="button"
+            accessibilityState={{ disabled }}
+            disabled={disabled}
+            hitSlop={4}
+            key={direction}
+            onPress={() => onMove(direction)}
+            style={[styles.move, { minHeight: theme.touchTarget, minWidth: theme.touchTarget }]}
+          >
+            <Text
+              style={[
+                styles.moveGlyph,
+                { color: disabled ? theme.colors.disabledText : theme.colors.text },
+              ]}
+            >
+              {direction === 'up' ? '↑' : '↓'}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export function GroupHeading({
   label,
@@ -222,7 +262,7 @@ export function TaskGroups<T>({
         <View key={group}>
           <GroupHeading
             danger={group === 'overdue'}
-            label={`${t(GROUP_KEYS[group])} · ${String(tasks.length)}`}
+            label={`${t(`tasks.group.${group}`)} · ${String(tasks.length)}`}
           />
           {tasks.map(renderRow)}
         </View>
@@ -234,6 +274,9 @@ export function TaskGroups<T>({
 const styles = StyleSheet.create({
   chip: { borderWidth: 1, justifyContent: 'center', paddingHorizontal: 14 },
   chipText: { fontSize: 14 },
+  move: { alignItems: 'center', justifyContent: 'center' },
+  moveGlyph: { fontSize: 18, fontWeight: '700' },
+  moves: { flexDirection: 'row' },
   groupHeading: {
     fontSize: 12,
     fontWeight: '700',

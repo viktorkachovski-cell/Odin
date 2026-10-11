@@ -7,6 +7,7 @@ import {
   taskState,
   taskStatus,
   taskStatusOptions,
+  taskRowActions,
 } from './task-workflow.ts';
 import { dueIssueKey } from './dates.ts';
 
@@ -144,5 +145,30 @@ describe('task editor drafts', () => {
   it('names the message for each deadline problem', () => {
     expect(dueIssueKey('invalid_format')).toBe('validation.due.invalid_format');
     expect(dueIssueKey('nonexistent_local_time')).toBe('validation.due.nonexistent_local_time');
+  });
+});
+
+describe('task row actions', () => {
+  const all = { state: true, unassign: true, remove: true };
+
+  it('offers block or unblock only on open tasks, and unassign only when assigned', () => {
+    expect(taskRowActions({ completed: false, assignee_id: 'member' }, all)).toEqual([
+      'block',
+      'unassign',
+      'delete',
+    ]);
+    expect(taskRowActions({ completed: false, blocked: true, assignee_id: null }, all)).toEqual([
+      'unblock',
+      'delete',
+    ]);
+    expect(taskRowActions({ completed: true, assignee_id: 'member' }, all)).toEqual([
+      'unassign',
+      'delete',
+    ]);
+  });
+
+  it('offers nothing the screen did not wire', () => {
+    const none = { state: false, unassign: false, remove: false };
+    expect(taskRowActions({ completed: false, assignee_id: 'member' }, none)).toEqual([]);
   });
 });

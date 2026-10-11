@@ -11,8 +11,7 @@ picture.
 ESLint is configured for JavaScript tooling and typed TypeScript under `apps/`
 and `packages/`. Every package's own `tsconfig.json` includes its sources and
 adopts the strict base; the type-aware parser deliberately fails on source
-outside a configured project. Edge Functions would use their own Deno
-lint/typecheck workflow and are not covered by this config.
+outside a configured project.
 
 ## Enforced rules
 
@@ -36,7 +35,7 @@ Import lint covers named package/deep-import patterns, not every conceivable rel
 - Pin package versions and root lockfile. Explain dependency additions and check compatibility with Expo before updating React.
 - Keep PRs scoped to one coherent behavior, list exact tests and remaining limitations. Inspect existing code and user changes first.
 - Use named constants and small modules. Consider extraction when a file approaches 250 lines or one hook manages unrelated screens.
-- Keep English/Bulgarian key sets identical; add an automated missing-key check once dictionaries exist.
+- Keep English/Bulgarian key sets identical (the i18n parity test enforces it), and delete a key, export, style or component when its last use goes.
 
 ## Do not
 

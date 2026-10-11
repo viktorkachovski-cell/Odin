@@ -186,13 +186,6 @@ a {
   background: var(--color-accent);
 }
 
-.nav-link__glyph {
-  font-size: var(--size-icon);
-  line-height: 1;
-  width: 1.5rem;
-  text-align: center;
-}
-
 /* Compact viewports use the source-specified bottom navigation. */
 @media (max-width: 860px) {
   .shell {
@@ -254,7 +247,6 @@ a {
   .skip-link,
   .nav-link,
   .button,
-  .card,
   .task-row,
   .field__control,
   .fab {
@@ -271,7 +263,7 @@ a {
   }
 }
 
-/* ---------- Cards and sections ---------- */
+/* ---------- Page headers and sections ---------- */
 
 .page-header {
   display: flex;
@@ -280,21 +272,6 @@ a {
   justify-content: space-between;
   gap: var(--space-md);
   margin-bottom: var(--space-xl);
-}
-
-/*
- * The primary action stays reachable down a long list rather than scrolling
- * away with the title.
- */
-.page-header--sticky {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  align-items: flex-end;
-  padding: var(--space-md) 0;
-  margin-bottom: var(--space-lg);
-  background: var(--color-background);
-  border-bottom: 1px solid var(--color-border);
 }
 
 .section {
@@ -321,152 +298,17 @@ a {
   background: var(--color-oak);
 }
 
-.card-grid {
-  display: grid;
-  /* Constrained readable cards rather than stretched text. */
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 24rem));
-  gap: var(--space-lg);
-}
-
-.card {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  transition:
-    box-shadow 120ms ease,
-    border-color 120ms ease;
-}
-
-/*
- * A card is raised or enclosed, never both. Template cards carry the green
- * border; active list cards are raised instead.
- */
-.card--template {
-  border: 2px solid var(--color-accent);
-}
-
-.card--template:hover {
-  border-color: var(--color-accent-hover);
-}
-
-.card--active {
-  border: 0;
-  box-shadow: var(--shadow-sm);
-}
-
-.card--active:hover {
-  box-shadow: var(--shadow-md);
-}
-
-/*
- * The whole card is the target, so the title carries weight rather than the
- * accent colour, and underlines itself only on hover.
- */
-.card__title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  overflow-wrap: anywhere;
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-a.card__title:hover {
-  text-decoration: underline;
-  text-decoration-color: var(--color-accent);
-}
-
-/*
- * Per-item actions sit beside the title. Pinning them to the card's bottom left
- * a dead band on short cards, and the top-right is where they are looked for.
- * The glyph is nudged to align optically with the title; its 44px box is intact.
- */
-.card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.card__header .card__title {
-  min-width: 0;
-}
-
-.card__header .overflow {
-  margin: calc(var(--space-sm) * -1.25) calc(var(--space-sm) * -1) calc(var(--space-sm) * -1.25) 0;
-}
-
-.card__subtitle {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  overflow-wrap: anywhere;
-}
-
-/*
- * The shared list note sits directly under the subtitle and keeps the line
- * breaks whoever wrote it typed, the way the task note already does.
- */
-.card__notes {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 /* ---------- Action groups ---------- */
 
 /*
- * One class for every row of controls -- page headers, card footers, task rows.
- * Destructive first or hidden in the overflow, primary always last.
+ * One class for every row of controls. Destructive first or hidden in the
+ * overflow, primary always last.
  */
 .action-group {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
-}
-
-.action-group--end {
-  justify-content: flex-end;
-}
-
-.card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-  justify-content: flex-end;
-  margin-top: auto;
-}
-
-/* ---------- Progress ---------- */
-
-.progress {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.progress__label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.progress__track {
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background: var(--color-accent-soft);
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-}
-
-.progress__fill {
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--color-accent);
 }
 
 /* ---------- Buttons ---------- */
@@ -538,10 +380,7 @@ a.card__title:hover {
   border-color: var(--color-accent-active);
 }
 
-/*
- * An outlined green action for the one case a screen has a second green thing
- * to do that is not its single primary -- copying a template, once per card.
- */
+/* An outlined green action inside a row, beside the screen's single primary: Claim, Use template. */
 .button--accent {
   border-color: var(--color-accent);
   color: var(--color-accent);

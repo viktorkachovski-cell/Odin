@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 
 import type { MemberDto, MoveDirection, TaskRowModel, TaskState } from '@odin/contracts';
-import { isOverdue } from '@odin/domain';
-import { formatDueShort, type Locale, type Translator } from '@odin/i18n';
+import { isOverdue, taskRowActions, type TaskRowAction } from '@odin/domain';
+import { formatDueShort, TASK_ACTION_KEYS, type Locale, type Translator } from '@odin/i18n';
 
 import { Avatar } from './Avatar.tsx';
+import { MoveButtons } from './Controls.tsx';
 import { Icon } from './Icon.tsx';
 import { OverflowMenu, type OverflowItem } from './OverflowMenu.tsx';
 
@@ -48,30 +49,23 @@ function menuItems({
   onUnassign,
   onDelete,
 }: Pick<TaskRowProps, 'task' | 't' | 'onSetState' | 'onUnassign' | 'onDelete'>): OverflowItem[] {
-  const items: OverflowItem[] = [];
-  if (onSetState !== undefined && !task.completed) {
-    items.push(
-      task.blocked === true
-        ? { key: 'unblock', label: t('task.unblock'), onSelect: () => onSetState(task, 'open') }
-        : { key: 'block', label: t('task.block'), onSelect: () => onSetState(task, 'blocked') },
-    );
-  }
-  if (onUnassign !== undefined && task.assignee_id !== null) {
-    items.push({
-      key: 'unassign',
-      label: t('task.unassign.short'),
-      onSelect: () => onUnassign(task),
-    });
-  }
-  if (onDelete !== undefined) {
-    items.push({
-      key: 'delete',
-      label: t('task.delete.short'),
-      danger: true,
-      onSelect: () => onDelete(task),
-    });
-  }
-  return items;
+  const run: Record<TaskRowAction, () => void> = {
+    block: () => onSetState?.(task, 'blocked'),
+    unblock: () => onSetState?.(task, 'open'),
+    unassign: () => onUnassign?.(task),
+    delete: () => onDelete?.(task),
+  };
+  const wired = {
+    state: onSetState !== undefined,
+    unassign: onUnassign !== undefined,
+    remove: onDelete !== undefined,
+  };
+  return taskRowActions(task, wired).map((action) => ({
+    key: action,
+    label: t(TASK_ACTION_KEYS[action]),
+    danger: action === 'delete',
+    onSelect: run[action],
+  }));
 }
 
 function Toggle({
@@ -189,26 +183,12 @@ function Actions(props: TaskRowProps): ReactNode {
   return (
     <span className="task-row__actions">
       {onMove !== undefined && (
-        <>
-          <button
-            aria-label={t('task.move.up', { title: task.title })}
-            className="button button--quiet button--icon"
-            disabled={busy === true || moveUpDisabled === true}
-            onClick={() => onMove(task, 'up')}
-            type="button"
-          >
-            <Icon name="arrow-up" />
-          </button>
-          <button
-            aria-label={t('task.move.down', { title: task.title })}
-            className="button button--quiet button--icon"
-            disabled={busy === true || moveDownDisabled === true}
-            onClick={() => onMove(task, 'down')}
-            type="button"
-          >
-            <Icon name="arrow-down" />
-          </button>
-        </>
+        <MoveButtons
+          downDisabled={busy === true || moveDownDisabled === true}
+          label={(direction) => t(`task.move.${direction}`, { title: task.title })}
+          onMove={(direction) => onMove(task, direction)}
+          upDisabled={busy === true || moveUpDisabled === true}
+        />
       )}
       {items.length > 0 && (
         <OverflowMenu

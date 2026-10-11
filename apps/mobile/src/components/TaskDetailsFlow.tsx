@@ -13,11 +13,10 @@ import {
 } from './TaskDetailsSheet.tsx';
 
 /**
- * Opening a task from any row. An active task opens straight into its editor,
- * so viewing and changing it is one step; a template task has no runtime
- * fields and stays a read-only sheet. A conflicting save keeps the member's
- * draft and reloads the task, so resubmitting targets the latest version --
- * the same flow as the web client.
+ * Opening a task from any row. An active task opens straight into its editor;
+ * a template task stays a read-only sheet. A conflicting save keeps the draft
+ * and reloads the task, so resubmitting targets the latest version -- the same
+ * flow as the web client.
  */
 export function TaskDetailsFlow({
   taskId,
@@ -53,10 +52,7 @@ export function TaskDetailsFlow({
         readonly dueAt: string | null;
       },
     ) => updateTask(client, requestId, input),
-    {
-      invalidate: keysAffectedByTaskChange(),
-      onSuccess: onClose,
-    },
+    { invalidate: keysAffectedByTaskChange(), onSuccess: onClose },
   );
 
   if (taskId === null) return null;
@@ -71,21 +67,12 @@ export function TaskDetailsFlow({
 
   if (!editable) {
     return (
-      <TaskDetailsSheet
-        editable={false}
-        locale={locale}
-        members={members}
-        onClose={onClose}
-        onEdit={() => undefined}
-        t={t}
-        task={editing}
-      />
+      <TaskDetailsSheet locale={locale} members={members} onClose={onClose} t={t} task={editing} />
     );
   }
 
   return (
     <TaskEditor
-      conflict={save.state.error?.code === 'CONFLICT'}
       error={save.state.error}
       key={editing.id}
       members={members}

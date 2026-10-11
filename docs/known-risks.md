@@ -1,8 +1,7 @@
 # Known risks
 
 One place to see what is currently wrong, unproven or deliberately accepted in
-Odin, so nobody has to reconstruct it from nine other files. Opened
-2026-09-22.
+Odin, so nobody has to reconstruct it from the other files. Opened 2026-09-22.
 
 Each entry says what could actually go wrong, not just what is missing. An
 entry leaves this file when it is fixed or when the owner accepts it, and
@@ -58,7 +57,7 @@ races named in `docs/contract.md` have no coverage:
 Each is a correctness claim the contract makes and the suite does not check. A
 regression in any of them would ship silently.
 
-Recorded in `supabase/README.md`.
+Recorded in `docs/database.md`.
 
 ### R4 — Previews read and write production data
 
@@ -86,8 +85,7 @@ Every future field on a list or task faces the same fork, so the surface grows
 each time. A reading of `private.command_receipts` by `command_name` would show
 whether the legacy pair is still in use.
 
-The task-workflow branch adds the read side of the same problem: current
-clients read snapshots (`get_home_v2`, `get_list_v2`, `get_my_tasks_v2`,
+The read side has the same problem: current clients read snapshots (`get_home_v2`, `get_list_v2`, `get_my_tasks_v2`,
 `get_unassigned_v2`), while the paged `get_home`, `get_list`, `get_my_tasks`
 and `get_unassigned` stay only for installed builds. Reads leave no receipt, so
 nothing in the database shows when those can go.
@@ -117,16 +115,15 @@ handles an inactive membership, but nothing exercises what happens to that
 member's assigned tasks, and equal permissions mean no member has authority to
 expel another anyway.
 
-### R8 — Web bundle is one ~618 kB chunk
+### R8 — Web bundle is one ~611 kB chunk
 
 **Severity: low.**
 
 No code splitting; the whole app loads up front. Fine on a desktop connection,
-noticeable on a slow phone. The task-workflow branch's Quality build at
-`69197cc` emitted 595.39 kB of JavaScript before gzip, 168.28 kB gzipped;
-Vite reports a non-blocking size warning. The 2026-10-11 UI overhaul build
-emitted 617.72 kB, 174.41 kB gzipped. Shared notification rules and
-strings also enter the web bundle even though only Android notifies.
+noticeable on a slow phone. The 2026-10-11 cleanup build emitted 610.95 kB of
+JavaScript before gzip, 173.64 kB gzipped (617.72 kB before it); Vite reports a
+non-blocking size warning. Shared notification rules and strings also enter
+the web bundle even though only Android notifies.
 
 ### R9 — Notification delivery is partial and unverified
 
@@ -165,22 +162,18 @@ Closing it means either the push work in open decision 7, or a device pass.
 
 ### R10 — A collection past 1,000 rows cannot be shown
 
-**Severity: low today, grows with history. Opened on the task-workflow branch.**
+**Severity: low today, grows with history. Opened 2026-09-27.**
 
 Each household collection is read in one request and refused with `TOO_LARGE`
 above 1,000 rows, deliberately, rather than paged or truncated
-(`docs/contract.md`). The likeliest to reach it is All Tasks with All deadlines:
-it includes completed tasks in every open active list, so a long-lived list
-such as a shopping list accumulates rows indefinitely. When it happens the
-member sees a "too many items" message on that view and no data, while the
-other views keep working. Archiving old lists is the only relief, and archiving
-is itself one-way (R2).
-
-Since 2026-10-11 the reach is wider: Today, Tasks and the Tasks badge all read
-that same unfiltered All Tasks collection (`features.md`, Navigation and task
-views), so past the limit both screens show the error and the badge
-disappears, on web and Android. List detail and Lists keep working, and
-Android notifications still read My Tasks and Unassigned separately.
+(`docs/contract.md`). The likeliest to reach it is the unfiltered household
+task read: it includes completed tasks in every open active list, so a
+long-lived list such as a shopping list accumulates rows indefinitely. Today,
+Tasks and the Tasks badge all read it (`features.md`), so past the limit both
+screens show a "too many items" message and no data and the badge disappears,
+on web and Android. List detail and Lists keep working, and Android
+notifications still read My Tasks and Unassigned separately. Archiving old
+lists is the only relief, and archiving is itself one-way (R2).
 
 ### R12 — Client sync and rendering costs are unmeasured on a device
 
@@ -245,7 +238,7 @@ silence is not mistaken for "handled".
 
 | Item                                                                     | Status                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Android device verification**                                          | **Deferred by owner decision, 2026-09-22.** No Odin build has run on an emulator or a physical device. Everything Android is proven by Jest, typecheck, Expo Doctor and a production export only. The factual records in `docs/android.md` and `docs/verification.md` stand; this is no longer tracked as a risk to act on. Revisit before any release claim or store listing.                                                                  |
-| **A new household starts with no templates**                             | **Intended, settled 2026-09-22.** Not a gap. A household builds its own templates by saving a list it actually uses. See `docs/decisions.md` item 4 and the seed-content note in `supabase/README.md`.                                                                                                                                                                                                                                          |
+| **Android device verification**                                          | **Deferred by owner decision, 2026-09-22.** No Odin build has run on an emulator or a physical device; everything Android is proven by Jest, typecheck, Expo Doctor and a production export only. What a device pass must cover is in `docs/verification.md`. Revisit before any release claim or store listing.                                                                                                                                |
+| **A new household starts with no templates**                             | **Intended, settled 2026-09-22.** Not a gap; see `docs/decisions.md` item 4.                                                                                                                                                                                                                                                                                                                                                                    |
 | **One hosted environment**                                               | Deliberate for a private single-owner project. The operational hazard it creates is R4, which stays open.                                                                                                                                                                                                                                                                                                                                       |
 | **R11 — The first task-workflow migration touches every list's version** | **Accepted by owner decision, 2026-09-27.** `20260927121823_task_workflow_polish.sql` backfills `lists.sort_order` with an `UPDATE` that fires `lists_touch_version`, so every existing list gains one version and an `updated_at` equal to the migration time. A list editor open during the migration reports one conflict, and `updated_at` stops meaning "last edited" for lists that predate it. The migration is not changed to avoid it. |

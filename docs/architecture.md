@@ -14,9 +14,9 @@ instructions to execute. Product decisions that settle or amend them are in
 
 ## Selected architecture
 
-Use Expo React Native with TypeScript for Android, React + Vite + TypeScript for desktop web, and Supabase Auth/Postgres/Realtime for backend services. Host the static web app on Vercel. This follows the earlier LARP Passport stack pattern from prior project notes, not a fresh source-code audit of that repository. Do not copy its game, geospatial or target-tracking systems. PostGIS is unnecessary here.
+Expo React Native with TypeScript for Android, React + Vite + TypeScript for desktop web, and Supabase Auth/Postgres/Realtime for backend services, with the static web app on Vercel. The stack follows the LARP Passport pattern; none of its game, geospatial or target-tracking systems are copied, and PostGIS is unnecessary.
 
-This authenticated workspace needs no public SEO or SSR, so Vite is simpler than introducing Next.js server rendering. Separate native and desktop interfaces allow good keyboard/tablet/phone behavior without forcing web widgets into React Native. Share the contract, validation, domain logic, translations, data adapter and design tokens. A standalone Kotlin/Node server adds no necessary MVP capability.
+This authenticated workspace needs no public SEO or SSR, so Vite is simpler than Next.js server rendering. Separate native and desktop interfaces allow good keyboard/tablet/phone behavior without forcing web widgets into React Native. The contract, validation, domain logic, translations, data adapter and design tokens are shared. No standalone server is needed: invitations, idempotency and authorization all live in Postgres.
 
 ```mermaid
 flowchart TD
@@ -27,7 +27,6 @@ flowchart TD
   R --> P[Postgres household authorization]
   P --> RT[Realtime invalidation]
   RT --> D
-  EF[Restricted Edge Functions if needed for invitations] --> P
 ```
 
 ## Repository layout
@@ -42,8 +41,8 @@ packages/i18n/src/           en/bg dictionaries and shared translation keys
 packages/design-tokens/src/  Colors, spacing, typography values
 supabase/schemas/            Desired declarative SQL schema
 supabase/migrations/         Generated and reviewed migrations
-supabase/tests/              SQL authorization and constraint tests
-supabase/tests/concurrency.mjs Parallel database transaction tests
+supabase/tests/              pgTAP authorization and constraint tests, parallel-transaction tests
+supabase/smoke/              Rollback-only verification scripts for the hosted project
 docs/                        Contracts, decisions, operational records
 tooling/                     Quality checks
 ```
@@ -53,18 +52,19 @@ npm workspaces with a single root lockfile. The Expo SDK dictates the React and 
 ## Backend boundaries
 
 - Postgres owns authorization, version increments, idempotency and transactions. UI validation improves usability but does not enforce permissions.
-- Read household rows with the user JWT and RLS. Use command RPCs for all writes; revoke direct client table writes. Privileged implementation helpers live in an unexposed schema with narrowly granted execution (database brief defines the wrapper pattern).
+- Read household rows with the user JWT and RLS. Use command RPCs for all writes; revoke direct client table writes. Privileged implementation helpers live in an unexposed schema with narrowly granted execution (`database.md` defines the wrapper pattern).
 - Supabase Auth provides identity. An active membership row provides household authorization, checked on every request rather than trusting stale JWT household claims.
 - Supabase Realtime triggers query invalidation and refetch; events are not a durable source of truth. Reconcile after reconnect and app foregrounding. Never depend on receiving every event. One statement can change many rows, so hints are coalesced: the first after a quiet 500 ms window is delivered at once and the rest of the window together.
-- No service-role key in mobile, browser or Vercel client environment. No custom admin panel in the initial MVP; operational seed management remains a reviewed backend workflow.
+- No service-role key in mobile, browser or Vercel client environment. No custom admin panel in the MVP.
 
 ## State and reliability
 
 Use TanStack Query for server state and local form state for unfinished edits. Inject platform-specific session storage into the shared client factory. Use current supported Expo secure-storage guidance for native refresh tokens; never hardcode token-size assumptions. Web uses the normal Supabase browser session mechanism; protect against XSS, avoid untrusted HTML and third-party script injection.
 
-The task-workflow branch reads Home, list detail and cross-list tasks as
-bounded server snapshots. That prevents a reorder between client-side pages
-from dropping or repeating a row. The tradeoff is a visible `TOO_LARGE`
+Lists, list detail and the household task read are bounded server snapshots,
+so a reorder between client-side pages cannot drop or repeat a row. Today,
+Tasks and the navigation badge share the one unfiltered household task read
+and filter it with `@odin/domain`. The tradeoff is a visible `TOO_LARGE`
 response above 1,000 rows; see `contract.md` and risk R10 in `known-risks.md`.
 
 MVP offline support means last loaded data while available, a visible offline/stale state, and preservation of unsaved form text during navigation/network failures. No persistent background mutation queue. Disable submission when known offline and keep drafts; an uncertain timed-out online operation retries with the same request ID. On sign-out or account switch, clear queries, drafts and subscriptions. Process-kill draft recovery and durable offline cache are deferred unless approved.
@@ -75,9 +75,9 @@ Persist only a small pending operation envelope when necessary to retry an ambig
 
 Local Supabase is disposable development. Odin must stay separate from Passport; that is not negotiable.
 
-**Owner decision (2026-09-20): Odin runs a single hosted environment.** This is a private, single-owner hobby project, so the separate staging and production projects this section originally assumed are not worth their cost and upkeep. The Odin Supabase project `mvltbhtsukorspmpyhpw` (eu-central-1) and the Vercel project `odin` are production. The accepted consequence is that pull-request previews read and write the same database as production; with one owner and no other members' data at stake, that is a deliberate trade rather than an oversight. Revisit it before anyone outside the owner's household joins.
+**Owner decision (2026-09-20): Odin runs a single hosted environment.** This is a private, single-owner hobby project, so separate staging and production projects are not worth their cost and upkeep. The Odin Supabase project `mvltbhtsukorspmpyhpw` (eu-central-1) and the Vercel project `odin` are production. The accepted consequence is that pull-request previews read and write the same database as production (risk R4). Revisit it before anyone outside the owner's household joins.
 
-The hosted region is recorded as `eu-central-1` for the Odin Supabase project. Native releases require a new signed APK/AAB for native changes; deploying web does not update Android installs.
+Native changes need a new signed APK/AAB; deploying web does not update Android installs.
 
 ## Technical references
 

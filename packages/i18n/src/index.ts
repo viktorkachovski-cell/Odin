@@ -81,6 +81,19 @@ export function formatDueAt(
   return format.format(new Date(dueAt));
 }
 
+/** Labels for the task-row menu actions `taskRowActions` in @odin/domain offers. */
+export const TASK_ACTION_KEYS = {
+  block: 'task.block',
+  unblock: 'task.unblock',
+  unassign: 'task.unassign.short',
+  delete: 'task.delete.short',
+} as const satisfies Record<string, TranslationKey>;
+
+/** A list's progress line; an empty list says so rather than "0 of 0 done". */
+export function progressText(t: Translator, completed: number, total: number, percent: number) {
+  return total === 0 ? t('home.progress.empty') : t('home.progress', { completed, total, percent });
+}
+
 /** Device locale to a supported locale; anything else falls back to English. */
 export function resolveLocale(candidate: string | null | undefined): Locale {
   if (candidate === null || candidate === undefined) return 'en';
@@ -137,4 +150,11 @@ export function formatDueShort(dueAt: string, locale: Locale, now: Date = new Da
     sameYear ? 'day' : 'year',
   ).format(due);
   return time === null ? date : `${date} ${time}`;
+}
+
+/** A long calendar date for a page heading, such as "Sunday 11 October". */
+export function formatLongDate(date: Date, locale: Locale): string {
+  return shortFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }, 'long').format(
+    date,
+  );
 }

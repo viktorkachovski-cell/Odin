@@ -9,7 +9,6 @@ import type {
   TaskCollectionDto,
   TaskDto,
 } from '@odin/contracts';
-import type { TaskDeadlineFilter } from '@odin/domain';
 import {
   getAllTasks,
   getHome,
@@ -85,14 +84,6 @@ export function useUnassignedQuery(enabled: boolean): UseQueryResult<TaskCollect
   });
 }
 
-export function useAllTasksQuery(filter: TaskDeadlineFilter): UseQueryResult<TaskCollectionDto> {
-  const { client } = useOdin();
-  return useQuery({
-    queryKey: [...queryKeys.allTasks, filter],
-    queryFn: () => getAllTasks(client, filter),
-  });
-}
-
 export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {
   const { client } = useOdin();
   return useQuery({
@@ -102,13 +93,17 @@ export function useTaskQuery(taskId: string | null): UseQueryResult<TaskDto> {
   });
 }
 
-const EVERY_TASK: TaskDeadlineFilter = { preset: 'all' };
+const EVERY_TASK = { preset: 'all' } as const;
 
 /**
  * Every task in the household's open active lists, done ones included, in one
- * read. Today, Tasks and the navigation badge all derive from this one cache
- * entry -- the same entry the web client uses -- so they always agree.
+ * read. Today, Tasks and the navigation badge all derive from this cache entry,
+ * the same one the web client uses, so they always agree.
  */
 export function useHouseholdTasksQuery(): UseQueryResult<TaskCollectionDto> {
-  return useAllTasksQuery(EVERY_TASK);
+  const { client } = useOdin();
+  return useQuery({
+    queryKey: [...queryKeys.allTasks, EVERY_TASK],
+    queryFn: () => getAllTasks(client, EVERY_TASK),
+  });
 }

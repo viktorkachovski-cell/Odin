@@ -2,15 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
-import {
-  createTask,
-  deleteList,
-  keysAffectedByListChange,
-  keysAffectedByTaskChange,
-  saveListTemplate,
-  updateList,
-  useCommand,
-} from '@odin/data';
+import { useListActions } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
 
 import { useNavVisibility } from '../../../src/state/NavVisibility.tsx';
@@ -22,14 +14,13 @@ import { InlineError } from '../../../src/components/Banner.tsx';
 import { SecondaryButton } from '../../../src/components/Button.tsx';
 import { ListEditor } from '../../../src/components/ListEditor.tsx';
 import {
-  anyPending,
   CommandErrors,
   ListHeader,
   ListMeta,
-  ListProgress,
   ListTasks,
   QuickAddBar,
 } from '../../../src/components/ListDetailSections.tsx';
+import { Progress } from '../../../src/components/Progress.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
 import { showToast } from '../../../src/components/toast.ts';
 import { useTaskWiring } from '../../../src/components/useTaskWiring.tsx';
@@ -39,45 +30,9 @@ import { useTaskWiring } from '../../../src/components/useTaskWiring.tsx';
  * quick add pinned above the navigation. A task opens straight into its editor.
  */
 
-function useListCommands(id: string | undefined) {
-  const { t, client } = useOdin();
-  const saveList = useCommand(
-    (
-      requestId,
-      input: {
-        readonly expectedVersion: number;
-        readonly title: string;
-        readonly subtitle: string | null;
-        readonly notes: string | null;
-      },
-    ) => updateList(client, requestId, { listId: id ?? '', ...input }),
-    { invalidate: keysAffectedByListChange(id) },
-  );
-  // A saved list template is a new list; this list keeps its version.
-  const saveTemplate = useCommand(
-    (requestId, input: { readonly listId: string }) =>
-      saveListTemplate(client, requestId, input.listId),
-    {
-      invalidate: keysAffectedByListChange(),
-      onSuccess: () => showToast(t('toast.template_saved')),
-    },
-  );
-  const removeList = useCommand(
-    (requestId, input: { readonly listId: string; readonly expectedVersion: number }) =>
-      deleteList(client, requestId, input),
-    { invalidate: keysAffectedByListChange(id), onSuccess: () => router.replace('/lists') },
-  );
-  const addTask = useCommand(
-    (requestId, input: { readonly title: string }) =>
-      createTask(client, requestId, { listId: id ?? '', title: input.title, notes: '' }),
-    { invalidate: keysAffectedByTaskChange(id) },
-  );
-  return { saveList, saveTemplate, removeList, addTask };
-}
-
 export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, locale } = useOdin();
+  const { t, locale, client } = useOdin();
   const nav = useNavVisibility();
   const list = useListQuery(id);
   const members = useMembersQuery().data ?? NO_MEMBERS;
@@ -85,7 +40,15 @@ export default function ListDetailScreen(): ReactNode {
   const wiring = useTaskWiring({ members, listId: id, editable: !isTemplate });
   const [editingList, setEditingList] = useState(false);
   const [reorder, setReorder] = useState(false);
-  const { saveList, saveTemplate, removeList, addTask } = useListCommands(id);
+  const {
+    update: saveList,
+    saveTemplate,
+    remove: removeList,
+    addTask,
+  } = useListActions(client, id, {
+    templateSaved: () => showToast(t('toast.template_saved')),
+    deleted: () => router.replace('/lists'),
+  });
 
   // The quick add sits on the navigation, so the navigation stays put here.
   const { pin } = nav;
@@ -135,19 +98,16 @@ export default function ListDetailScreen(): ReactNode {
               ])
             }
             onEdit={() => setEditingList(true)}
-            onSaveTemplate={() => void saveTemplate.run({ listId: page.list.id })}
+            onSaveTemplate={() => void saveTemplate.run(page.list.id)}
             onToggleReorder={() => setReorder((current) => !current)}
-            pending={anyPending([removeList.state, saveTemplate.state])}
+            pending={removeList.state.pending || saveTemplate.state.pending}
             reorder={reorder}
             t={t}
           />
         </View>
-        <ListProgress
-          completed={page.completed_tasks}
-          isTemplate={isTemplate}
-          t={t}
-          total={page.total_tasks}
-        />
+        {!isTemplate && (
+          <Progress completed={page.completed_tasks} t={t} total={page.total_tasks} />
+        )}
 
         {wiring.errors}
         <CommandErrors
@@ -184,7 +144,7 @@ export default function ListDetailScreen(): ReactNode {
       {!isTemplate && (
         <QuickAddBar
           onAdd={(title, done) =>
-            void addTask.run({ title }).then((result) => {
+            void addTask.run(title).then((result) => {
               if (result.ok) done();
             })
           }

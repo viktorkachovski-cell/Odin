@@ -200,3 +200,22 @@ database needs a reviewed forward migration that drops the new RPCs, the
 `lists_assign_order` trigger and the new constraints, and restores the
 previous command bodies; drop `tasks.blocked` and `lists.sort_order` only after
 confirming no blocked state or household order must be kept.
+
+## Client-only web deployments — 2026-09-28 and 2026-10-11
+
+No migration, RPC or Supabase setting changed in any of these; each reached
+production as the Vercel deployment of a push to `main`. Recorded on
+2026-10-11 from the Vercel deployment list and GitHub Actions, because none
+had an entry.
+
+| Commit    | Change                                       | Vercel production deployment (READY)      | Quality on `main`                                       |
+| --------- | -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------- |
+| `94bcfbc` | Android sync cost: coalesced hints, backoff  | `dpl_BkERkkGvwvNgr6HZYQVvYcuY2gvg`, 09-28 | Passed                                                  |
+| `cdbd61b` | Render only changed rows; shared-code tidy   | `dpl_GTyBNQxnKrQPBhfdAvfxeh7GsnNB`, 09-28 | Passed                                                  |
+| `ab88b94` | Client overhaul: Today, Tasks, Lists tabs    | `dpl_HcLAm6NUh1FoSckutFcuu5VXtTVM`, 10-11 | **Failed**: Android job at Expo Doctor; web jobs passed |
+| `f135a67` | Expo SDK 57 patch bumps Expo Doctor required | `dpl_FVrA2mj23PP14y3TTLRtC9rcVFVQ`, 10-11 | Passed, fixing the `ab88b94` failure                    |
+| `109ca9b` | Dependency updates within SDK 57 (R13)       | `dpl_2KR9bFum7ecAKZckeDJ12UTuGCdy`, 10-11 | Passed                                                  |
+
+The Android commits only change installs built after them; no Android build
+was released from any of them. No browser or device check of the deployed
+overhaul is recorded beyond the Vercel READY state.

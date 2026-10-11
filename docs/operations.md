@@ -5,14 +5,10 @@ is `deployment-log.md`.
 
 ## Environments
 
-Odin runs **one hosted environment**, by owner decision of 2026-09-20 (see
-`architecture.md`). The Supabase project `mvltbhtsukorspmpyhpw` in
-`eu-central-1` and the Vercel project `odin` are production. Vercel previews
-read and write the same database as production — a deliberate trade for a
-private single-owner project, and risk R4 in `known-risks.md`.
-
-Local Supabase is disposable development. Odin must stay separate from
-Passport; that is not negotiable. Never aim a reset at the hosted project.
+One hosted environment, by owner decision (`architecture.md`): the Supabase
+project `mvltbhtsukorspmpyhpw` and the Vercel project `odin` are production,
+and previews share its database (R4). Local Supabase is disposable. Odin stays
+separate from Passport, and a reset is never aimed at the hosted project.
 
 Provisioning is complete. Recheck access before any administrative operation:
 a read-only list call does not prove a mutating one will succeed.
@@ -42,14 +38,10 @@ a read-only list call does not prove a mutating one will succeed.
 Hosted and local migration histories already diverge. Match applied names and
 contents rather than pushing the full local history.
 
-The task workflow needed `20260927121823_task_workflow_polish.sql`,
-`20260927154349_task_workflow_review_fixes.sql` and
-`20260927194500_task_workflow_function_permissions.sql`, applied in that order
-on 2026-09-27 before its web client merged. The first backfilled every
-existing list's order and advanced its version and `updated_at` once (accepted
-risk R11). Because there is no hosted staging project, test unmerged database
-changes on a disposable local database, and never treat a preview build
-against an unmigrated production API as functional verification.
+Because there is no hosted staging project, test unmerged database changes on
+a disposable local database, and never treat a preview build against an
+unmigrated production API as functional verification. A backfill that updates
+existing rows also advances their versions (accepted risk R11).
 
 ## Vercel configuration
 
@@ -73,10 +65,9 @@ The Vercel project uses the repository-root `vercel.json`, builds `@odin/web`,
 emits `apps/web/dist`, rewrites SPA routes to `index.html`, and applies the
 checked-in security headers.
 
-Android equivalents are `EXPO_PUBLIC_SUPABASE_URL` and
-`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, plus `EXPO_PUBLIC_WEB_ORIGIN` pointing
-at the deployed web client. All of these are public by design. Secrets, SMTP
-credentials and privileged tokens must never use those prefixes.
+The Android equivalents and the EAS release rule are in `android.md`. All of
+these variables are public by design; secrets, SMTP credentials and privileged
+tokens must never use the `VITE_` or `EXPO_PUBLIC_` prefixes.
 
 ### Which backend did an artifact build against?
 

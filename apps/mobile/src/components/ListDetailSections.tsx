@@ -18,11 +18,10 @@ import { ActionMenu } from './ActionMenu.tsx';
 import { ErrorBanner } from './Banner.tsx';
 import { GroupHeading } from './Blocks.tsx';
 import { NAV_BAR_HEIGHT } from './layout.ts';
-import { Progress } from './Progress.tsx';
 import { rowFromTask, TaskRow } from './TaskRow.tsx';
 
 /** Row handlers a list screen passes; a template passes only `onPress`. */
-export interface ListRowHandlers {
+interface ListRowHandlers {
   readonly onPress: (task: TaskRowModel) => void;
   readonly onToggleCompleted?: (task: TaskRowModel, completed: boolean) => void;
   readonly onSetState?: (task: TaskRowModel, state: TaskState) => void;
@@ -174,7 +173,6 @@ export function ListHeader({
     <ActionMenu
       accessibilityLabel={t('list.actions')}
       actions={[
-        // A template is read-only apart from order and being removable.
         ...(isTemplate
           ? []
           : [
@@ -279,10 +277,6 @@ export function QuickAddBar({
   );
 }
 
-export function anyPending(states: readonly { readonly pending: boolean }[]): boolean {
-  return states.some((state) => state.pending);
-}
-
 interface CommandErrorEntry {
   readonly error: CommandError | null;
   readonly retry?: () => void;
@@ -311,21 +305,6 @@ export function CommandErrors({
       )}
     </>
   );
-}
-
-export function ListProgress({
-  isTemplate,
-  completed,
-  total,
-  t,
-}: {
-  readonly isTemplate: boolean;
-  readonly completed: number;
-  readonly total: number;
-  readonly t: Translator;
-}): ReactNode {
-  if (isTemplate) return null;
-  return <Progress completed={completed} t={t} total={total} />;
 }
 
 const styles = StyleSheet.create({
