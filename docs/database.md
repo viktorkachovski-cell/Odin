@@ -112,7 +112,9 @@ synthetic data before adding overlapping indexes. Progress is never stored.
 - `supabase/tests/database/003_task_workflow.sql` — status transitions,
   shared adjacent moves, completion-group boundaries, template task movement,
   snapshot ordering, the 1,000-row ceiling and household isolation.
-- `supabase/tests/concurrency.mjs` — genuine parallel transactions proving
+- `supabase/tests/concurrency.mjs` — genuine parallel transactions: each case
+  holds the first transaction open until Postgres reports the second waiting
+  on its lock, so the race is guaranteed rather than likely. They prove
   duplicate creates produce one entity and receipt, competing claims produce
   one winner, simultaneous appends receive distinct consecutive positions,
   a move racing neighbour deletion remains valid, and simultaneous adjacent

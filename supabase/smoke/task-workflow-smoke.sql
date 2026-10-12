@@ -18,7 +18,7 @@ declare
   actor uuid := current_setting('odin.qa_actor')::uuid;
   outsider uuid := current_setting('odin.qa_outsider')::uuid;
   list_a uuid; list_b uuid; template_id uuid; copy_id uuid;
-  task_a uuid; task_b uuid; dated uuid; template_task uuid;
+  task_a uuid; task_b uuid; dated uuid; boundary uuid; template_task uuid;
   task_a_version bigint; list_a_version bigint; v bigint;
   response jsonb;
 begin
@@ -122,12 +122,16 @@ begin
     or exists (select 1 from jsonb_array_elements(response #> '{data,items}') i where i ->> 'id' in (dated::text, task_b::text)) then
     raise exception 'unassigned snapshot failed';
   end if;
+  -- A deadline exactly on a bound shows which side of the window keeps it.
+  boundary := (public.create_task_v2(gen_random_uuid(), list_b, 'Boundary', null, '2030-10-26T00:00:00Z', null) #>> '{data,id}')::uuid;
   response := public.get_all_tasks('2030-10-25T00:00:00Z', '2030-10-26T00:00:00Z');
   if jsonb_array_length(response #> '{data,items}') <> 1 or response #>> '{data,items,0,id}' is distinct from dated::text then
-    raise exception 'all tasks date range failed';
+    raise exception 'all tasks date range or exclusive upper bound failed';
   end if;
   response := public.get_all_tasks('2030-10-26T00:00:00Z', '2030-10-27T00:00:00Z');
-  if jsonb_array_length(response #> '{data,items}') <> 0 then raise exception 'all tasks upper bound failed'; end if;
+  if jsonb_array_length(response #> '{data,items}') <> 1 or response #>> '{data,items,0,id}' is distinct from boundary::text then
+    raise exception 'all tasks inclusive lower bound failed';
+  end if;
   response := public.get_all_tasks(null, null, true);
   if exists (select 1 from jsonb_array_elements(response #> '{data,items}') i where i ->> 'id' = dated::text) then
     raise exception 'undated filter included a dated task';

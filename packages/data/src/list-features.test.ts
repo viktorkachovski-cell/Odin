@@ -38,19 +38,6 @@ describe('note-aware list commands', () => {
     );
   });
 
-  it('keeps the legacy update RPC when a note is omitted by an older flow', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: { ok: true, data: list }, error: null });
-    await updateList(clientWithRpc(rpc), crypto.randomUUID(), {
-      listId: list.id,
-      expectedVersion: 1,
-      title: list.title,
-      subtitle: list.subtitle,
-    });
-
-    expect(rpc).toHaveBeenCalledWith('update_list', expect.any(Object));
-    expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty('notes');
-  });
-
   it('clears a note through the additive RPC rather than the legacy one', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { ok: true, data: list }, error: null });
     await updateList(clientWithRpc(rpc), crypto.randomUUID(), {

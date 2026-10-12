@@ -5,7 +5,7 @@ import { captureInviteToken, safeInternalPath } from './routing.ts';
 describe('safeInternalPath', () => {
   it('keeps a genuine internal destination', () => {
     expect(safeInternalPath('/lists/abc')).toBe('/lists/abc');
-    expect(safeInternalPath('/my-tasks?filter=open')).toBe('/my-tasks?filter=open');
+    expect(safeInternalPath('/tasks?view=mine')).toBe('/tasks?view=mine');
   });
 
   it('refuses absolute and protocol-relative URLs', () => {

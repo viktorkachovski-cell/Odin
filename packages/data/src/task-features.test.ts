@@ -37,7 +37,9 @@ describe('note-aware task commands', () => {
     );
   });
 
-  it('keeps the legacy update RPC when notes are omitted by an older flow', async () => {
+  // Unassign (useTaskRowActions) sends no notes and relies on the legacy RPC
+  // keeping them, so this path is live, not left over for old clients.
+  it('keeps the legacy update RPC when notes are omitted, as Unassign does', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { ok: true, data: task }, error: null });
     await updateTask(clientWithRpc(rpc), crypto.randomUUID(), {
       taskId: task.id,

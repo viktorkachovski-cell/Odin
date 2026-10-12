@@ -87,101 +87,41 @@ async function asAuthenticated(userId, callback) {
   });
 }
 
-async function createTask(userId, requestId, title) {
-  return asAuthenticated(userId, async (sql) => {
-    const [row] = await sql`
-      select public.create_task(
-        ${requestId}::uuid,
-        ${ids.list}::uuid,
-        ${title}::text,
-        null,
-        null
-      ) as response
-    `;
-    return row.response;
-  });
-}
-
-async function claimTask(userId, requestId) {
-  return asAuthenticated(userId, async (sql) => {
-    const [row] = await sql`
-      select public.claim_task(
-        ${requestId}::uuid,
-        ${ids.claimTask}::uuid,
-        1
-      ) as response
-    `;
-    return row.response;
-  });
-}
-
-async function testDuplicateCreate() {
-  const [first, second] = await Promise.all([
-    createTask(ids.userA, ids.duplicateRequest, 'Created once'),
-    createTask(ids.userA, ids.duplicateRequest, 'Created once'),
-  ]);
-
-  assert.equal(first.ok, true);
-  assert.equal(second.ok, true);
-  assert.equal(first.data.id, second.data.id);
-
-  const [{ entityCount, receiptCount }] = await admin`
-    select
-      (select count(*)::integer from public.tasks
-        where list_id = ${ids.list} and title = 'Created once') as "entityCount",
-      (select count(*)::integer from private.command_receipts
-        where actor_user_id = ${ids.userA}
-          and request_id = ${ids.duplicateRequest}) as "receiptCount"
-  `;
-  assert.equal(entityCount, 1);
-  assert.equal(receiptCount, 1);
-}
-
-async function testCompetingClaims() {
-  const responses = await Promise.all([
-    claimTask(ids.userA, ids.claimRequestA),
-    claimTask(ids.userB, ids.claimRequestB),
-  ]);
-  const winners = responses.filter((response) => response.ok === true);
-  const losers = responses.filter((response) => response.ok !== true);
-
-  assert.equal(winners.length, 1);
-  assert.equal(losers.length, 1);
-  assert.ok(['ALREADY_ASSIGNED', 'CONFLICT'].includes(losers[0].error.code));
-
-  const [task] = await admin`
-    select assignee_id as "assigneeId", version
-    from public.tasks
-    where id = ${ids.claimTask}
-  `;
-  assert.equal(task.assigneeId, winners[0].data.assignee_id);
-  assert.equal(Number(task.version), 2);
-}
-
-async function testParallelAppendOrder() {
-  const responses = await Promise.all([
-    createTask(ids.userA, ids.appendRequestA, 'Parallel A'),
-    createTask(ids.userB, ids.appendRequestB, 'Parallel B'),
-  ]);
-
-  assert.ok(responses.every((response) => response.ok === true));
-  assert.notEqual(responses[0].data.sort_order, responses[1].data.sort_order);
-
-  const rows = await admin`
-    select sort_order as "sortOrder"
-    from public.tasks
-    where id in (${responses[0].data.id}, ${responses[1].data.id})
-    order by sort_order
-  `;
-  assert.equal(rows.length, 2);
-  assert.equal(rows[1].sortOrder, rows[0].sortOrder + 1);
-}
-
 async function command(userId, statement) {
   return asAuthenticated(userId, async (sql) => {
     const [row] = await statement(sql);
     return row.response;
   });
+}
+
+function createTask(requestId, title) {
+  return (sql) => sql`
+    select public.create_task(
+      ${requestId}::uuid,
+      ${ids.list}::uuid,
+      ${title}::text,
+      null,
+      null
+    ) as response
+  `;
+}
+
+function claimTask(requestId) {
+  return (sql) => sql`
+    select public.claim_task(${requestId}::uuid, ${ids.claimTask}::uuid, 1) as response
+  `;
+}
+
+function moveTask(taskId, direction) {
+  return (sql) => sql`
+    select public.move_task(gen_random_uuid(), ${taskId}::uuid, 1, ${direction}) as response
+  `;
+}
+
+function deleteTask(taskId) {
+  return (sql) => sql`
+    select public.delete_task(gen_random_uuid(), ${taskId}::uuid, 1) as response
+  `;
 }
 
 /** Resolves once `count` backends are blocked on a lock inside `functionName`. */
@@ -195,6 +135,116 @@ async function waitForLockWaiters(functionName, count = 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   throw new Error(`no backend blocked in ${functionName}`);
+}
+
+/**
+ * Runs two commands as transactions that genuinely overlap. `first` runs and
+ * then holds its transaction open; `second` starts, and only once Postgres
+ * reports it waiting on a lock inside `blockedIn` does `first` commit.
+ *
+ * Firing both through Promise.all usually overlaps them as well, but nothing
+ * guarantees it, and run back to back they give the same answers, so a green
+ * run could not tell a serialised race from no race at all. Here the second
+ * command has demonstrably waited for the first, so the winner is known.
+ */
+async function overlap(first, second, blockedIn) {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let held;
+  const holding = new Promise((resolve) => {
+    held = resolve;
+  });
+
+  const firstDone = asAuthenticated(first.userId, async (sql) => {
+    const [row] = await first.statement(sql);
+    held();
+    await gate;
+    return row.response;
+  });
+  await Promise.race([holding, firstDone]);
+
+  // A thrown SQL error becomes a value, so an assertion prints it.
+  const secondDone = command(second.userId, second.statement).catch((error) => ({
+    ok: false,
+    thrown: error.message,
+  }));
+  try {
+    await waitForLockWaiters(blockedIn);
+  } finally {
+    release();
+  }
+  return Promise.all([firstDone, secondDone]);
+}
+
+/** The repeat waits on the first request's lock, then replays its receipt. */
+async function testDuplicateCreate() {
+  const statement = createTask(ids.duplicateRequest, 'Created once');
+  const [first, second] = await overlap(
+    { userId: ids.userA, statement },
+    { userId: ids.userA, statement },
+    'create_task',
+  );
+
+  assert.equal(first.ok, true, JSON.stringify(first));
+  assert.deepEqual(second, first);
+
+  const [{ entityCount, receiptCount }] = await admin`
+    select
+      (select count(*)::integer from public.tasks
+        where list_id = ${ids.list} and title = 'Created once') as "entityCount",
+      (select count(*)::integer from private.command_receipts
+        where actor_user_id = ${ids.userA}
+          and request_id = ${ids.duplicateRequest}) as "receiptCount"
+  `;
+  assert.equal(entityCount, 1);
+  assert.equal(receiptCount, 1);
+}
+
+/** The second claimant waits on the task row, then finds it taken. */
+async function testCompetingClaims() {
+  const [winner, loser] = await overlap(
+    { userId: ids.userA, statement: claimTask(ids.claimRequestA) },
+    { userId: ids.userB, statement: claimTask(ids.claimRequestB) },
+    'claim_task',
+  );
+
+  assert.equal(winner.ok, true, JSON.stringify(winner));
+  assert.equal(winner.data.assignee_id, ids.userA);
+  assert.ok(['ALREADY_ASSIGNED', 'CONFLICT'].includes(loser.error?.code), JSON.stringify(loser));
+
+  const [task] = await admin`
+    select assignee_id as "assigneeId", version
+    from public.tasks
+    where id = ${ids.claimTask}
+  `;
+  assert.equal(task.assigneeId, ids.userA);
+  assert.equal(Number(task.version), 2);
+}
+
+/** The second append waits on the parent list, then lands right after the first. */
+async function testParallelAppendOrder() {
+  const [first, second] = await overlap(
+    { userId: ids.userA, statement: createTask(ids.appendRequestA, 'Parallel A') },
+    { userId: ids.userB, statement: createTask(ids.appendRequestB, 'Parallel B') },
+    'create_task',
+  );
+
+  assert.equal(first.ok, true, JSON.stringify(first));
+  assert.equal(second.ok, true, JSON.stringify(second));
+  assert.equal(second.data.sort_order, first.data.sort_order + 1);
+
+  const rows = await admin`
+    select id
+    from public.tasks
+    where id in (${first.data.id}, ${second.data.id})
+    order by sort_order
+  `;
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    [first.data.id, second.data.id],
+  );
 }
 
 async function moveTaskPositions() {
@@ -211,36 +261,13 @@ async function moveTaskPositions() {
  */
 async function testMoveWhileNeighbourIsDeleted() {
   const [first, second] = ids.moveTasks;
-  let releaseDelete;
-  const deleteGate = new Promise((resolve) => {
-    releaseDelete = resolve;
-  });
-  let deleted;
-  const deletedSignal = new Promise((resolve) => {
-    deleted = resolve;
-  });
+  const [deleteResponse, moveResponse] = await overlap(
+    { userId: ids.userB, statement: deleteTask(first) },
+    { userId: ids.userA, statement: moveTask(second, 'up') },
+    'move_task',
+  );
 
-  const deleting = asAuthenticated(ids.userB, async (sql) => {
-    const [row] = await sql`
-      select public.delete_task(gen_random_uuid(), ${first}::uuid, 1) as response
-    `;
-    deleted();
-    await deleteGate;
-    return row.response;
-  });
-  await deletedSignal;
-
-  const moving = command(
-    ids.userA,
-    (sql) => sql`
-      select public.move_task(gen_random_uuid(), ${second}::uuid, 1, 'up') as response
-    `,
-  ).catch((error) => ({ ok: false, thrown: error.message }));
-  await waitForLockWaiters('move_task');
-  releaseDelete();
-
-  const [deleteResponse, moveResponse] = await Promise.all([deleting, moving]);
-  assert.equal(deleteResponse.ok, true);
+  assert.equal(deleteResponse.ok, true, JSON.stringify(deleteResponse));
   assert.deepEqual(moveResponse, { ok: true, data: { task_id: second } });
 
   const positions = await moveTaskPositions();
@@ -251,31 +278,20 @@ async function testMoveWhileNeighbourIsDeleted() {
 }
 
 /**
- * Two members moving adjacent tasks at once never deadlock, never lose a
- * position and never let a stale expected version through.
+ * Two members moving the same adjacent pair from opposite sides: the second
+ * waits on the parent list, then finds a newer version and is refused, so no
+ * position is lost or duplicated and no stale move gets through.
  */
 async function testCompetingAdjacentMoves() {
   const [, second, third] = ids.moveTasks;
-  const responses = await Promise.all([
-    command(
-      ids.userA,
-      (sql) => sql`
-        select public.move_task(gen_random_uuid(), ${third}::uuid, 1, 'up') as response
-      `,
-    ),
-    command(
-      ids.userB,
-      (sql) => sql`
-        select public.move_task(gen_random_uuid(), ${second}::uuid, 1, 'down') as response
-      `,
-    ),
-  ]);
+  const [winner, loser] = await overlap(
+    { userId: ids.userA, statement: moveTask(third, 'up') },
+    { userId: ids.userB, statement: moveTask(second, 'down') },
+    'move_task',
+  );
 
-  const winners = responses.filter((response) => response.ok === true);
-  const losers = responses.filter((response) => response.ok !== true);
-  assert.equal(winners.length, 1);
-  assert.equal(losers.length, 1);
-  assert.equal(losers[0].error.code, 'CONFLICT');
+  assert.deepEqual(winner, { ok: true, data: { task_id: third } });
+  assert.equal(loser.error?.code, 'CONFLICT', JSON.stringify(loser));
 
   const positions = await moveTaskPositions();
   assert.deepEqual(

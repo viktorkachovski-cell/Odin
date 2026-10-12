@@ -8,6 +8,9 @@ create function pg_temp.fx(p_key text) returns uuid language sql stable
 as $$ select value::uuid from workflow_fixture where key = p_key $$;
 create function pg_temp.task_order(p_key text) returns text language sql stable
 as $$ select sort_order::text from public.tasks where id = pg_temp.fx(p_key) $$;
+create function pg_temp.window_titles(p_from timestamptz, p_before timestamptz) returns text language sql
+as $$ select string_agg(item ->> 'title', ',' order by item ->> 'title')
+  from jsonb_array_elements(public.get_all_tasks(p_from, p_before) #> '{data,items}') as item $$;
 
 insert into auth.users (
   id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -78,8 +81,10 @@ select is(public.claim_task(gen_random_uuid(), pg_temp.fx('dated_task'), 2) #>> 
 select is(public.get_my_tasks_v2() #>> '{data,items,0,list_title}', 'First list', 'my tasks carries full rows with list titles');
 select is(jsonb_array_length(public.get_unassigned_v2() #> '{data,items}')::text, '1', 'unassigned excludes claimed and completed tasks');
 
-select is(public.get_all_tasks('2026-10-25T00:00:00Z', '2026-10-26T00:00:00Z') #>> '{data,items,0,title}', 'Dated task', 'date filter includes a bounded deadline');
-select is(jsonb_array_length(public.get_all_tasks('2026-10-26T00:00:00Z', '2026-10-27T00:00:00Z') #> '{data,items}')::text, '0', 'exclusive upper bound excludes earlier tasks');
+-- A deadline exactly on a bound shows which side of the window keeps it.
+insert into workflow_fixture values ('boundary_task', public.create_task(gen_random_uuid(), pg_temp.fx('list_a'), 'Boundary task', null, '2026-10-26T00:00:00Z') #>> '{data,id}');
+select is(pg_temp.window_titles('2026-10-25T00:00:00Z', '2026-10-26T00:00:00Z'), 'Dated task', 'exclusive upper bound leaves out a deadline exactly at the end');
+select is(pg_temp.window_titles('2026-10-26T00:00:00Z', '2026-10-27T00:00:00Z'), 'Boundary task', 'inclusive lower bound keeps a deadline exactly at the start');
 select is(jsonb_array_length(public.get_all_tasks(null, null, true) #> '{data,items}')::text, '2', 'undated filter excludes dated tasks');
 select is(public.get_all_tasks('2026-10-27T00:00:00Z', '2026-10-25T00:00:00Z') #>> '{error,code}', 'VALIDATION', 'reversed range rejected');
 select is(public.get_all_tasks('2026-10-25T00:00:00Z', null, true) #>> '{error,code}', 'VALIDATION', 'undated cannot combine with bounds');

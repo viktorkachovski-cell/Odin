@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import type { HouseholdTaskDto } from '@odin/contracts';
 
@@ -60,6 +60,21 @@ function titles(): (string | null | undefined)[] {
   return native.__presented.map((entry) => entry.title);
 }
 
+/**
+ * Lets the hook's effects, and the notification work they start, finish. The
+ * double answers at once, so one turn of the event loop is enough.
+ *
+ * "Said nothing" needs this rather than `waitFor`: an empty list passes
+ * `waitFor` on its first look, before the hook has done anything. The tests
+ * that do announce use it too, so if one turn ever stops being enough they
+ * fail, instead of the silent ones passing without having waited.
+ */
+async function settle(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 beforeEach(() => {
   native.__reset();
   native.scheduleNotificationAsync.mockClear();
@@ -74,7 +89,8 @@ describe('announcing changes', () => {
     mockState.myTasks = [task()];
     await renderHook(() => useTaskNotifications(true));
 
-    await waitFor(() => expect(native.__presented).toEqual([]));
+    await settle();
+    expect(native.__presented).toEqual([]);
   });
 
   it('announces a task that has become yours', async () => {
@@ -83,7 +99,8 @@ describe('announcing changes', () => {
     mockState.myTasks = [task()];
     await rerender(undefined);
 
-    await waitFor(() => expect(titles()).toEqual(['A task is now yours']));
+    await settle();
+    expect(titles()).toEqual(['A task is now yours']);
     expect(native.__presented[0]?.body).toBe('Water the plants — in Weekly');
   });
 
@@ -94,7 +111,8 @@ describe('announcing changes', () => {
     mockState.myTasks = [task({ version: 2 })];
     await rerender(undefined);
 
-    await waitFor(() => expect(titles()).toEqual(['One of your tasks changed']));
+    await settle();
+    expect(titles()).toEqual(['One of your tasks changed']);
   });
 
   it('says nothing while you are looking at the app, and nothing later about it', async () => {
@@ -104,14 +122,16 @@ describe('announcing changes', () => {
 
     mockState.myTasks = [task()];
     await rerender(undefined);
-    await waitFor(() => expect(native.__presented).toEqual([]));
+    await settle();
+    expect(native.__presented).toEqual([]);
 
     // Leaving the app must not replay the change that was deliberately silent.
     mockState.foreground = false;
     mockState.myTasks = [task(), task({ id: 't2', title: 'Take out bins' })];
     await rerender(undefined);
 
-    await waitFor(() => expect(titles()).toEqual(['A task is now yours']));
+    await settle();
+    expect(titles()).toEqual(['A task is now yours']);
     expect(native.__presented[0]?.body).toBe('Take out bins — in Weekly');
   });
 
@@ -125,7 +145,8 @@ describe('announcing changes', () => {
     ];
     await rerender(undefined);
 
-    await waitFor(() => expect(titles()).toEqual(['New tasks for you']));
+    await settle();
+    expect(titles()).toEqual(['New tasks for you']);
     expect(native.__presented[0]?.body).toBe('3 tasks are now yours');
   });
 
@@ -135,7 +156,8 @@ describe('announcing changes', () => {
     mockState.myTasks = [task()];
     await rerender(undefined);
 
-    await waitFor(() => expect(native.__presented).toEqual([]));
+    await settle();
+    expect(native.__presented).toEqual([]);
   });
 });
 
@@ -173,7 +195,8 @@ describe('deadline reminders', () => {
     mockState.myTasks = [task({ due_at: dueAt })];
     await rerender(undefined);
 
-    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+    await settle();
+    expect(native.__scheduled.size).toBe(3);
     expect(native.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
@@ -218,12 +241,13 @@ describe('deadline reminders', () => {
 
   it('holds no reminders while notifications are off', async () => {
     mockState.myTasks = [task({ due_at: dueAt })];
-    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    const { rerender } = await renderHook(
+      ({ allowed }: { allowed: boolean }) => useTaskNotifications(allowed),
+      { initialProps: { allowed: true } },
+    );
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
 
-    await rerender(undefined);
-    const { rerender: rerenderOff } = await renderHook(() => useTaskNotifications(false));
-    await rerenderOff(undefined);
+    await rerender({ allowed: false });
 
     await waitFor(() => expect(native.__scheduled.size).toBe(0));
   });

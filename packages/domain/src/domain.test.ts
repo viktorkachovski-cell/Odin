@@ -36,15 +36,10 @@ function task(overrides: Partial<TaskDto> & Pick<TaskDto, 'id'>): TaskDto {
 
 describe('date-only deadlines', () => {
   it('defaults a date without time to the final millisecond of the local day', () => {
-    const result = resolveDueInput({ dueDate: '2026-06-15', dueTime: '' });
-    expect(result.ok).toBe(true);
-    if (result.ok && result.dueAt !== null) {
-      const parsed = new Date(result.dueAt);
-      expect(parsed.getHours()).toBe(23);
-      expect(parsed.getMinutes()).toBe(59);
-      expect(parsed.getSeconds()).toBe(59);
-      expect(parsed.getMilliseconds()).toBe(999);
-    }
+    expect(resolveDueInput({ dueDate: '2026-06-15', dueTime: '' })).toEqual({
+      ok: true,
+      dueAt: new Date(2026, 5, 15, 23, 59, 59, 999).toISOString(),
+    });
   });
 
   it('rejects a time without a date', () => {
@@ -77,7 +72,7 @@ describe('progressPercent', () => {
   });
 
   it('rounds exact halves up', () => {
-    expect(progressPercent(1, 8)).toBe(13); // 12.5 -> 13
+    // 1/8 (12.5 -> 13) is already in the table above.
     expect(progressPercent(3, 8)).toBe(38); // 37.5 -> 38
   });
 

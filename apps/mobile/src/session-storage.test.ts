@@ -125,12 +125,15 @@ describe('secure session storage', () => {
     await expect(storage.getItem(KEY)).resolves.toBe('fresh');
   });
 
-  it('keeps a sign-out even when the keystore delete fails', async () => {
+  it('keeps the rest of this run signed out when the keystore delete fails', async () => {
     const storage = createSecureSessionStorage();
     await storage.setItem(KEY, 'session');
     jest.mocked(SecureStore.deleteItemAsync).mockRejectedValueOnce(new Error('keystore busy'));
 
     await expect(storage.removeItem(KEY)).rejects.toThrow('keystore busy');
     await expect(storage.getItem(KEY)).resolves.toBeNull();
+    // Only until the process ends: the keystore still holds the session, so
+    // the next start reads it back. Nothing here can make the sign-out survive
+    // a keystore that refuses the delete.
   });
 });

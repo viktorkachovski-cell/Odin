@@ -16,7 +16,9 @@ Locally the same set runs as `npm run check` plus `npm run build`. Counts on
 2026-10-11: 12 tooling tests, 28 Vitest files with 244 tests, 18 Android Jest
 suites with 138 tests, 4 mobile build-environment tests, pgTAP planning 32, 47
 and 43 assertions (122), five parallel-transaction cases, Expo Doctor 21/21 in
-CI, and a successful Android export and web production build.
+CI, and a successful Android export and web production build. The 2026-10-12
+test-quality pass removed one Vitest case that covered an adapter branch no
+caller reaches, leaving 243; every other count is unchanged.
 
 Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment

@@ -155,7 +155,7 @@ describe('TaskRow', () => {
 
   it('disables move controls at the visible ordering boundaries in reorder mode', async () => {
     const onMove = jest.fn();
-    await render(
+    const view = await render(
       <TaskRow
         locale="en"
         members={members}
@@ -169,7 +169,17 @@ describe('TaskRow', () => {
 
     expect(screen.getByLabelText('Move Bathroom up')).toBeDisabled();
     expect(screen.getByLabelText('Move Bathroom down')).toBeDisabled();
+    await fireEvent.press(screen.getByLabelText('Move Bathroom up'));
+    await fireEvent.press(screen.getByLabelText('Move Bathroom down'));
     expect(onMove).not.toHaveBeenCalled();
+
+    // Away from the bottom boundary the same press does move the task, so the
+    // silence above came from the disabled state, not from an unwired button.
+    await view.rerender(
+      <TaskRow locale="en" members={members} moveUpDisabled onMove={onMove} t={t} task={row()} />,
+    );
+    await fireEvent.press(screen.getByLabelText('Move Bathroom down'));
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'down');
   });
 
   it('spells out an overdue deadline instead of signalling it by colour', async () => {
@@ -207,7 +217,8 @@ describe('TaskRow', () => {
   it('tells TalkBack an unclaimed task is unassigned without a visible label', async () => {
     await render(<TaskRow locale="en" members={members} t={t} task={row()} />);
 
-    expect(screen.getByText('Unassigned')).toBeTruthy();
+    // Present for TalkBack, but transparent and taken out of the layout.
+    expect(screen.getByText('Unassigned')).toHaveStyle({ opacity: 0, position: 'absolute' });
     expect(screen.queryByText('No deadline')).toBeNull();
   });
 
