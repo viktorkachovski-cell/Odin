@@ -31,6 +31,7 @@ root says the same and adds the working rules.
 | Deploying             | `operations.md`          | Environments, database and Vercel procedure, Auth config, dependency triage |
 | What was deployed     | `deployment-log.md`      | Append-only production record: migrations, smoke runs, advisor findings     |
 | What is proven        | `verification.md`        | CI coverage, requirements traceability, edge cases, release gates           |
+| Reading the tests     | `test-guide.md`          | Every automated test by use case, in plain words, with review notes         |
 | Original requirements | `source-requirements.md` | Verbatim FR/BR transcription, referenced by the traceability matrix         |
 
 Working database detail — file order, local workflow, the RPC and grant matrix
