@@ -1,6 +1,7 @@
-/**
- * The bottom navigation's height above the safe-area inset: 6dp of padding
- * plus one 48dp tab. Anything docked on top of the bar, such as list detail's
- * quick add, sits at this offset.
- */
-export const NAV_BAR_HEIGHT = 54;
+import { useWindowDimensions } from 'react-native';
+
+/** Shared by the persistent tabs, floating actions and list quick add. */
+export function useNavBarHeight(): number {
+  const { fontScale } = useWindowDimensions();
+  return 64 + 16 * Math.max(0, fontScale - 1);
+}

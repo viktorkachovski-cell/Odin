@@ -35,7 +35,7 @@ interface TaskEditorProps {
   readonly error: CommandError | null;
   readonly onCancel: () => void;
   readonly onReviewConflict: () => void;
-  /** Rendered above the title, for the New task editor's list picker. */
+  /** The parent list choice follows the title for a new task. */
   readonly listField?: ReactNode;
   /** A quiet destructive action at the start of the footer. */
   readonly onDelete?: (() => void) | undefined;
@@ -64,6 +64,7 @@ export function TaskEditor({
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
+  const [detailsOpen, setDetailsOpen] = useState(task !== null);
   const conflict = error?.code === 'CONFLICT';
 
   const submit = (): void => {
@@ -73,6 +74,7 @@ export function TaskEditor({
     setTitleIssue(issueText(titleCheck, t));
     setNotesIssue(issueText(notesCheck, t));
     setDueIssue(due.ok ? undefined : t(dueIssueKey(due.reason)));
+    if (notesCheck !== null || !due.ok) setDetailsOpen(true);
     if (titleCheck !== null || notesCheck !== null || !due.ok) return;
     onSubmit({
       title: draft.title.trim(),
@@ -82,8 +84,8 @@ export function TaskEditor({
     });
   };
 
-  // A new task can start from a template, so the chooser leads; an existing
-  // task's "save as template" is secondary and sits below the fields.
+  // Keep optional controls mounted so collapsing them never discards input,
+  // picker state, a template request or its outcome.
   const templates = (
     <TaskTemplates
       draft={draft}
@@ -144,37 +146,49 @@ export function TaskEditor({
 
       <InlineError error={conflict ? null : error} t={t} />
 
-      {listField}
-      {task === null && templates}
       <Field
         error={titleIssue}
         label={t('task.title.label')}
         onChangeText={(title) => setDraft((current) => ({ ...current, title }))}
         value={draft.title}
       />
+      {listField}
 
-      <Field
-        multiline
-        numberOfLines={4}
-        error={notesIssue}
-        label={t('task.notes.label')}
-        value={draft.notes}
-        onChangeText={(notes) => setDraft((current) => ({ ...current, notes }))}
-      />
-      <AssigneePicker
-        members={members}
-        onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}
-        selected={draft.assigneeId}
-        t={t}
-      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: detailsOpen }}
+        onPress={() => setDetailsOpen((current) => !current)}
+        style={[styles.disclosure, { borderColor: theme.colors.borderStrong }]}
+      >
+        <Text style={[styles.disclosureText, { color: theme.colors.accent }]}>
+          {detailsOpen ? '▾ ' : '▸ '}
+          {t('task.optional_details')}
+        </Text>
+      </Pressable>
+      <View style={[styles.details, !detailsOpen && styles.hidden]}>
+        <Field
+          multiline
+          numberOfLines={4}
+          error={notesIssue}
+          label={t('task.notes.label')}
+          value={draft.notes}
+          onChangeText={(notes) => setDraft((current) => ({ ...current, notes }))}
+        />
+        <AssigneePicker
+          members={members}
+          onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}
+          selected={draft.assigneeId}
+          t={t}
+        />
 
-      <DueField
-        draft={draft}
-        error={dueIssue}
-        onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
-        t={t}
-      />
-      {task !== null && templates}
+        <DueField
+          draft={draft}
+          error={dueIssue}
+          onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
+          t={t}
+        />
+        {templates}
+      </View>
     </Sheet>
   );
 }
@@ -184,4 +198,14 @@ const styles = StyleSheet.create({
   conflictTitle: { fontSize: 16, fontWeight: '700' },
   delete: { justifyContent: 'center', marginRight: 'auto', paddingHorizontal: 8 },
   deleteText: { fontSize: 16, fontWeight: '500' },
+  details: { gap: 16 },
+  disclosure: {
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 48,
+    padding: 12,
+  },
+  disclosureText: { fontSize: 14, fontWeight: '600' },
+  hidden: { display: 'none' },
 });

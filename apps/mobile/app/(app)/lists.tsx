@@ -6,7 +6,6 @@ import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import { useListActions } from '@odin/data';
 import { adjacentMoves } from '@odin/domain';
 
-import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHomeQuery } from '../../src/state/queries.ts';
 import { useEvent } from '../../src/state/useEvent.ts';
@@ -16,7 +15,8 @@ import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
 import { ListCard } from '../../src/components/ListCard.tsx';
 import { ListEditor } from '../../src/components/ListEditor.tsx';
-import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
+import { EmptyState, LoadingState } from '../../src/components/Screen.tsx';
+import { HouseholdScreen } from '../../src/components/HouseholdScreen.tsx';
 import { showToast } from '../../src/components/toast.ts';
 import { useTheme } from '../../src/theme.ts';
 
@@ -30,7 +30,6 @@ type Tab = 'active' | 'templates';
 export default function ListsScreen(): ReactNode {
   const { t, client } = useOdin();
   const theme = useTheme();
-  const nav = useNavVisibility();
   const home = useHomeQuery();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(params.tab === 'templates' ? 'templates' : 'active');
@@ -68,12 +67,8 @@ export default function ListsScreen(): ReactNode {
   );
 
   return (
-    <Screen title={t('lists.title')}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        onScroll={nav.onScroll}
-        scrollEventThrottle={16}
-      >
+    <HouseholdScreen title={t('lists.title')}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Segmented
           onChange={(next) => {
             setReordering(false);
@@ -110,29 +105,30 @@ export default function ListsScreen(): ReactNode {
             label={tab === 'templates' ? t('lists.templates.empty') : t('home.active.empty')}
           />
         ) : (
-          <Surface>
+          <View style={styles.cards}>
             {shown.map((list, index) => {
               const moves = adjacentMoves(shown, index, (item) => item.kind);
               return (
-                <ListCard
-                  copyPending={copy.state.pending}
-                  deletePending={remove.state.pending}
-                  key={list.id}
-                  list={list}
-                  moveDownDisabled={!moves.down}
-                  moveUpDisabled={!moves.up}
-                  movePending={move.state.pending}
-                  onCopy={copyList}
-                  onDelete={confirmDelete}
-                  onMove={moveList}
-                  onSaveTemplate={saveAsTemplate}
-                  reorder={reordering}
-                  saveTemplatePending={saveTemplate.state.pending}
-                  t={t}
-                />
+                <Surface key={list.id}>
+                  <ListCard
+                    copyPending={copy.state.pending}
+                    deletePending={remove.state.pending}
+                    list={list}
+                    moveDownDisabled={!moves.down}
+                    moveUpDisabled={!moves.up}
+                    movePending={move.state.pending}
+                    onCopy={copyList}
+                    onDelete={confirmDelete}
+                    onMove={moveList}
+                    onSaveTemplate={saveAsTemplate}
+                    reorder={reordering}
+                    saveTemplatePending={saveTemplate.state.pending}
+                    t={t}
+                  />
+                </Surface>
               );
             })}
-          </Surface>
+          </View>
         )}
         <NavSpacer />
       </ScrollView>
@@ -152,12 +148,13 @@ export default function ListsScreen(): ReactNode {
           t={t}
         />
       )}
-    </Screen>
+    </HouseholdScreen>
   );
 }
 
 const styles = StyleSheet.create({
   content: { gap: 12, paddingBottom: 16 },
+  cards: { gap: 12 },
   reorder: { justifyContent: 'center', paddingHorizontal: 4 },
   reorderText: { fontSize: 15, fontWeight: '600' },
   toolbar: { alignItems: 'flex-end', marginVertical: -8 },

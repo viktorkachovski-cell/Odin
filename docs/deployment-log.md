@@ -236,3 +236,12 @@ Android client is unreleased as before.
 
 Rollback is a Vercel promotion of `dpl_2KR9bFum7ecAKZckeDJ12UTuGCdy`
 (`109ca9b`); there is no database state to undo.
+
+## 2026-10-14 — Android release environment
+
+For the owner-approved Android UI release, created the public
+`EXPO_PUBLIC_WEB_ORIGIN=https://odin-ten-tau.vercel.app` variable in the existing
+EAS project's production environment. It was missing during the release
+preflight. The production Supabase URL and publishable-key validation already
+passed; their values were not printed or changed. No database or authentication
+setting changed. APK build/distribution evidence will be recorded separately.

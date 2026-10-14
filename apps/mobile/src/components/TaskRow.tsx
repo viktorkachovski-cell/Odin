@@ -1,5 +1,5 @@
 import { memo, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import {
   taskRowFromHouseholdTask,
@@ -16,7 +16,6 @@ import { formatDueShort, TASK_ACTION_KEYS, type Locale, type Translator } from '
 
 import { useTheme } from '../theme.ts';
 import { ActionMenu, type ActionMenuItem } from './ActionMenu.tsx';
-import { Avatar } from './Avatar.tsx';
 import { MoveButtons } from './Blocks.tsx';
 import { AccentButton } from './Button.tsx';
 
@@ -56,6 +55,7 @@ interface TaskRowProps {
   readonly busy?: boolean | undefined;
   /** Off on Today's My tasks, where every row is the member's own. */
   readonly showAssignee?: boolean;
+  readonly currentUserId?: string | undefined;
   readonly onPress?: ((task: TaskRowModel) => void) | undefined;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
   readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
@@ -105,38 +105,47 @@ function MetaLine({
   const theme = useTheme();
   const overdue = isOverdue(task);
   const due = task.due_at === null ? null : formatDueShort(task.due_at, locale);
-  if (task.list_title === undefined && due === null) return null;
+  if (task.list_title === undefined && due === null && !task.blocked) return null;
   return (
-    <Text style={[styles.meta, { color: theme.colors.textMuted }]}>
-      {task.list_title}
-      {task.list_title !== undefined && due !== null ? ' · ' : ''}
-      {due !== null && (
-        // Overdue is spelled out; colour alone would not be enough.
-        <Text style={overdue ? [styles.metaStrong, { color: theme.colors.danger }] : undefined}>
-          {overdue ? t('task.overdue_on', { date: due }) : due}
-        </Text>
+    <View style={styles.metaLines}>
+      {task.list_title !== undefined && (
+        <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{task.list_title}</Text>
       )}
-    </Text>
+      <View style={styles.statusLine}>
+        {due !== null && (
+          // Overdue is spelled out; colour alone would not be enough.
+          <Text
+            style={[
+              styles.deadline,
+              { color: overdue ? theme.colors.danger : theme.colors.textMuted },
+            ]}
+          >
+            {overdue ? t('task.overdue_on', { date: due }) : due}
+          </Text>
+        )}
+        {task.blocked === true && !task.completed && (
+          <View
+            style={[
+              styles.pill,
+              { backgroundColor: theme.colors.warningSoft, borderRadius: theme.radius.pill },
+            ]}
+          >
+            <Text style={[styles.pillText, { color: theme.colors.warning }]}>
+              {t('task.status.blocked')}
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
 function Who({
   task,
-  members,
   t,
   busy,
   onClaim,
-}: Pick<TaskRowProps, 'task' | 'members' | 't' | 'busy' | 'onClaim'>): ReactNode {
-  const assignee = members.find((member) => member.user_id === task.assignee_id);
-  if (assignee !== undefined) {
-    return (
-      <View style={styles.who}>
-        <Avatar displayName={assignee.display_name} size={28} userId={assignee.user_id} />
-        {/* The avatar is decorative; TalkBack reads the name. */}
-        <Text style={styles.srOnly}>{assignee.display_name}</Text>
-      </View>
-    );
-  }
+}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'onClaim'>): ReactNode {
   if (task.assignee_id === null && onClaim !== undefined && !task.completed) {
     return (
       <AccentButton
@@ -193,15 +202,38 @@ function Toggle({
 
 function Body({
   task,
+  members,
+  currentUserId,
+  showAssignee,
   locale,
   t,
   onPress,
-}: Pick<TaskRowProps, 'task' | 'locale' | 't' | 'onPress'>): ReactNode {
+}: Pick<
+  TaskRowProps,
+  'task' | 'members' | 'currentUserId' | 'showAssignee' | 'locale' | 't' | 'onPress'
+>): ReactNode {
   const theme = useTheme();
-  const hasNotes = task.notes !== undefined && task.notes !== null && task.notes.length > 0;
+  const assignee =
+    showAssignee === false
+      ? undefined
+      : members.find((member) => member.user_id === task.assignee_id);
+  const assigneeName =
+    assignee?.user_id === currentUserId && assignee !== undefined
+      ? t('task.assignee.you')
+      : assignee?.display_name;
+  const due = task.due_at === null ? undefined : formatDueShort(task.due_at, locale);
+  const label = [
+    task.title,
+    task.list_title,
+    due,
+    task.blocked && !task.completed ? t('task.status.blocked') : undefined,
+    assigneeName,
+  ]
+    .filter(Boolean)
+    .join(', ');
   return (
     <Pressable
-      accessibilityLabel={task.title}
+      accessibilityLabel={label}
       accessibilityRole={onPress === undefined ? undefined : 'button'}
       disabled={onPress === undefined}
       onPress={() => onPress?.(task)}
@@ -217,25 +249,11 @@ function Body({
         >
           {task.title}
         </Text>
-        {task.blocked === true && !task.completed && (
-          <View
-            style={[
-              styles.pill,
-              { backgroundColor: theme.colors.warningSoft, borderRadius: theme.radius.pill },
-            ]}
-          >
-            <Text style={[styles.pillText, { color: theme.colors.warning }]}>
-              {t('task.status.blocked')}
-            </Text>
-          </View>
-        )}
       </View>
-      {hasNotes && (
-        <Text numberOfLines={1} style={[styles.meta, { color: theme.colors.textMuted }]}>
-          {task.notes}
-        </Text>
-      )}
       <MetaLine locale={locale} t={t} task={task} />
+      {assigneeName !== undefined && (
+        <Text style={[styles.meta, { color: theme.colors.textMuted }]}>{assigneeName}</Text>
+      )}
     </Pressable>
   );
 }
@@ -243,34 +261,61 @@ function Body({
 export const TaskRow = memo(function TaskRow(props: TaskRowProps): ReactNode {
   const { task, members, locale, t, busy = false, showAssignee = true, onMove } = props;
   const theme = useTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 360 || fontScale > 1.25;
 
   return (
-    <View style={[styles.row, { borderTopColor: theme.colors.border }]}>
-      <Toggle busy={busy} onToggleCompleted={props.onToggleCompleted} t={t} task={task} />
-      <Body locale={locale} onPress={props.onPress} t={t} task={task} />
-      {showAssignee && (
-        <Who busy={busy} members={members} onClaim={props.onClaim} t={t} task={task} />
-      )}
-      {onMove === undefined ? (
-        <ActionMenu
-          accessibilityLabel={t('task.actions', { title: task.title })}
-          actions={menuActions(props)}
-          disabled={busy}
+    <View
+      style={[
+        styles.row,
+        stacked && styles.stacked,
+        { borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+      ]}
+    >
+      <View style={[styles.main, stacked && styles.fullWidth]}>
+        <Toggle busy={busy} onToggleCompleted={props.onToggleCompleted} t={t} task={task} />
+        <Body
+          currentUserId={props.currentUserId}
+          showAssignee={showAssignee}
+          members={members}
+          locale={locale}
+          onPress={props.onPress}
+          t={t}
+          task={task}
         />
-      ) : (
-        <MoveButtons
-          downDisabled={busy || props.moveDownDisabled === true}
-          label={(direction) => t(`task.move.${direction}`, { title: task.title })}
-          onMove={(direction) => onMove(task, direction)}
-          upDisabled={busy || props.moveUpDisabled === true}
-        />
-      )}
+      </View>
+      <View style={styles.actions}>
+        {showAssignee && <Who busy={busy} onClaim={props.onClaim} t={t} task={task} />}
+        {onMove === undefined ? (
+          <ActionMenu
+            accessibilityLabel={t('task.actions', { title: task.title })}
+            actions={menuActions(props)}
+            disabled={busy}
+          />
+        ) : (
+          <MoveButtons
+            downDisabled={busy || props.moveDownDisabled === true}
+            label={(direction) => t(`task.move.${direction}`, { title: task.title })}
+            onMove={(direction) => onMove(task, direction)}
+            upDisabled={busy || props.moveUpDisabled === true}
+          />
+        )}
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  body: { flex: 1, gap: 2, minWidth: 0, paddingVertical: 10 },
+  actions: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    marginLeft: 'auto',
+  },
+  main: { alignItems: 'flex-start', flex: 1, flexDirection: 'row', minWidth: 0 },
+  fullWidth: { flexBasis: '100%' },
+  stacked: { flexWrap: 'wrap' },
+  body: { flex: 1, gap: 4, minWidth: 0, paddingVertical: 12 },
   box: {
     alignItems: 'center',
     borderRadius: 6,
@@ -281,20 +326,23 @@ const styles = StyleSheet.create({
   },
   check: { fontSize: 14, fontWeight: '700', lineHeight: 16 },
   headline: { alignItems: 'center', columnGap: 6, flexDirection: 'row', flexWrap: 'wrap' },
-  meta: { fontSize: 13 },
-  metaStrong: { fontWeight: '700' },
+  meta: { fontSize: 13, lineHeight: 18 },
+  metaLines: { gap: 4 },
+  deadline: { fontSize: 12, fontWeight: '500', lineHeight: 18 },
+  statusLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pill: { paddingHorizontal: 7, paddingVertical: 1 },
   pillText: { fontSize: 12, fontWeight: '700' },
   row: {
     alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    marginBottom: 8,
     flexDirection: 'row',
     gap: 4,
     paddingRight: 4,
   },
   srOnly: { height: 1, opacity: 0, position: 'absolute', width: 1 },
-  title: { flexShrink: 1, fontSize: 16, fontWeight: '500' },
+  title: { flexShrink: 1, fontSize: 16, fontWeight: '500', lineHeight: 24 },
   titleDone: { textDecorationLine: 'line-through' },
   toggle: { alignItems: 'center', justifyContent: 'center' },
-  who: { alignItems: 'center', justifyContent: 'center', minWidth: 36 },
 });

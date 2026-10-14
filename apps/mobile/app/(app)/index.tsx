@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import type { HouseholdTaskDto, MemberDto } from '@odin/contracts';
 import {
@@ -12,7 +12,6 @@ import {
 } from '@odin/domain';
 import { formatDueShort, formatLongDate, type Translator } from '@odin/i18n';
 
-import { useNavVisibility } from '../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../src/state/OdinContext.ts';
 import {
   NO_MEMBERS,
@@ -21,11 +20,12 @@ import {
   useMembersQuery,
 } from '../../src/state/queries.ts';
 import { LoadFailure } from '../../src/components/Banner.tsx';
-import { PanelHeader, ProgressBar, Surface, TaskGroups } from '../../src/components/Blocks.tsx';
+import { PanelHeader, ProgressBar, TaskGroups } from '../../src/components/Blocks.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { AccentButton } from '../../src/components/Button.tsx';
 import { NewTaskFab } from '../../src/components/NewTaskEditor.tsx';
-import { EmptyState, LoadingState, Screen } from '../../src/components/Screen.tsx';
+import { EmptyState, LoadingState } from '../../src/components/Screen.tsx';
+import { HouseholdScreen } from '../../src/components/HouseholdScreen.tsx';
 import { rowFromHouseholdTask, TaskRow } from '../../src/components/TaskRow.tsx';
 import { useTaskWiring } from '../../src/components/useTaskWiring.tsx';
 import { useTheme } from '../../src/theme.ts';
@@ -47,6 +47,7 @@ function Tiles({
   readonly summary: TaskSummary;
 }): ReactNode {
   const theme = useTheme();
+  const { width, fontScale } = useWindowDimensions();
   const tiles = [
     {
       key: 'overdue',
@@ -87,7 +88,12 @@ function Tiles({
           onPress={() => router.navigate(tile.href)}
           style={[
             styles.tile,
-            { backgroundColor: theme.colors.surface, borderRadius: theme.radius.md },
+            (width < 360 || fontScale > 1.25) && styles.tileStacked,
+            {
+              backgroundColor: theme.colors.surface,
+              borderRadius: theme.radius.md,
+              borderColor: theme.colors.border,
+            },
           ]}
         >
           <Text
@@ -95,9 +101,7 @@ function Tiles({
           >
             {tile.value}
           </Text>
-          <Text numberOfLines={1} style={[styles.tileLabel, { color: theme.colors.textMuted }]}>
-            {tile.label}
-          </Text>
+          <Text style={[styles.tileLabel, { color: theme.colors.textMuted }]}>{tile.label}</Text>
         </Pressable>
       ))}
     </View>
@@ -118,7 +122,7 @@ function UpForGrabs({
   const theme = useTheme();
   const { locale } = useOdin();
   return (
-    <Surface>
+    <View>
       <PanelHeader
         actionLabel={tasks.length > 0 ? t('today.grabs.all', { count: tasks.length }) : undefined}
         onAction={() => router.navigate('/tasks?view=unassigned')}
@@ -130,7 +134,13 @@ function UpForGrabs({
         </Text>
       ) : (
         tasks.slice(0, GRAB_LIMIT).map((task) => (
-          <View key={task.id} style={[styles.grabRow, { borderTopColor: theme.colors.border }]}>
+          <View
+            key={task.id}
+            style={[
+              styles.grabRow,
+              { borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+            ]}
+          >
             <View style={styles.grabText}>
               <Text style={[styles.grabTitle, { color: theme.colors.text }]}>{task.title}</Text>
               <Text style={[styles.grabMeta, { color: theme.colors.textMuted }]}>
@@ -148,7 +158,7 @@ function UpForGrabs({
           </View>
         ))
       )}
-    </Surface>
+    </View>
   );
 }
 
@@ -157,7 +167,7 @@ function ListsPanel({ t }: { readonly t: Translator }): ReactNode {
   const home = useHomeQuery();
   const active = (home.data?.items ?? []).filter((item) => item.kind === 'active');
   return (
-    <Surface>
+    <View>
       <PanelHeader
         actionLabel={t('today.lists.all')}
         onAction={() => router.navigate('/lists')}
@@ -173,7 +183,10 @@ function ListsPanel({ t }: { readonly t: Translator }): ReactNode {
             accessibilityRole="link"
             key={list.id}
             onPress={() => router.push({ pathname: '/list/[id]', params: { id: list.id } })}
-            style={[styles.listRow, { borderTopColor: theme.colors.border }]}
+            style={[
+              styles.listRow,
+              { borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+            ]}
           >
             <View style={styles.listLine}>
               <Text style={[styles.listTitle, { color: theme.colors.text }]}>{list.title}</Text>
@@ -184,11 +197,14 @@ function ListsPanel({ t }: { readonly t: Translator }): ReactNode {
                 })}
               </Text>
             </View>
+            {list.subtitle !== null && (
+              <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>{list.subtitle}</Text>
+            )}
             <ProgressBar completed={list.completed_tasks} total={list.total_tasks} />
           </Pressable>
         ))
       )}
-    </Surface>
+    </View>
   );
 }
 
@@ -209,9 +225,9 @@ function MyTasksPanel({
   const theme = useTheme();
   const mine = groupMyTasksForToday(items, userId, now);
   return (
-    <Surface>
+    <View>
       <PanelHeader
-        actionLabel={t('today.mine.open_all')}
+        actionLabel={t('today.view_all')}
         onAction={() => router.navigate('/tasks?view=mine')}
         title={t('today.mine.heading')}
       />
@@ -246,14 +262,12 @@ function MyTasksPanel({
           </Text>
         </Pressable>
       )}
-    </Surface>
+    </View>
   );
 }
 
 export default function TodayScreen(): ReactNode {
   const { t, locale, user } = useOdin();
-  const theme = useTheme();
-  const nav = useNavVisibility();
   const query = useHouseholdTasksQuery();
   const home = useHomeQuery();
   const members = useMembersQuery().data ?? NO_MEMBERS;
@@ -267,15 +281,8 @@ export default function TodayScreen(): ReactNode {
   const unassigned = sortTasksByDue(filterTasks(items, { view: 'unassigned', userId }, now));
 
   return (
-    <Screen title={t('today.title')}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        onScroll={nav.onScroll}
-        scrollEventThrottle={16}
-      >
-        <Text style={[styles.date, { color: theme.colors.textMuted }]}>
-          {formatLongDate(now, locale)}
-        </Text>
+    <HouseholdScreen title={t('today.title')} subtitle={formatLongDate(now, locale)}>
+      <ScrollView contentContainerStyle={styles.content}>
         {query.isError && <LoadFailure onRetry={() => void query.refetch()} t={t} />}
         {wiring.errors}
 
@@ -296,27 +303,30 @@ export default function TodayScreen(): ReactNode {
 
       <NewTaskFab lists={home.data?.items ?? []} members={members} />
       {wiring.overlays}
-    </Screen>
+    </HouseholdScreen>
   );
 }
 
 const styles = StyleSheet.create({
   content: { gap: 16, paddingBottom: 16 },
-  date: { fontSize: 15, marginTop: -10 },
   grabMeta: { fontSize: 13 },
   grabRow: {
     alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    marginBottom: 8,
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   grabText: { flex: 1, minWidth: 0 },
-  grabTitle: { fontSize: 15, fontWeight: '500' },
+  grabTitle: { fontSize: 16, fontWeight: '500' },
   listLine: { flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
   listRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    marginBottom: 8,
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -330,8 +340,18 @@ const styles = StyleSheet.create({
   },
   moreText: { fontSize: 14, fontWeight: '600' },
   panelEmpty: { fontSize: 14, paddingBottom: 16, paddingHorizontal: 16 },
-  tile: { flexBasis: '47%', flexGrow: 1, gap: 2, padding: 12 },
-  tileLabel: { fontSize: 13 },
-  tileValue: { fontSize: 24, fontWeight: '700' },
+  tile: {
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    flexBasis: '47%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 64,
+    padding: 12,
+  },
+  tileStacked: { alignItems: 'flex-start', flexDirection: 'column', gap: 4 },
+  tileLabel: { flexShrink: 1, fontSize: 13 },
+  tileValue: { fontSize: 26, fontWeight: '700' },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

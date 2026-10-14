@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme.ts';
+import { useNavBarHeight } from './layout.ts';
 
 /** Android extended FAB for the primary create action on a screen. */
 export function FloatingActionButton({
@@ -16,6 +17,7 @@ export function FloatingActionButton({
 }): ReactNode {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const navHeight = useNavBarHeight();
 
   return (
     <Pressable
@@ -30,7 +32,7 @@ export function FloatingActionButton({
         {
           backgroundColor: theme.colors.accent,
           borderRadius: theme.radius.lg,
-          bottom: 88 + insets.bottom,
+          bottom: navHeight + 16 + insets.bottom,
           minHeight: 56,
           opacity: disabled ? 0.6 : 1,
         },

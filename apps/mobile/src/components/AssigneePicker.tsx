@@ -45,7 +45,7 @@ export function AssigneePicker({
         ]}
       >
         {avatar}
-        <Text style={{ color: theme.colors.text }}>{label}</Text>
+        <Text style={{ color: theme.colors.text, flexShrink: 1 }}>{label}</Text>
       </Pressable>
     );
   };
@@ -78,6 +78,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    maxWidth: '100%',
   },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wrapper: { gap: 6 },

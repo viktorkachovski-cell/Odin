@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   ScrollView,
@@ -8,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme.ts';
 
@@ -28,6 +30,8 @@ export function Sheet({
   readonly onClose: () => void;
 }): ReactNode {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  useEffect(() => () => Keyboard.dismiss(), []);
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible>
@@ -36,9 +40,16 @@ export function Sheet({
         style={styles.backdrop}
       >
         <View
+          accessibilityViewIsModal
+          onAccessibilityEscape={onClose}
           style={[
             styles.sheet,
-            { backgroundColor: theme.colors.background, borderColor: theme.colors.border },
+            {
+              backgroundColor: theme.colors.background,
+              borderColor: theme.colors.border,
+              paddingBottom: Math.max(16, insets.bottom),
+              maxHeight: '95%',
+            },
           ]}
         >
           <Text accessibilityRole="header" style={[styles.title, { color: theme.colors.text }]}>
@@ -57,7 +68,13 @@ export function Sheet({
 const styles = StyleSheet.create({
   backdrop: { backgroundColor: 'rgba(0,0,0,0.45)', flex: 1, justifyContent: 'flex-end' },
   body: { gap: 16, paddingBottom: 8 },
-  footer: { flexDirection: 'row', gap: 12, justifyContent: 'flex-end', paddingTop: 12 },
+  footer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'flex-end',
+    paddingTop: 12,
+  },
   sheet: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

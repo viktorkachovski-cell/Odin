@@ -17,7 +17,7 @@ import { useTheme } from '../theme.ts';
 import { ActionMenu } from './ActionMenu.tsx';
 import { ErrorBanner } from './Banner.tsx';
 import { GroupHeading } from './Blocks.tsx';
-import { NAV_BAR_HEIGHT } from './layout.ts';
+import { useNavBarHeight } from './layout.ts';
 import { rowFromTask, TaskRow } from './TaskRow.tsx';
 
 /** Row handlers a list screen passes; a template passes only `onPress`. */
@@ -206,6 +206,7 @@ export function QuickAddBar({
 }): ReactNode {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const navHeight = useNavBarHeight();
   const [title, setTitle] = useState('');
   const [issue, setIssue] = useState<string | undefined>(undefined);
   const submit = (): void => {
@@ -221,7 +222,7 @@ export function QuickAddBar({
         {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
-          bottom: NAV_BAR_HEIGHT + insets.bottom,
+          bottom: navHeight + insets.bottom,
         },
       ]}
     >

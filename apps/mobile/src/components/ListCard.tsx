@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { memo, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import type { Translator } from '@odin/i18n';
@@ -11,7 +11,7 @@ import { MoveButtons, ProgressBar } from './Blocks.tsx';
 import { AccentButton } from './Button.tsx';
 
 /**
- * One list on the Lists screen, as a compact row rather than a card: title,
+ * One list on the Lists screen: title,
  * subtitle, progress, and one overflow menu. A template shows how many tasks
  * it holds and offers Use template. In reorder mode the menu gives way to the
  * move controls, so the arrows are not on every row all the time.
@@ -50,7 +50,14 @@ function ListText({ list, t }: Pick<ListCardProps, 'list' | 't'>): ReactNode {
   const muted = [styles.sub, { color: theme.colors.textMuted }];
   return (
     <View style={styles.text}>
-      <Text style={[styles.title, { color: theme.colors.text }]}>{list.title}</Text>
+      <View style={styles.heading}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>{list.title}</Text>
+        {list.kind === 'active' && (
+          <Text accessible={false} style={[styles.chevron, { color: theme.colors.textMuted }]}>
+            ›
+          </Text>
+        )}
+      </View>
       {list.subtitle !== null && <Text style={muted}>{list.subtitle}</Text>}
       {list.notes !== null && (
         <Text numberOfLines={2} style={muted}>
@@ -79,14 +86,18 @@ export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode 
   const theme = useTheme();
   const template = list.kind === 'template';
   const reorder = props.reorder === true;
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 360 || fontScale > 1.25;
 
   return (
-    <View style={[styles.row, { borderTopColor: theme.colors.border }]}>
+    <View style={[styles.row, stacked && styles.stacked, { borderTopColor: theme.colors.border }]}>
       {template ? (
-        <ListText list={list} t={t} />
+        <View style={[styles.text, stacked && styles.fullWidth]}>
+          <ListText list={list} t={t} />
+        </View>
       ) : (
         <Link asChild href={{ pathname: '/list/[id]', params: { id: list.id } }}>
-          <Pressable accessibilityRole="link" style={styles.text}>
+          <Pressable accessibilityRole="link" style={[styles.text, stacked && styles.fullWidth]}>
             <ListText list={list} t={t} />
           </Pressable>
         </Link>
@@ -118,8 +129,10 @@ export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode 
 });
 
 const styles = StyleSheet.create({
+  stacked: { flexWrap: 'wrap' },
+  fullWidth: { flexBasis: '100%' },
   count: { fontSize: 13 },
-  progress: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
+  progress: { alignItems: 'center', flexDirection: 'row', gap: 12, marginTop: 8 },
   row: {
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -130,6 +143,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   sub: { fontSize: 13 },
-  text: { flex: 1, gap: 2, minWidth: 0 },
-  title: { fontSize: 16, fontWeight: '700' },
+  text: { flex: 1, gap: 4, justifyContent: 'center', minHeight: 64, minWidth: 0 },
+  heading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  chevron: { fontSize: 24 },
+  title: { flex: 1, fontSize: 18, fontWeight: '700' },
 });

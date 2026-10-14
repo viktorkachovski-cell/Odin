@@ -12,11 +12,19 @@ export function Screen({
   title,
   backLabel,
   onBack,
+  prominent = false,
+  eyebrow,
+  subtitle,
+  accessory,
 }: {
   readonly children: ReactNode;
   readonly title?: string | undefined;
   readonly backLabel?: string | undefined;
   readonly onBack?: (() => void) | undefined;
+  readonly prominent?: boolean;
+  readonly eyebrow?: string | undefined;
+  readonly subtitle?: string | undefined;
+  readonly accessory?: ReactNode;
 }): ReactNode {
   const theme = useTheme();
   const { user, online, realtimeHealthy, lastSyncedAt, t, locale } = useOdin();
@@ -27,6 +35,9 @@ export function Screen({
       style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
       <View style={styles.inner}>
+        {eyebrow !== undefined && (
+          <Text style={[styles.eyebrow, { color: theme.colors.textMuted }]}>{eyebrow}</Text>
+        )}
         {title !== undefined && (
           <View style={styles.topBar}>
             {onBack !== undefined && (
@@ -51,11 +62,15 @@ export function Screen({
             <Text
               accessibilityRole="header"
               numberOfLines={2}
-              style={[styles.title, { color: theme.colors.text }]}
+              style={[styles.title, prominent && styles.prominent, { color: theme.colors.text }]}
             >
               {title}
             </Text>
+            {accessory}
           </View>
+        )}
+        {subtitle !== undefined && (
+          <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>{subtitle}</Text>
         )}
         {user !== null && (
           <StaleBanner
@@ -102,5 +117,8 @@ const styles = StyleSheet.create({
   empty: { fontSize: 15, textAlign: 'center' },
   inner: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   title: { flex: 1, fontSize: 24, fontWeight: '700' },
+  prominent: { fontSize: 30 },
+  eyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  subtitle: { fontSize: 14, marginBottom: 16 },
   topBar: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 12, minHeight: 48 },
 });

@@ -79,6 +79,11 @@ matching view, so links, bookmarks and notification taps still land.
   local day; Upcoming starts tomorrow; a range includes both local dates, and
   an invalid or reversed range cannot be applied. Rows are grouped Overdue,
   Today, Upcoming, No deadline, Done. On web the filters live in the URL.
+  On Android, approved 2026-10-13, the deadline choices, Blocked only and
+  Everyone's Show done live in a Filters sheet. Apply commits the whole draft;
+  Cancel or Android Back discards it. Reset changes the sheet draft, and Clear
+  filters clears applied deadline/Blocked/Show done while retaining ownership
+  and search. The visible result count reflects the current search and filters.
 - **Lists** has Active and Templates tabs. A template is used from its row or,
   on web, from the New list menu. Save as template sits in the list's menu and
   a short toast confirms it.
@@ -96,9 +101,20 @@ matching view, so links, bookmarks and notification taps still land.
   same confirmation. Template tasks open read-only.
 - **New task** on Today and Tasks opens the task editor with a list picker. The
   task still belongs to exactly one active list.
+  On Android the title and parent list lead. Assignment, deadline, notes and
+  task-template actions sit in an expandable section, initially collapsed for
+  new tasks and expanded for existing tasks. Collapsing never clears fields;
+  validation expands hidden errors. A failed save or conflict retains the draft.
 - **List detail** has a quick add (title only; details from the editor), keeps
   completed tasks collapsed behind a count, and puts Edit, Save as template,
   Reorder (Android) and Delete in one menu. An empty list reads "No tasks yet".
+
+Android's four tabs remain visible while scrolling, following approval of the
+mobile review on 2026-10-13. Today distinguishes household counts from My tasks,
+offers a profile shortcut, and shows individual task cards with separate list,
+deadline and assignment lines. Shared views display assignee names (You for the
+current member); Today omits repeated ownership in My tasks. Notes remain in
+the editor and searchable. Narrow web navigation keeps its existing behavior.
 
 ## Templates
 

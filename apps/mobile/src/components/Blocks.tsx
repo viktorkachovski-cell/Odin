@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { MOVE_DIRECTIONS, type MoveDirection } from '@odin/contracts';
 import { progressPercent, type TaskGroup } from '@odin/domain';
@@ -19,7 +19,11 @@ export function Surface({ children }: { readonly children: ReactNode }): ReactNo
     <View
       style={[
         styles.surface,
-        { backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg },
+        {
+          backgroundColor: theme.colors.surface,
+          borderRadius: theme.radius.lg,
+          borderColor: theme.colors.border,
+        },
       ]}
     >
       {children}
@@ -74,11 +78,14 @@ export function Segmented<K extends string>({
   readonly onChange: (key: K) => void;
 }): ReactNode {
   const theme = useTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 400 && fontScale > 1.25;
   return (
     <View
       accessibilityRole="tablist"
       style={[
         styles.segmented,
+        stacked && styles.segmentsStacked,
         { backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.md },
       ]}
     >
@@ -86,18 +93,21 @@ export function Segmented<K extends string>({
         const selected = option.key === value;
         return (
           <Pressable
+            accessibilityLabel={
+              option.count === undefined ? option.label : `${option.label}, ${String(option.count)}`
+            }
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             key={option.key}
             onPress={() => onChange(option.key)}
             style={[
               styles.segment,
-              { borderRadius: theme.radius.md - 2, minHeight: theme.touchTarget - 6 },
+              { borderRadius: theme.radius.md - 2, minHeight: theme.touchTarget },
+              stacked && styles.segmentStacked,
               selected && { backgroundColor: theme.colors.surface, elevation: 1 },
             ]}
           >
             <Text
-              numberOfLines={1}
               style={[
                 styles.segmentText,
                 { color: theme.colors.text },
@@ -228,9 +238,11 @@ export function MoveButtons({
 export function GroupHeading({
   label,
   danger = false,
+  inset = true,
 }: {
   readonly label: string;
   readonly danger?: boolean;
+  readonly inset?: boolean;
 }): ReactNode {
   const theme = useTheme();
   return (
@@ -238,10 +250,11 @@ export function GroupHeading({
       accessibilityRole="header"
       style={[
         styles.groupHeading,
+        !inset && { paddingHorizontal: 0 },
         { color: danger ? theme.colors.danger : theme.colors.textMuted },
       ]}
     >
-      {label.toLocaleUpperCase()}
+      {label}
     </Text>
   );
 }
@@ -261,6 +274,7 @@ export function TaskGroups<T>({
       {groups.map(({ group, tasks }) => (
         <View key={group}>
           <GroupHeading
+            inset={false}
             danger={group === 'overdue'}
             label={`${t(`tasks.group.${group}`)} · ${String(tasks.length)}`}
           />
@@ -280,8 +294,7 @@ const styles = StyleSheet.create({
   groupHeading: {
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.6,
-    paddingBottom: 4,
+    paddingBottom: 8,
     paddingHorizontal: 16,
     paddingTop: 12,
   },
@@ -291,15 +304,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 6,
   },
-  panelTitle: { fontSize: 17, fontWeight: '700' },
+  panelTitle: { flex: 1, fontSize: 20, fontWeight: '700' },
   segment: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 8 },
-  segmentText: { fontSize: 14, fontWeight: '500' },
+  segmentText: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    maxWidth: '100%',
+    textAlign: 'center',
+  },
+  segmentsStacked: { flexDirection: 'column' },
+  segmentStacked: { flex: 0, paddingVertical: 8 },
   segmentTextSelected: { fontWeight: '700' },
   segmented: { flexDirection: 'row', gap: 2, padding: 3 },
   surface: {
+    borderWidth: StyleSheet.hairlineWidth,
     elevation: 1,
     overflow: 'hidden',
     shadowColor: '#1f1a11',

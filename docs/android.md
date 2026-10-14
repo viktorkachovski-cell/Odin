@@ -8,11 +8,11 @@ app _does_ is `features.md`; this file is how Android does it.
 
 | Choice           | Version         | Why                                                          |
 | ---------------- | --------------- | ------------------------------------------------------------ |
-| Expo SDK         | 57.0.27         | SDK 57 patch required by Expo Doctor                         |
+| Expo SDK         | 57.0.28         | SDK 57 patch required by Expo Doctor                         |
 | React Native     | 0.86.3          | Prescribed by SDK 57                                         |
 | React            | 19.2.3          | Prescribed by SDK 57                                         |
 | Expo Router      | 57.0.25         | File-based routing, as the brief requires                    |
-| Jest + jest-expo | 29.7.0 / 57.0.5 | React Native ships untranspiled source; Vitest cannot run it |
+| Jest + jest-expo | 29.7.0 / 57.0.6 | React Native ships untranspiled source; Vitest cannot run it |
 
 React Native's renderer is built against one React version, so the whole
 workspace, web included, takes the version the SDK prescribes through the root
@@ -79,11 +79,10 @@ repositories and query keys.
   says it is offline rather than spinning. A still-running reachability probe
   is not treated as offline. Reads go stale after five minutes; realtime hints
   and reconciles cover the rest.
-- **Bottom navigation** hides on downward scroll and reveals on upward scroll,
-  and stays visible at the top of the content, at the end of it, while a screen
-  pins it, and when the system reduce-motion setting is on. That last case is an
-  accessibility accommodation, recorded here for product review rather than
-  applied silently.
+- **Bottom navigation** remains visible while scrolling, approved in the
+  2026-10-13 mobile review. There is no scroll listener or navigation animation.
+  Tabs, floating actions, list quick add and content spacers share a height
+  calculation that accommodates system text size and bottom safe-area insets.
 - **`src/state/`, not `src/app/`.** Expo Router treats a `src/app` directory as
   the routes root.
 
@@ -138,7 +137,7 @@ in `features.md`.
   dependency.
 - Extended floating action buttons for the primary create action on Today
   (New task), Tasks (New task) and Lists (New list). List detail has a quick
-  add docked above the navigation instead, and pins the navigation visible.
+  add docked above the persistent navigation instead.
 - Secondary task and list actions use Android overflow controls and modal
   bottom menus rather than rows of desktop buttons.
 - Task-template selection uses a scrollable bottom picker, so long titles and a
@@ -257,14 +256,20 @@ service-role key into an `EXPO_PUBLIC_` variable. The `eas-build-pre-install`
 hook validates that both values target the hosted Odin project and fails the
 remote build before dependency installation if they are missing or wrong.
 
+The production profile creates an installable APK with internal distribution,
+continuing the existing release route. Keep the existing EAS-managed signing
+credentials (`--freeze-credentials`); do not mint another app identity or key.
+`EXPO_PUBLIC_WEB_ORIGIN` in that environment must point at
+`https://odin-ten-tau.vercel.app` so copied invitations open the web flow.
+
 ## Owner decisions still required
 
 These are proposals, not settled product scope (`docs/decisions.md` item 5):
 
 | Topic                | Proposed                       | Needs                                                                                                                                                                                          |
 | -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package identifier   | `app.odin.household`           | Owner approval before any store listing or signed build                                                                                                                                        |
-| Distribution         | Private APK first              | Owner choice; no keystore exists and none may be committed                                                                                                                                     |
+| Package identifier   | `app.odin.household`           | Existing EAS APK identity retained for the approved 2026-10-13 release; store listing remains separate                                                                                         |
+| Distribution         | Private APK                    | Existing internal builds verified on EAS on 2026-10-13; production profile now creates APKs with existing managed signing. No signing material may be committed                                |
 | Invitation link base | `EXPO_PUBLIC_WEB_ORIGIN`       | **Settled**: point it at the deployed web client, `https://odin-ten-tau.vercel.app`. Left unset, links fall back to `odin://invite`, which is useless to a recipient without the app installed |
 | Deep links           | `odin://invite#token=…` scheme | Verified Android App Links need a domain and `assetlinks.json`                                                                                                                                 |
 

@@ -17,7 +17,7 @@
 
 One active household per account in MVP; equal task permissions for every member; at most one task assignee; deadlines only on tasks. Any member may create, assign, reassign, claim, complete or reopen tasks. Template copying copies text/order only and resets ownership, deadlines and completion. Templates and active lists remain independent.
 
-Scrolling hides/reveals the bottom navigation. The Mine and Unassigned views exclude completed/template tasks. Empty-list progress is 0 percent. The source Home screen and its question-mark/person controls were replaced on 2026-10-11; see below.
+Scrolling hides/reveals narrow web navigation. Android's navigation stays visible by the 2026-10-13 amendment below. The Mine and Unassigned views exclude completed/template tasks. Empty-list progress is 0 percent. The source Home screen and its question-mark/person controls were replaced on 2026-10-11; see below.
 
 Outside this MVP: automatic recurrence, threaded comments, attachments, subtasks, calendars, rewards and a cross-household admin panel. Tasks have one shared editable notes field, not an authored discussion thread. Notifications left this list on 2026-09-22 and list/task removal on 2026-09-21; see the amendments below.
 
@@ -58,6 +58,29 @@ source Home and navigation (FR 03–04, FR 21):
   icon beside the title into the list's menu.
 
 Hide-on-scroll navigation on narrow web and Android is unchanged.
+
+## Android design review — approved 2026-10-13
+
+The owner selected Android only, retained the ivory/oak/green palette, reviewed
+`design-preview/odin-mobile-review.html`, and approved implementation, testing
+and deployment. This supersedes Android's hide-on-scroll choice above:
+
+- Four persistent Android tabs, with safe-area and large-text space shared by
+  the tabs, floating create action and list quick add.
+- A Filters sheet replaces the horizontal Android deadline rail. Selection
+  applies explicitly, cancellation discards changes, and active filters can be
+  cleared. The filter meanings and shared calculations are unchanged.
+- Title and parent list lead new-task entry; optional details and task-template
+  actions expand together. Existing tasks open expanded, and hidden invalid
+  fields reopen automatically. Draft/conflict behavior remains intact.
+- Separate task cards and clearer metadata trade density for easier scanning.
+  Task notes remain editable/searchable rather than appearing in every row.
+
+The release follows the existing installable private APK route under
+`app.odin.household`, using EAS-managed signing and the production profile and
+environment. No Play Store listing, new application identity, permission model,
+backend contract or web layout was requested. The device verification gap
+remains recorded in `known-risks.md`.
 
 ## Proposed implementation defaults
 
@@ -102,11 +125,8 @@ judgement:
 - **Persistent desktop navigation.** Better for mouse and keyboard than
   hide-on-scroll, and currently shipped on desktop while narrow viewports keep
   the source behaviour. Recorded as an adaptation, pending approval.
-- **Hide-on-scroll navigation** can make navigation harder to find. Consider
-  always-visible navigation as a later tested revision; at minimum review the
-  focus and reduced-motion accommodations. Android already keeps the bar
-  visible under system reduce-motion, which is an accessibility accommodation
-  recorded for review rather than applied silently.
+- **Hide-on-scroll navigation on narrow web** remains open for review.
+  **Android settled 2026-10-13:** persistent tabs, as approved above.
 - ~~**Collapsing completed tasks**~~ — **settled 2026-10-11**: list detail
   collapses them behind a count, kept in the totals (see above).
 - **FR 27 read-only template preview** is optional and unimplemented. It must

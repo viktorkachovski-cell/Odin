@@ -1,14 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useListActions } from '@odin/data';
 import { sortTasksInList } from '@odin/domain';
 
-import { useNavVisibility } from '../../../src/state/NavVisibility.tsx';
 import { useOdin } from '../../../src/state/OdinContext.ts';
 import { NO_MEMBERS, useListQuery, useMembersQuery } from '../../../src/state/queries.ts';
-import { Surface } from '../../../src/components/Blocks.tsx';
 import { NavSpacer } from '../../../src/components/BottomNav.tsx';
 import { InlineError } from '../../../src/components/Banner.tsx';
 import { SecondaryButton } from '../../../src/components/Button.tsx';
@@ -33,7 +31,6 @@ import { useTaskWiring } from '../../../src/components/useTaskWiring.tsx';
 export default function ListDetailScreen(): ReactNode {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, locale, client } = useOdin();
-  const nav = useNavVisibility();
   const list = useListQuery(id);
   const members = useMembersQuery().data ?? NO_MEMBERS;
   const isTemplate = list.data?.list.kind === 'template';
@@ -49,13 +46,6 @@ export default function ListDetailScreen(): ReactNode {
     templateSaved: () => showToast(t('toast.template_saved')),
     deleted: () => router.replace('/lists'),
   });
-
-  // The quick add sits on the navigation, so the navigation stays put here.
-  const { pin } = nav;
-  useEffect(() => {
-    pin(true);
-    return () => pin(false);
-  }, [pin]);
 
   if (list.isPending) return <LoadingState />;
   if (list.data === undefined) {
@@ -122,7 +112,7 @@ export default function ListDetailScreen(): ReactNode {
         {ordered.length === 0 ? (
           <EmptyState label={t('list.empty')} />
         ) : (
-          <Surface>
+          <View>
             <ListTasks
               busy={wiring.actions.busy}
               handlers={wiring.handlers}
@@ -134,7 +124,7 @@ export default function ListDetailScreen(): ReactNode {
               t={t}
               tasks={ordered}
             />
-          </Surface>
+          </View>
         )}
 
         <NavSpacer />

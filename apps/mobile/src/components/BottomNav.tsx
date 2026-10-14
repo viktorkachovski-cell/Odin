@@ -1,12 +1,13 @@
 import { usePathname, useRouter } from 'expo-router';
-import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { TranslationKey, Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
 import { NavIcon, type NavIconName } from './NavIcon.tsx';
+import { useNavBarHeight } from './layout.ts';
 
 /** Four destinations: Today, Tasks, Lists and Settings. Tasks carries the member's open-task count. */
 
@@ -30,36 +31,22 @@ function isActive(href: NavItem['href'], pathname: string): boolean {
   return pathname === href;
 }
 
-const HIDDEN_OFFSET = 96;
-
 export function BottomNav({
-  visible,
   t,
-  onFocusEnter,
   badge = 0,
 }: {
-  readonly visible: boolean;
   readonly t: Translator;
   /** Open tasks assigned to the member, shown on the Tasks tab. */
   readonly badge?: number;
-  readonly onFocusEnter?: (() => void) | undefined;
 }): ReactNode {
   const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(translateY, {
-      toValue: visible ? 0 : HIDDEN_OFFSET,
-      duration: 160,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, translateY]);
+  const height = useNavBarHeight();
 
   return (
-    <Animated.View
+    <View
       accessibilityRole="tablist"
       accessibilityLabel={t('nav.primary')}
       style={[
@@ -68,7 +55,7 @@ export function BottomNav({
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
           paddingBottom: insets.bottom,
-          transform: [{ translateY }],
+          height: height + insets.bottom,
         },
       ]}
     >
@@ -78,14 +65,15 @@ export function BottomNav({
         const color = active ? theme.colors.accent : theme.colors.textMuted;
         const count = item.href === '/tasks' && badge > 0 ? badge : null;
         return (
-          // Focus entering the navigation reveals it, per the source behaviour.
           <Pressable
             accessibilityLabel={count === null ? label : `${label}, ${String(count)}`}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             key={item.href}
-            onFocus={onFocusEnter}
-            onPress={() => router.navigate(item.href)}
+            onPress={() => {
+              Keyboard.dismiss();
+              router.navigate(item.href);
+            }}
             style={[styles.item, { minHeight: theme.touchTarget }]}
           >
             <View
@@ -110,12 +98,14 @@ export function BottomNav({
           </Pressable>
         );
       })}
-    </Animated.View>
+    </View>
   );
 }
 
 export function NavSpacer(): ReactNode {
-  return <View style={styles.spacer} />;
+  const height = useNavBarHeight();
+  const insets = useSafeAreaInsets();
+  return <View style={{ height: height + insets.bottom + 80 }} />;
 }
 
 const styles = StyleSheet.create({
@@ -131,10 +121,11 @@ const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
     borderRadius: 9,
-    height: 18,
+    minHeight: 18,
     justifyContent: 'center',
     minWidth: 18,
     paddingHorizontal: 4,
+    paddingVertical: 1,
     position: 'absolute',
     right: 6,
     top: -4,
@@ -144,5 +135,4 @@ const styles = StyleSheet.create({
   pill: { alignItems: 'center', height: 30, justifyContent: 'center', width: 56 },
   item: { alignItems: 'center', flex: 1, gap: 2, justifyContent: 'center', paddingHorizontal: 4 },
   label: { fontSize: 12 },
-  spacer: { height: 96 },
 });

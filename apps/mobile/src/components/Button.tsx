@@ -102,8 +102,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  accentLabel: { fontSize: 14, fontWeight: '700' },
-  base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  body: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  label: { fontSize: 16, fontWeight: '500', textAlign: 'center' },
+  accentLabel: { flexShrink: 1, fontSize: 14, fontWeight: '700' },
+  base: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  body: { alignItems: 'center', flexDirection: 'row', gap: 8, maxWidth: '100%' },
+  label: { flexShrink: 1, fontSize: 16, fontWeight: '500', textAlign: 'center' },
 });
