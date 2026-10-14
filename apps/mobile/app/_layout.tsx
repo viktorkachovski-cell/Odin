@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { configureRequestIdGenerator, createOdinClient, type OdinSupabaseClient } from '@odin/data';
 
+import { AppearanceProvider, useAppearance } from '../src/state/AppearanceProvider.tsx';
 import { OdinProvider } from '../src/state/OdinProvider.tsx';
 import { InvalidEnvError, MissingEnvError, readEnv } from '../src/env.ts';
 import { createSecureSessionStorage } from '../src/session-storage.ts';
@@ -77,6 +78,14 @@ function ConfigurationRequired({
   );
 }
 
+/** Status bar icons contrast with the chosen palette, not only Android's. */
+const STATUS_BAR_STYLE = { system: 'auto', light: 'dark', dark: 'light' } as const;
+
+function ThemedStatusBar(): ReactNode {
+  const { preference } = useAppearance();
+  return <StatusBar style={STATUS_BAR_STYLE[preference]} />;
+}
+
 export default function RootLayout(): ReactNode {
   if (!started.ok) {
     return <ConfigurationRequired detail={started.detail} variables={started.variables} />;
@@ -85,10 +94,12 @@ export default function RootLayout(): ReactNode {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <OdinProvider client={started.client}>
-          <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }} />
-        </OdinProvider>
+        <AppearanceProvider>
+          <OdinProvider client={started.client}>
+            <ThemedStatusBar />
+            <Stack screenOptions={{ headerShown: false }} />
+          </OdinProvider>
+        </AppearanceProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

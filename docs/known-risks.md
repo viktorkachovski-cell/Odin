@@ -241,7 +241,15 @@ build 3 re-sorts the household read on the device with the old list-ID
 tie-breaker, so undated tasks can appear in a different order on a phone than
 on the web, and Android has no Delete done and can still show two members in
 one colour. Nothing is lost or corrupted; the server order and data are the
-same for both. Building and distributing APK build 4 closes it.
+same for both.
+
+Build 3 also renders the Lists tab badly: each list title wraps a few
+characters per line beside its menu, and the progress bar disappears (fixed in
+source on 2026-10-14, see `android.md`). It has no appearance setting either,
+so a phone in dark mode always shows the dark palette. Both are presentation
+only; lists still open and their counts are right.
+
+Building and distributing APK build 4 closes it.
 
 ## Accepted, not tracked
 

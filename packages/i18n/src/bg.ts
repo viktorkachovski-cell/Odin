@@ -149,6 +149,11 @@ export const bg: Record<TranslationKey, string> = {
   'settings.language.label': 'Език на интерфейса',
   'settings.language.note':
     'Промяната никога не превежда текста, въведен от вас или от останалите.',
+  'settings.appearance.label': 'Тема',
+  'settings.appearance.system': 'Като устройството',
+  'settings.appearance.light': 'Светла',
+  'settings.appearance.dark': 'Тъмна',
+  'settings.appearance.note': 'Важи само за това устройство.',
   'settings.save': 'Запази промените',
   'settings.saved': 'Запазено',
   'settings.members.heading': 'Членове',

@@ -124,6 +124,14 @@ deadline and assignment lines. Shared views display assignee names (You for the
 current member); Today omits repeated ownership in My tasks. Notes remain in
 the editor and searchable. Narrow web navigation keeps its existing behavior.
 
+**Appearance (Android, added 2026-10-14).** Settings offers Match device, Light
+and Dark. Match device is the default and keeps the earlier behaviour of
+following Android's dark mode; Light restores the ivory/oak/green palette on a
+phone set to dark. The choice belongs to the device, like the notification
+mute: it is kept in the keystore, survives sign-out and never travels on the
+profile. The web client still follows the browser's colour scheme and has no
+switch.
+
 ## Templates
 
 Templates are **two separate types that never mix**.

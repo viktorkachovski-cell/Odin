@@ -150,6 +150,20 @@ in `features.md`.
 - Confirmations such as a saved template use an Android toast.
 - Touch targets stay at least 48 dp, every control carries a TalkBack label,
   and English/Bulgarian text is shared with web.
+- **Appearance** is `src/state/AppearanceProvider.tsx`. `useTheme` reads the
+  member's choice from it and falls back to `useColorScheme` only for Match
+  device, so a pick repaints at once instead of waiting for Android's
+  configuration change. The provider also calls `Appearance.setColorScheme`
+  so the status bar, native alerts and the date picker agree with the screens.
+  The keystore read is asynchronous, so a cold start can show the device's
+  scheme for a moment before a saved choice applies.
+- **No `Link asChild` around a styled Pressable.** Expo Router's Slot spreads
+  the child's `style` as an object, so a style array reaches the Pressable as
+  `{0: …, 1: …}` in a release build and is ignored. Lists rows lost their flex
+  that way in APK build 3 and titles wrapped a few characters per line. Rows
+  navigate with `router.push` from a plain Pressable, and the Jest double for
+  Expo Router cannot reproduce the Slot, so the ListCard test asserts the
+  resolved style.
 
 ## Lists, templates and notes on Android
 
