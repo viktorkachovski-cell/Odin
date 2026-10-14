@@ -245,3 +245,47 @@ EAS project's production environment. It was missing during the release
 preflight. The production Supabase URL and publishable-key validation already
 passed; their values were not printed or changed. No database or authentication
 setting changed. APK build/distribution evidence will be recorded separately.
+
+## 2026-10-14 — Approved Android UI released as APK build 3
+
+Source `78c71ae83dfbacfce42378a8a327c86aa47c1782` implements the owner-approved
+mobile review. Quality run
+[`38530054974`](https://github.com/viktorkachovski-cell/Odin/actions/runs/38530054974)
+passed lint/formatting, typechecks, unit/component tests, web build and Android
+checks. Database run
+[`38530055149`](https://github.com/viktorkachovski-cell/Odin/actions/runs/38530055149)
+also passed on that exact commit. Local checks passed 402 tests, Expo Doctor
+21/21, and Android/web exports; detailed evidence and limits are in
+`android-ui-acceptance-2026-10-14.md`.
+
+EAS build
+[`361edb0a-e48c-4d98-9b78-e812eab303de`](https://expo.dev/accounts/vkachovski/projects/odin/builds/361edb0a-e48c-4d98-9b78-e812eab303de)
+finished successfully at 07:56:25 UTC using `production` profile/environment,
+internal APK distribution, existing managed signing and the verified Odin
+backend. Version `0.1.0`, Android version code `3`, package `app.odin.household`.
+The remote version code incremented from 2 to 3; no signing credentials were
+created or replaced.
+
+[Installable APK](https://expo.dev/artifacts/eas/klegYft6gnlsKKEaEojbyH0cbl92c2NhmP63i3i9yHI.apk)
+(100,372,799 bytes). Downloaded and independently inspected with Android SDK
+`apksigner` and `aapt`:
+
+- APK SHA-256: `8709ae1570441b0595ff80a9d793e646ed02825a2cb8a30227ca09751b5856b0`.
+- Signing certificate SHA-256: `77192931dff86976e45318cbc79f79ea4b9ef2f4dc0b71f597cd2fcf5ab1952d`,
+  identical to the previous APK from EAS build
+  `330c1a01-7b9e-4636-b9a2-e5dd734208fb`.
+- Manifest independently confirms package/version code, minimum API 24 and target
+  API 36. Permission set matches the previous APK exactly.
+
+The release branch is promoted to `main` with documentation-only release records.
+The Git integration also reported a successful Vercel preview for the source
+commit (`G7acdewTwQ2gQ7Shvuv7juojDMxM`); promotion may automatically rebuild the
+website and release-record follow-ups. No web-layout, backend API, migration,
+authentication setting or hosted database content changed in this release.
+
+This is private APK distribution, not a Play Store release or proof that an
+installed phone updated. Installed-device acceptance, notification delivery and
+device performance remain unverified. Rollback requires restoring the previous
+UI source and building an APK with the same signing certificate and a **higher**
+version code; Android normally rejects reinstalling build 2 over build 3. No
+database rollback is needed.

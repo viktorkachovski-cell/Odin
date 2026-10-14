@@ -63,6 +63,14 @@ Target: existing EAS project `89497d60-803b-4a7d-8583-dfd3903166a5`, package
 existing managed signing credentials. Release SHA, CI checks, build ID, version
 and download link are appended to `deployment-log.md` after completion.
 
+Completed: EAS build `361edb0a-e48c-4d98-9b78-e812eab303de`, version `0.1.0` /
+code `3`, built source `78c71ae83dfbacfce42378a8a327c86aa47c1782`. The final native
+build passed. The downloaded APK's signature verifies, its certificate matches
+the prior APK, its manifest confirms the intended package/version and API
+24–36 configuration, and it requests exactly the same permissions. Quality and
+Database CI both passed for the source commit. See the deployment log for the
+installation link, hashes, build evidence and rollback procedure.
+
 No Android device is connected and no AVD is configured. Installed-device visual,
 TalkBack, keyboard/date-picker, notification delivery, two-member production
 acceptance and performance remain unverified. Existing accepted device deferral,

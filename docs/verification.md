@@ -116,9 +116,11 @@ Measure Today, Lists and List Detail usable-data time at the 75th percentile aga
 
 ## Device verification — deferred
 
-No Android binary has been built or installed: this environment has no Android
-SDK, emulator or device, and an export is not an installation. Deferred by
-owner decision of 2026-09-22 and tracked in the accepted section of
+The 2026-10-14 release has a signed EAS APK with independent signature, manifest
+and permission verification, recorded in `deployment-log.md`. Android SDK tools
+are available, but no device is connected and no AVD is configured. No installed
+acceptance is recorded for this release; an APK is not a device test. Deferred
+by owner decision of 2026-09-22 and tracked in the accepted section of
 `known-risks.md` rather than as an open risk. A device pass would have to cover:
 
 1. `npx expo run:android` or an EAS build, installed on a device or emulator.

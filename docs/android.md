@@ -264,7 +264,9 @@ credentials (`--freeze-credentials`); do not mint another app identity or key.
 
 ## Owner decisions still required
 
-These are proposals, not settled product scope (`docs/decisions.md` item 5):
+The private APK route and existing identity were retained for the approved
+release. Store distribution and a tested OS/device matrix remain separate
+decisions (`docs/decisions.md` item 5):
 
 | Topic                | Proposed                       | Needs                                                                                                                                                                                          |
 | -------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -279,8 +281,9 @@ undone by accident.
 
 ## Device verification
 
-Nothing in the Android client has run on an emulator or a physical device; an
-export is not an installation. Device verification is deferred by owner
+Installed-device acceptance is not recorded for the 2026-10-14 release. A signed
+APK is available and its signature and manifest were independently verified;
+that is not an installation or a TalkBack/keyboard/device test. Verification is deferred by owner
 decision of 2026-09-22 (accepted section of `known-risks.md`), and what a
 device pass must cover is listed in `verification.md`. Revisit it before any
 release claim or store listing.
