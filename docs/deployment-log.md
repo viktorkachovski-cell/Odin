@@ -289,3 +289,16 @@ device performance remain unverified. Rollback requires restoring the previous
 UI source and building an APK with the same signing certificate and a **higher**
 version code; Android normally rejects reinstalling build 2 over build 3. No
 database rollback is needed.
+
+Post-promotion verification: `main` at
+`0635f94b60caee46dd6ae12e5f1d1ce929a1d563` differs from the APK source only in
+release documentation. Quality
+[`38532022841`](https://github.com/viktorkachovski-cell/Odin/actions/runs/38532022841)
+and Database
+[`38532022840`](https://github.com/viktorkachovski-cell/Odin/actions/runs/38532022840)
+both passed. GitHub's Vercel integration reported **Production / success** for
+deployment `7060049890`, with
+[`9iTpd5ESYGFs4XHaqbV8HbSVFngo`](https://vercel.com/viktor-kachovski-s-projects/odin/9iTpd5ESYGFs4XHaqbV8HbSVFngo)
+as the provider deployment. This confirms the automatic rebuild, not an
+authenticated browser acceptance run. Subsequent release-record commits contain
+documentation only and may trigger the same automatic rebuild process.
