@@ -87,7 +87,8 @@ matching view, so links, bookmarks and notification taps still land.
   and search. The visible result count reflects the current search and filters.
 - **Lists** has Active and Templates tabs. A template is used from its row or,
   on web, from the New list menu. Save as template sits in the list's menu and
-  a short toast confirms it.
+  a short toast confirms it. Tapping a template opens it like a list; Use
+  template is a separate control, so using a template never also opens it.
 - **Reordering is a mode.** Up/down controls appear only after choosing
   Reorder, on Lists and on list detail.
 - **Task rows show exceptions, not defaults.** A status label appears only for
@@ -99,7 +100,8 @@ matching view, so links, bookmarks and notification taps still land.
   Android). The draft is pinned to the version it was opened at, so a refetch
   while editing cannot move the save onto a newer version; a conflict keeps the
   draft and offers a review. Delete is available from the editor, behind the
-  same confirmation. Template tasks open read-only.
+  same confirmation. A template task opens a text-only editor: title and
+  notes, no assignee or deadline.
 - **New task** on Today and Tasks opens the task editor with a list picker. The
   task still belongs to exactly one active list.
   On Android the title and parent list lead. Assignment, deadline, notes and
@@ -148,6 +150,26 @@ Templates are **two separate types that never mix**.
   list.
 - The Lists screen's Templates tab shows list templates only. The task
   editor's actions say "task template".
+
+### Editing a list template
+
+Added 2026-10-14 at the owner's request (`decisions.md`). A template opens from
+the Templates tab into the same detail screen as a list, and is edited with
+the same commands:
+
+- **Its own text.** Edit list changes the title, subtitle and note
+  (`update_list` / `update_list_v2`), with the usual version check.
+- **Its tasks.** Quick add appends a task; opening a task edits its title and
+  notes; Delete removes it; Reorder moves it. Nothing else applies: a template
+  task never has an assignee, a deadline, completion or Blocked, so the editor
+  hides those fields, rows show no checkbox or Claim, and the server refuses an
+  assignee or deadline on a template task with `VALIDATION`
+  (`error.template_task_runtime`).
+- **What stays active-list only.** Claim, Done, Blocked, Delete done and Save
+  as list template. A template has no progress bar.
+- **Copies are unaffected.** Use template copies the template as it is now;
+  lists already made from it do not change, and editing a list never changes
+  the template it came from.
 
 ### Saving a list as a template
 
@@ -228,7 +250,8 @@ R9 in `known-risks.md`.
   Nothing in either client lists, restores or purges an archived row — that is
   risk R2 in `known-risks.md`.
 
-- **Tasks.** "Delete" permanently removes a task from an active, open list. It
+- **Tasks.** "Delete" permanently removes a task from an open list of either
+  kind. It
   requires the current task version, so a stale screen gets a conflict instead
   of deleting a newer edit.
 

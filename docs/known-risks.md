@@ -231,25 +231,19 @@ Worklets, so it only installs with `--legacy-peer-deps`, which
 `code-standards.md` forbids. Upgrade when Expo tags SDK 58 as `latest` and React
 Native 0.88.0 is final.
 
-### R14 — Android APK build 3 predates the 2026-10-14 task housekeeping
+### R14 — Installed Android builds cannot edit templates
 
-**Severity: low. Opened 2026-10-14.**
+**Severity: low. Opened 2026-10-14, revised the same day.**
 
-The chronological tie-breaker, Delete done and household-unique avatar colours
-reach the web on deploy but reach Android only with a new APK. Until then,
-build 3 re-sorts the household read on the device with the old list-ID
-tie-breaker, so undated tasks can appear in a different order on a phone than
-on the web, and Android has no Delete done and can still show two members in
-one colour. Nothing is lost or corrupted; the server order and data are the
-same for both.
+The owner built and installed APK build 4 on 2026-10-14 and reported the Lists
+rows and appearance setting working; that closes what this entry first
+recorded (the task housekeeping, the collapsed Lists rows and the missing
+appearance setting). The report is the owner's; no device run is recorded here.
 
-Build 3 also renders the Lists tab badly: each list title wraps a few
-characters per line beside its menu, and the progress bar disappears (fixed in
-source on 2026-10-14, see `android.md`). It has no appearance setting either,
-so a phone in dark mode always shows the dark palette. Both are presentation
-only; lists still open and their counts are right.
-
-Building and distributing APK build 4 closes it.
+Editable templates (`features.md`) reach the web on deploy but reach Android
+only with a new APK. Until then an installed build cannot open a template at
+all, which is how the gap was reported. Nothing is lost; the web client edits
+the same template once deployed. Building and installing APK build 5 closes it.
 
 ## Accepted, not tracked
 

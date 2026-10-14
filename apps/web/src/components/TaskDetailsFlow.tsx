@@ -10,20 +10,20 @@ import { TaskEditor } from './TaskEditor.tsx';
 
 /**
  * Opening a task from any row: a side panel that is the editor itself. A
- * template task has no runtime fields and stays read-only. A conflicting save
- * keeps the draft and reloads the task, so resubmitting targets the latest
- * version -- the same flow as Android.
+ * template task has no runtime fields, so it is edited text-only. A
+ * conflicting save keeps the draft and reloads the task, so resubmitting
+ * targets the latest version -- the same flow as Android.
  */
 export function TaskDetailsFlow({
   taskId,
   members,
-  canEdit,
+  textOnly,
   onClose,
   onDelete,
 }: {
   readonly taskId: string;
   readonly members: readonly MemberDto[];
-  readonly canEdit: boolean;
+  readonly textOnly: boolean;
   readonly onClose: () => void;
   /** Hands the loaded task back for the caller to confirm and delete. */
   readonly onDelete?: ((task: TaskDto) => void) | undefined;
@@ -52,7 +52,8 @@ export function TaskDetailsFlow({
   );
 
   const editing = base ?? loaded;
-  if (!canEdit || editing === undefined) {
+  // Until the task loads, the dialog shows its loading or error state.
+  if (editing === undefined) {
     return (
       <TaskDetailsDialog
         locale={locale}
@@ -86,6 +87,7 @@ export function TaskDetailsFlow({
       pending={save.state.pending}
       t={t}
       task={editing}
+      textOnly={textOnly}
     />
   );
 }

@@ -18,7 +18,9 @@ import { TaskTemplates } from './TaskTemplates.tsx';
 
 /**
  * Task editor. Drafts survive a failed save: on CONFLICT the typed text is kept
- * and the member is offered a review of the latest version.
+ * and the member is offered a review of the latest version. A template task is
+ * edited text-only: it never carries an assignee or a deadline, which the
+ * server refuses as well.
  */
 
 interface TaskEditorProps {
@@ -34,6 +36,8 @@ interface TaskEditorProps {
   readonly listField?: ReactNode;
   /** Offered as a quiet destructive action on the left of the footer. */
   readonly onDelete?: (() => void) | undefined;
+  /** Title and notes only, for a template task. */
+  readonly textOnly?: boolean;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
@@ -53,6 +57,7 @@ export function TaskEditor({
   onSubmit,
   listField,
   onDelete,
+  textOnly = false,
 }: TaskEditorProps): ReactNode {
   const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
@@ -71,8 +76,8 @@ export function TaskEditor({
     onSubmit({
       title: draft.title.trim(),
       notes: draft.notes.trim(),
-      assigneeId: draft.assigneeId,
-      dueAt: due.dueAt,
+      assigneeId: textOnly ? null : draft.assigneeId,
+      dueAt: textOnly ? null : due.dueAt,
     });
   };
 
@@ -164,54 +169,58 @@ export function TaskEditor({
           />
         )}
       </Field>
-      <Field label={t('task.assignee.label')}>
-        {(props) => (
-          <select
-            {...props}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                assigneeId: event.target.value === '' ? null : event.target.value,
-              }))
-            }
-            value={draft.assigneeId ?? ''}
-          >
-            <option value="">{t('task.assignee.none')}</option>
-            {members.map((member) => (
-              <option key={member.user_id} value={member.user_id}>
-                {member.display_name}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+      {!textOnly && (
+        <>
+          <Field label={t('task.assignee.label')}>
+            {(props) => (
+              <select
+                {...props}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    assigneeId: event.target.value === '' ? null : event.target.value,
+                  }))
+                }
+                value={draft.assigneeId ?? ''}
+              >
+                <option value="">{t('task.assignee.none')}</option>
+                {members.map((member) => (
+                  <option key={member.user_id} value={member.user_id}>
+                    {member.display_name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
 
-      <div className="field__row">
-        <Field error={dueIssue} label={t('task.due.date')}>
-          {(props) => (
-            <input
-              {...props}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, dueDate: event.target.value }))
-              }
-              type="date"
-              value={draft.dueDate}
-            />
-          )}
-        </Field>
-        <Field label={t('task.due.time')}>
-          {(props) => (
-            <input
-              {...props}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, dueTime: event.target.value }))
-              }
-              type="time"
-              value={draft.dueTime}
-            />
-          )}
-        </Field>
-      </div>
+          <div className="field__row">
+            <Field error={dueIssue} label={t('task.due.date')}>
+              {(props) => (
+                <input
+                  {...props}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, dueDate: event.target.value }))
+                  }
+                  type="date"
+                  value={draft.dueDate}
+                />
+              )}
+            </Field>
+            <Field label={t('task.due.time')}>
+              {(props) => (
+                <input
+                  {...props}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, dueTime: event.target.value }))
+                  }
+                  type="time"
+                  value={draft.dueTime}
+                />
+              )}
+            </Field>
+          </div>
+        </>
+      )}
 
       <button
         className="button button--quiet"

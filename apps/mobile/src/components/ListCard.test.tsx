@@ -49,10 +49,16 @@ describe('ListCard', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/list/[id]', params: { id: 'l1' } });
   });
 
-  it('does not navigate from a template row', async () => {
-    await render(<ListCard list={summary({ kind: 'template' })} onCopy={jest.fn()} t={t} />);
+  it('opens a template, and Use template only copies it', async () => {
+    const onCopy = jest.fn();
+    await render(<ListCard list={summary({ kind: 'template' })} onCopy={onCopy} t={t} />);
 
-    expect(screen.queryByRole('link')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Create list from Pantry'));
+    expect(onCopy).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('link'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/list/[id]', params: { id: 'l1' } });
   });
 
   it('shows the shared note under the subtitle', async () => {

@@ -37,14 +37,14 @@ The `authenticated` role can select RLS-filtered rows and execute public RPCs. I
 | ------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
 | `update_profile`                                        | `private.update_profile`         | Own Auth user only; validated display name/locale                                 |
 | `create_household`                                      | `private.create_household`       | One active household; user lock; versioned seed copy                              |
-| `create_list`, `update_list`                            | matching private helper          | Active membership; active lists only; optimistic version                          |
+| `create_list`, `update_list`                            | matching private helper          | Active membership; creates active lists, updates either kind; optimistic version  |
 | `create_list_v2`, `update_list_v2`                      | matching private helper          | As above plus the shared list note; legacy pair stays note-preserving             |
 | `save_list_template`                                    | `private.save_list_template`     | One transaction; active/open source unchanged; tasks copied without runtime state |
 | `copy_template`                                         | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                           |
 | `delete_list`                                           | `private.delete_list`            | Archives any open list, template or active; optimistic version; tasks kept        |
-| `delete_task`                                           | `private.delete_task`            | Permanent; active/open parent only; parent list lock; optimistic version          |
+| `delete_task`                                           | `private.delete_task`            | Permanent; open parent of either kind; parent list lock; optimistic version       |
 | `delete_completed_tasks`                                | `private.delete_completed_tasks` | Permanent; one active/open list; list then task locks; all-or-nothing versions    |
-| `create_task`, `update_task`                            | matching private helper          | Active list/member locks; same-household assignee                                 |
+| `create_task`, `update_task`                            | matching private helper          | List/member locks; same-household assignee; none, and no deadline, on a template  |
 | `set_task_completed`                                    | matching private helper          | Explicit desired state; optimistic version                                        |
 | `set_task_state`                                        | matching private helper          | Open/blocked/done; never touches assignee; parent list lock; optimistic version   |
 | `move_list`, `move_task`                                | matching private helpers         | Adjacent swap within kind/completion group; lock, then version check              |

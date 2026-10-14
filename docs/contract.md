@@ -52,17 +52,17 @@ Codes: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `A
 | `create_household`       | name, seed_locale                                      | household ID; locks user membership, creates membership and versioned seeds together; no second active household                                                                                                                   |
 | `update_profile`         | display_name, locale, nullable avatar_ref              | own safe profile; avatar uploads not implemented in MVP                                                                                                                                                                            |
 | `create_list`            | title, nullable subtitle                               | complete list DTO, version 1; active/open only                                                                                                                                                                                     |
-| `update_list`            | list_id, expected_version, title, subtitle             | updated DTO; active/open only                                                                                                                                                                                                      |
+| `update_list`            | list_id, expected_version, title, subtitle             | updated DTO; an open list of either kind                                                                                                                                                                                           |
 | `delete_list`            | list_id, expected_version                              | `{list_id}`; archives an open list of either kind and retains its tasks for recovery; an archived list is not deletable again                                                                                                      |
 | `create_list_v2`         | title, nullable subtitle/notes                         | complete list DTO, version 1; active/open only; legacy `create_list` remains compatible and stores no note                                                                                                                         |
-| `update_list_v2`         | list_id, expected_version, title, subtitle, notes      | updated DTO; active/open only; legacy `update_list` preserves an existing note                                                                                                                                                     |
+| `update_list_v2`         | list_id, expected_version, title, subtitle, notes      | updated DTO; an open list of either kind; legacy `update_list` preserves an existing note                                                                                                                                          |
 | `move_list`              | list_id, expected_version, up/down direction           | `{list_id}`; swaps adjacent open lists within their kind and advances both versions; boundary move is a no-op                                                                                                                      |
 | `save_list_template`     | list_id                                                | `{list_id}` of a new `kind='template'` list copying title, subtitle, notes and every task's title/notes/order; runtime state reset; source unchanged, so no expected_version                                                       |
 | `copy_template`          | template_id                                            | `{list_id}`; copy source snapshot including notes in one transaction, reset all task runtime fields; one result per request ID                                                                                                     |
-| `create_task_v2`         | list_id, title, nullable notes/assignee_id/due_at      | new task DTO; active/open parent, append order; legacy `create_task` remains compatible                                                                                                                                            |
-| `update_task_v2`         | task_id, expected_version, title, notes, assignee, due | full editor fields, completion untouched; legacy `update_task` preserves existing notes                                                                                                                                            |
+| `create_task_v2`         | list_id, title, nullable notes/assignee_id/due_at      | new task DTO; open parent of either kind, append order; a template parent refuses an assignee or due date with `VALIDATION`; legacy `create_task` remains compatible                                                               |
+| `update_task_v2`         | task_id, expected_version, title, notes, assignee, due | full editor fields, completion untouched; a template task refuses an assignee or due date with `VALIDATION`; legacy `update_task` preserves existing notes                                                                         |
 | `save_task_template`     | title, nullable notes                                  | household task-template DTO; one task only, no runtime state accepted; never creates a list template                                                                                                                               |
-| `delete_task`            | task_id, expected_version                              | `{task_id}`; permanently deletes the task from an active/open list after the version check                                                                                                                                         |
+| `delete_task`            | task_id, expected_version                              | `{task_id}`; permanently deletes the task from an open list of either kind after the version check                                                                                                                                 |
 | `delete_completed_tasks` | list_id, task_ids[], expected_versions[]               | `{list_id, deleted}`; permanently deletes the listed done tasks of one active/open list, all or nothing; any task not done, not in the list or at another version returns `CONFLICT`; 1–1,000 distinct IDs, arrays of equal length |
 | `set_task_completed`     | task_id, expected_version, completed boolean           | updated DTO; explicit desired state, never toggle                                                                                                                                                                                  |
 | `set_task_state`         | task_id, expected_version, open/blocked/done state     | updated DTO; sets completion/blocked flags without changing or validating assignment; one version increment                                                                                                                        |
@@ -106,6 +106,24 @@ If a future approved operation deactivates membership, its transaction clears th
 Subscribe to RLS-protected list/task/membership changes for the active household, and identity updates where authorized. Treat payloads as invalidation hints, coalesced as `architecture.md` describes. Refetch every affected read (`keysAffectedBy*` in `@odin/data`); apply the result immediately in the initiating client. Keep mutation controls pending until affected reads refetch, so a rapid second action cannot send a stale version. A stale fetch cannot overwrite a newer mutation result; cancel/reconcile query requests and compare versions. On subscription establishment/reconnect, window focus, Android foreground or expired-session recovery, refetch authoritative membership then data.
 
 Revocation must clear client household state upon denied membership/read and stop subscriptions. If a deletion/revocation event is missed, periodic membership reconciliation while active provides bounded UI staleness; it is not an authorization boundary. Server authorization is immediate. While realtime is unhealthy, refetch on a foreground fallback timer: web every 3 seconds, Android after 5 seconds backing off to once a minute and not at all offline or in the background (R12). Verify the normal connected update budget of 5 seconds; do not promise background delivery.
+
+## Editable template compatibility — 2026-10-14
+
+`20261014130000_editable_list_templates.sql` widens seven commands without
+changing a signature, payload, grant or error code: `update_list`,
+`update_list_v2`, `create_task`, `create_task_v2`, `update_task`,
+`update_task_v2` and `delete_task` now accept an open list template where they
+previously answered `NOT_FOUND`. A create or update that gives a template task
+an assignee or due date returns `VALIDATION` with the new message key
+`error.template_task_runtime`; clients translate by code, so an older client
+shows its generic validation message. Claim, completion, state and Delete done
+keep answering `NOT_FOUND` for a template task.
+
+Installed clients keep working: Android APK build 4 and earlier never send
+these commands for a template, so they simply cannot edit one until a new APK
+ships. Both clients in this change edit templates. The migration must reach the
+hosted database before the web client that uses it, or a template edit there
+returns `NOT_FOUND`.
 
 ## Task housekeeping compatibility — 2026-10-14
 

@@ -8,6 +8,7 @@ import { createTranslator } from '@odin/i18n';
 
 import { ListEditor } from './ListEditor.tsx';
 import { ListHeader } from './ListDetailParts.tsx';
+import { TemplateRow } from '../routes/ListsParts.tsx';
 import { Toast } from './Toast.tsx';
 
 /**
@@ -144,7 +145,7 @@ describe('ListHeader', () => {
     expect(onSaveTemplate).toHaveBeenCalledTimes(1);
   });
 
-  it('offers a template nothing but Delete, since it is otherwise read-only', async () => {
+  it('offers a template Edit and Delete, but never Save as list template', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     render(
@@ -169,9 +170,10 @@ describe('ListHeader', () => {
     expect(screen.queryByRole('button', { name: 'Add task' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'List actions' }));
-    const items = screen.getAllByRole('menuitem');
-    expect(items).toHaveLength(1);
-    expect(items[0]).toHaveAccessibleName('Delete list');
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Edit list',
+      'Delete list',
+    ]);
 
     await user.click(screen.getByRole('menuitem', { name: 'Delete list' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
@@ -189,6 +191,47 @@ describe('ListHeader', () => {
     expect(screen.getByRole('menuitem', { name: 'Edit list' })).toBeInTheDocument();
     // The overflow orders destructive entries last whatever the caller passed.
     expect(items.at(-1)).toHaveAccessibleName('Delete list');
+  });
+});
+
+describe('TemplateRow', () => {
+  it('opens the template from its name, and Use template only copies it', async () => {
+    const user = userEvent.setup();
+    const onCopy = vi.fn();
+    render(
+      <MemoryRouter>
+        <ul>
+          <TemplateRow
+            busy={false}
+            list={{
+              id: 'tpl1',
+              kind: 'template',
+              title: 'Weekly cleaning',
+              subtitle: null,
+              notes: null,
+              status: 'open',
+              version: 1,
+              total_tasks: 3,
+              completed_tasks: 0,
+            }}
+            moveDownDisabled
+            moveUpDisabled
+            onCopy={onCopy}
+            onDelete={vi.fn()}
+            onMove={vi.fn()}
+            reorder={false}
+            t={t}
+          />
+        </ul>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /Weekly cleaning/ })).toHaveAttribute(
+      'href',
+      '/lists/tpl1',
+    );
+    await user.click(screen.getByRole('button', { name: 'Create list from Weekly cleaning' }));
+    expect(onCopy).toHaveBeenCalledTimes(1);
   });
 });
 

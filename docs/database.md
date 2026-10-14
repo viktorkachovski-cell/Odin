@@ -74,7 +74,8 @@ mode, callable roles, authorization checks and tests.
   receipt replay after membership loss reveals nothing.
 - Same-household composite foreign keys prevent task/list/assignee mismatches
   even through a buggy privileged command.
-- Template tasks cannot gain completion, a due date or an assignee.
+- Template tasks cannot gain completion, a due date or an assignee. Their
+  title, notes and order can change (editable templates, 2026-10-14).
 - Server-managed timestamp, version, creator and household fields cannot be
   forged.
 - Null deadlines are allowed; timestamps are instants; no list deadline exists

@@ -23,7 +23,9 @@ import { Sheet } from './Sheet.tsx';
 
 /**
  * Task editor. Drafts survive a failed save: on CONFLICT the typed text is kept
- * and the member is offered a review of the latest version.
+ * and the member is offered a review of the latest version. A template task is
+ * edited text-only: it never carries an assignee or a deadline, which the
+ * server refuses as well.
  */
 
 interface TaskEditorProps {
@@ -39,6 +41,8 @@ interface TaskEditorProps {
   readonly listField?: ReactNode;
   /** A quiet destructive action at the start of the footer. */
   readonly onDelete?: (() => void) | undefined;
+  /** Title and notes only, for a template task. */
+  readonly textOnly?: boolean;
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
@@ -58,6 +62,7 @@ export function TaskEditor({
   onSubmit,
   listField,
   onDelete,
+  textOnly = false,
 }: TaskEditorProps): ReactNode {
   const theme = useTheme();
   const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
@@ -79,8 +84,8 @@ export function TaskEditor({
     onSubmit({
       title: draft.title.trim(),
       notes: draft.notes.trim(),
-      assigneeId: draft.assigneeId,
-      dueAt: due.dueAt,
+      assigneeId: textOnly ? null : draft.assigneeId,
+      dueAt: textOnly ? null : due.dueAt,
     });
   };
 
@@ -162,7 +167,7 @@ export function TaskEditor({
       >
         <Text style={[styles.disclosureText, { color: theme.colors.accent }]}>
           {detailsOpen ? '▾ ' : '▸ '}
-          {t('task.optional_details')}
+          {t(textOnly ? 'task.optional_notes' : 'task.optional_details')}
         </Text>
       </Pressable>
       <View style={[styles.details, !detailsOpen && styles.hidden]}>
@@ -174,19 +179,22 @@ export function TaskEditor({
           value={draft.notes}
           onChangeText={(notes) => setDraft((current) => ({ ...current, notes }))}
         />
-        <AssigneePicker
-          members={members}
-          onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}
-          selected={draft.assigneeId}
-          t={t}
-        />
-
-        <DueField
-          draft={draft}
-          error={dueIssue}
-          onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
-          t={t}
-        />
+        {!textOnly && (
+          <>
+            <AssigneePicker
+              members={members}
+              onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}
+              selected={draft.assigneeId}
+              t={t}
+            />
+            <DueField
+              draft={draft}
+              error={dueIssue}
+              onChange={(next) => setDraft((current) => ({ ...current, ...next }))}
+              t={t}
+            />
+          </>
+        )}
         {templates}
       </View>
     </Sheet>

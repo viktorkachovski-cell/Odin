@@ -215,7 +215,7 @@ begin
   if v_replay is not null then return v_replay; end if;
 
   select * into v_list from public.lists
-  where id = p_list_id and household_id = v_household and kind = 'active' and status = 'open'
+  where id = p_list_id and household_id = v_household and status = 'open'
   for update;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
   if v_list.version <> p_expected_version then
@@ -331,7 +331,7 @@ begin
   if v_replay is not null then return v_replay; end if;
 
   select * into v_list from public.lists
-  where id = p_list_id and household_id = v_household and kind = 'active' and status = 'open'
+  where id = p_list_id and household_id = v_household and status = 'open'
   for update;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
   if v_list.version <> p_expected_version then
@@ -473,6 +473,7 @@ declare
   v_replay jsonb;
   v_task public.tasks%rowtype;
   v_order integer;
+  v_kind text;
   v_response jsonb;
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
@@ -495,10 +496,15 @@ begin
   ) then
     return private.error_response('VALIDATION', 'error.assignee_invalid');
   end if;
-  perform 1 from public.lists
-  where id = p_list_id and household_id = v_household and kind = 'active' and status = 'open'
+  select kind into v_kind from public.lists
+  where id = p_list_id and household_id = v_household and status = 'open'
   for update;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  -- A template task carries text and order only; the tasks trigger enforces
+  -- the same rule, this turns it into an answer instead of an exception.
+  if v_kind = 'template' and (p_assignee_id is not null or p_due_at is not null) then
+    return private.error_response('VALIDATION', 'error.template_task_runtime');
+  end if;
   if p_assignee_id is not null and not private.is_active_member(v_household, p_assignee_id) then
     return private.error_response('VALIDATION', 'error.assignee_invalid');
   end if;
@@ -536,6 +542,7 @@ declare
   v_replay jsonb;
   v_task public.tasks%rowtype;
   v_response jsonb;
+  v_kind text;
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
   if p_request_id is null or p_expected_version is null or p_expected_version < 1 then
@@ -561,12 +568,15 @@ begin
 
   select t.* into v_task from public.tasks t
   join public.lists l on l.id = t.list_id and l.household_id = t.household_id
-  where t.id = p_task_id and t.household_id = v_household
-    and l.kind = 'active' and l.status = 'open'
+  where t.id = p_task_id and t.household_id = v_household and l.status = 'open'
   for update of t;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
   if v_task.version <> p_expected_version then
     return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+  select kind into v_kind from public.lists where id = v_task.list_id;
+  if v_kind = 'template' and (p_assignee_id is not null or p_due_at is not null) then
+    return private.error_response('VALIDATION', 'error.template_task_runtime');
   end if;
   if p_assignee_id is not null and not private.is_active_member(v_household, p_assignee_id) then
     return private.error_response('VALIDATION', 'error.assignee_invalid');
@@ -645,6 +655,7 @@ declare
   v_replay jsonb;
   v_task public.tasks%rowtype;
   v_order integer;
+  v_kind text;
   v_response jsonb;
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
@@ -668,10 +679,15 @@ begin
     return private.error_response('VALIDATION', 'error.assignee_invalid');
   end if;
 
-  perform 1 from public.lists
-  where id = p_list_id and household_id = v_household and kind = 'active' and status = 'open'
+  select kind into v_kind from public.lists
+  where id = p_list_id and household_id = v_household and status = 'open'
   for update;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  -- A template task carries text and order only; the tasks trigger enforces
+  -- the same rule, this turns it into an answer instead of an exception.
+  if v_kind = 'template' and (p_assignee_id is not null or p_due_at is not null) then
+    return private.error_response('VALIDATION', 'error.template_task_runtime');
+  end if;
   if p_assignee_id is not null and not private.is_active_member(v_household, p_assignee_id) then
     return private.error_response('VALIDATION', 'error.assignee_invalid');
   end if;
@@ -708,6 +724,7 @@ declare
   v_replay jsonb;
   v_task public.tasks%rowtype;
   v_response jsonb;
+  v_kind text;
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
   if p_request_id is null or p_expected_version is null or p_expected_version < 1 then
@@ -734,12 +751,15 @@ begin
 
   select t.* into v_task from public.tasks t
   join public.lists l on l.id = t.list_id and l.household_id = t.household_id
-  where t.id = p_task_id and t.household_id = v_household
-    and l.kind = 'active' and l.status = 'open'
+  where t.id = p_task_id and t.household_id = v_household and l.status = 'open'
   for update of t;
   if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
   if v_task.version <> p_expected_version then
     return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+  select kind into v_kind from public.lists where id = v_task.list_id;
+  if v_kind = 'template' and (p_assignee_id is not null or p_due_at is not null) then
+    return private.error_response('VALIDATION', 'error.template_task_runtime');
   end if;
   if p_assignee_id is not null and not private.is_active_member(v_household, p_assignee_id) then
     return private.error_response('VALIDATION', 'error.assignee_invalid');
@@ -1458,7 +1478,8 @@ begin
   if v_replay is not null then return v_replay; end if;
 
   -- Removing a task changes its neighbours' order, so it serialises with moves.
-  if private.lock_task_list(v_household, p_task_id, true) is null then
+  -- Either list kind: a template's tasks are edited like any other list's.
+  if private.lock_task_list(v_household, p_task_id, false) is null then
     return private.error_response('NOT_FOUND', 'error.not_found');
   end if;
   select * into v_task from public.tasks where id = p_task_id for update;
