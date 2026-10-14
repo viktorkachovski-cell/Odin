@@ -8,6 +8,8 @@ import { useColorScheme } from 'react-native';
 
 import { darkColors, lightColors, MIN_TOUCH_TARGET, radius } from '@odin/design-tokens';
 
+import { useAppearance } from './state/AppearanceProvider.tsx';
+
 /** Token names are fixed; the values differ per theme, so they widen to string. */
 type ThemeColors = { readonly [K in keyof typeof lightColors]: string };
 
@@ -22,6 +24,10 @@ const touchTarget = Math.max(MIN_TOUCH_TARGET, 48);
 const LIGHT: Theme = { colors: lightColors, radius, touchTarget };
 const DARK: Theme = { colors: darkColors, radius, touchTarget };
 
+/** The member's choice in Settings wins; "system" follows Android. */
 export function useTheme(): Theme {
-  return useColorScheme() === 'dark' ? DARK : LIGHT;
+  const device = useColorScheme();
+  const { preference } = useAppearance();
+  const scheme = preference === 'system' ? device : preference;
+  return scheme === 'dark' ? DARK : LIGHT;
 }

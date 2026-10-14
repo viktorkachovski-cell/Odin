@@ -1,15 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 
 import type { ListSummaryDto } from '@odin/contracts';
 import { createTranslator } from '@odin/i18n';
 
 /**
- * Expo Router's navigation package ships untranspiled, and the card only needs
- * the link to render its title, so the suite stands in a pass-through.
+ * Expo Router's navigation package ships untranspiled, and the card only
+ * pushes a route, so the suite records the push instead.
  */
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  Link: ({ children }: { readonly children: ReactNode }): ReactNode => children,
+  router: { push: (...args: unknown[]): unknown => mockPush(...args) },
 }));
 
 import { ListCard } from './ListCard.tsx';
@@ -32,6 +33,28 @@ function summary(overrides: Partial<ListSummaryDto> = {}): ListSummaryDto {
 }
 
 describe('ListCard', () => {
+  beforeEach(() => mockPush.mockClear());
+
+  it('opens an active list from a row that keeps its width', async () => {
+    await render(<ListCard list={summary()} onDelete={jest.fn()} t={t} />);
+
+    const link = screen.getByRole('link');
+    // The 2026-10-14 release lost this flex to `Link asChild`, and titles
+    // wrapped a few characters per line beside the menu.
+    expect(StyleSheet.flatten(link.props.style)).toEqual(
+      expect.objectContaining({ flex: 1, minWidth: 0 }),
+    );
+
+    await fireEvent.press(link);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/list/[id]', params: { id: 'l1' } });
+  });
+
+  it('does not navigate from a template row', async () => {
+    await render(<ListCard list={summary({ kind: 'template' })} onCopy={jest.fn()} t={t} />);
+
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
   it('shows the shared note under the subtitle', async () => {
     await render(<ListCard list={summary()} t={t} />);
 

@@ -82,6 +82,14 @@ environment. No Play Store listing, new application identity, permission model,
 backend contract or web layout was requested. The device verification gap
 remains recorded in `known-risks.md`.
 
+## Android appearance setting — requested 2026-10-14
+
+The owner found the app darker than the ivory/oak/green palette with no way to
+change it: Android followed the phone's dark mode unconditionally. Settings now
+offers Match device, Light and Dark, per device. Match device stays the
+default so no install changes on update; the owner picks Light. The web client
+is unchanged and still follows the browser.
+
 ## Task housekeeping — confirmed 2026-10-14
 
 The owner asked for three changes and confirmed their meaning:

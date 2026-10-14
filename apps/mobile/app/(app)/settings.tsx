@@ -9,6 +9,7 @@ import { issueText, type Locale } from '@odin/i18n';
 
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHouseholdQuery, useMembersQuery, useProfileQuery } from '../../src/state/queries.ts';
+import { AppearanceChoice } from '../../src/components/AppearanceChoice.tsx';
 import { Avatar } from '../../src/components/Avatar.tsx';
 import { ErrorBanner } from '../../src/components/Banner.tsx';
 import { NavSpacer } from '../../src/components/BottomNav.tsx';
@@ -23,10 +24,10 @@ import { inviteLink } from '../../src/env.ts';
 import { useTheme } from '../../src/theme.ts';
 
 /**
- * Settings offers exactly what the decisions allow: language, own display
- * name, the member list and invitation creation. There is deliberately no
- * remove-member, delete or expel control -- that authority is undecided
- * (docs/decisions.md) and must not be invented here.
+ * Settings offers exactly what the decisions allow: language, this device's
+ * appearance, own display name, the member list and invitation creation. There
+ * is deliberately no remove-member, delete or expel control -- that authority
+ * is undecided (docs/decisions.md) and must not be invented here.
  *
  * The invitation link is shown once, copied on demand and never persisted.
  */
@@ -137,6 +138,15 @@ export default function SettingsScreen(): ReactNode {
             />
             <Text style={[styles.note, { color: theme.colors.textMuted }]}>
               {t('settings.language.note')}
+            </Text>
+          </View>
+        </Surface>
+
+        <Surface>
+          <View style={styles.section}>
+            <AppearanceChoice />
+            <Text style={[styles.note, { color: theme.colors.textMuted }]}>
+              {t('settings.appearance.note')}
             </Text>
           </View>
         </Surface>

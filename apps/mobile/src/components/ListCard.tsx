@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
@@ -15,6 +15,11 @@ import { AccentButton } from './Button.tsx';
  * subtitle, progress, and one overflow menu. A template shows how many tasks
  * it holds and offers Use template. In reorder mode the menu gives way to the
  * move controls, so the arrows are not on every row all the time.
+ *
+ * An active row navigates from a plain Pressable rather than `Link asChild`:
+ * the Slot behind `asChild` spreads the child's style as an object, so a style
+ * array arrives as `{0: …, 1: …}` in a release build and the row loses its
+ * flex, collapsing the title to a few characters per line.
  */
 
 interface ListCardProps {
@@ -96,11 +101,13 @@ export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode 
           <ListText list={list} t={t} />
         </View>
       ) : (
-        <Link asChild href={{ pathname: '/list/[id]', params: { id: list.id } }}>
-          <Pressable accessibilityRole="link" style={[styles.text, stacked && styles.fullWidth]}>
-            <ListText list={list} t={t} />
-          </Pressable>
-        </Link>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push({ pathname: '/list/[id]', params: { id: list.id } })}
+          style={[styles.text, stacked && styles.fullWidth]}
+        >
+          <ListText list={list} t={t} />
+        </Pressable>
       )}
       {template && onCopy !== undefined && !reorder && (
         <AccentButton
