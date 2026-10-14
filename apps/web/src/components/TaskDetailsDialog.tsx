@@ -62,7 +62,11 @@ export function TaskDetailsDialog({
                 t('task.assignee.unassigned')
               ) : (
                 <span className="chip">
-                  <Avatar displayName={assignee.display_name} userId={assignee.user_id} />
+                  <Avatar
+                    displayName={assignee.display_name}
+                    members={members}
+                    userId={assignee.user_id}
+                  />
                   {assignee.display_name}
                 </span>
               )}

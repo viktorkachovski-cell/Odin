@@ -489,8 +489,8 @@ begin
     return private.error_response('VALIDATION', 'error.task_filter_invalid');
   end if;
 
-  -- Deadline ascending with undated last, then list and task id: the order
-  -- compareTasksByDue reproduces on the client.
+  -- Deadline ascending with undated last, then oldest created first, then
+  -- task id: the order compareTasksByDue reproduces on the client.
   with matches as (
     select t.*, l.title as list_title
     from public.tasks t
@@ -507,11 +507,11 @@ begin
           and (p_due_from is null or t.due_at >= p_due_from)
           and (p_due_before is null or t.due_at < p_due_before)
       end
-    order by t.due_at nulls last, t.list_id, t.id
+    order by t.due_at nulls last, t.created_at, t.id
     limit private.collection_limit() + 1
   )
   select count(*)::integer,
-    coalesce(jsonb_agg(to_jsonb(m) order by m.due_at nulls last, m.list_id, m.id), '[]'::jsonb)
+    coalesce(jsonb_agg(to_jsonb(m) order by m.due_at nulls last, m.created_at, m.id), '[]'::jsonb)
   into v_count, v_items
   from matches m;
 

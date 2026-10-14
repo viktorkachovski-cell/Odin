@@ -58,11 +58,13 @@ describe('date-only deadlines', () => {
 /** The minimal shape the due ordering needs; see DueOrdered in sorting.ts. */
 function dueRow(
   id: string,
-  list_id: string,
+  created_at: string,
   due_at: string | null,
-): { id: string; list_id: string; due_at: string | null } {
-  return { id, list_id, due_at };
+): { id: string; created_at: string; due_at: string | null } {
+  return { id, created_at, due_at };
 }
+
+const CREATED = '2026-01-01T00:00:00.000Z';
 
 describe('progressPercent', () => {
   // The exact cases docs/contract.md names.
@@ -123,20 +125,21 @@ describe('sortTasksInList', () => {
 describe('sortTasksByDue', () => {
   it('orders by due date with undated last', () => {
     const sorted = sortTasksByDue([
-      dueRow('none', 'l1', null),
-      dueRow('late', 'l1', '2026-03-02T10:00:00.000Z'),
-      dueRow('early', 'l1', '2026-03-01T10:00:00.000Z'),
+      dueRow('none', CREATED, null),
+      dueRow('late', CREATED, '2026-03-02T10:00:00.000Z'),
+      dueRow('early', CREATED, '2026-03-01T10:00:00.000Z'),
     ]);
     expect(sorted.map((entry) => entry.id)).toEqual(['early', 'late', 'none']);
   });
 
-  it('uses list id then task id for undated ties', () => {
+  it('breaks deadline ties by creation time, oldest first, then task id', () => {
     const sorted = sortTasksByDue([
-      dueRow('b', 'l2', null),
-      dueRow('a', 'l2', null),
-      dueRow('c', 'l1', null),
+      dueRow('b', '2026-01-02T00:00:00.000Z', null),
+      dueRow('a', '2026-01-02T00:00:00.000Z', null),
+      dueRow('c', '2026-01-03T00:00:00.000Z', null),
+      dueRow('old', '2026-01-01T00:00:00.000Z', null),
     ]);
-    expect(sorted.map((entry) => entry.id)).toEqual(['c', 'a', 'b']);
+    expect(sorted.map((entry) => entry.id)).toEqual(['old', 'a', 'b', 'c']);
   });
 });
 
@@ -219,9 +222,12 @@ describe('avatar fallback', () => {
     expect(initialsOf('   ')).toBe('?');
   });
 
-  it('is deterministic for a given user id', () => {
-    expect(avatarHue('user-1')).toBe(avatarHue('user-1'));
-    expect(avatarHue('user-1')).toBeGreaterThanOrEqual(0);
-    expect(avatarHue('user-1')).toBeLessThan(360);
+  it('spreads household members evenly, whatever order they load in', () => {
+    const member = (user_id: string) => ({ user_id, display_name: 'V', avatar_ref: null });
+    const household = [member('u2'), member('u1')];
+    expect(avatarHue('u1', household)).toBe(0);
+    expect(avatarHue('u2', household)).toBe(180);
+    expect(avatarHue('u2', [...household].reverse())).toBe(180);
+    expect(avatarHue('stranger', household)).toBe(avatarHue('stranger', []));
   });
 });

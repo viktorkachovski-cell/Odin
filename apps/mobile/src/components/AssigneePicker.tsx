@@ -61,7 +61,12 @@ export function AssigneePicker({
           option(
             member.user_id,
             member.display_name,
-            <Avatar displayName={member.display_name} size={24} userId={member.user_id} />,
+            <Avatar
+              displayName={member.display_name}
+              members={members}
+              size={24}
+              userId={member.user_id}
+            />,
           ),
         )}
       </View>

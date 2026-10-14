@@ -13,9 +13,9 @@ Supabase stack and runs `supabase db lint` with warnings failing the job, the
 pgTAP suites and the parallel-transaction concurrency suite.
 
 Locally the same set runs as `npm run check` plus `npm run build`. Counts on
-2026-10-11: 12 tooling tests, 28 Vitest files with 244 tests, 18 Android Jest
-suites with 138 tests, 4 mobile build-environment tests, pgTAP planning 32, 47
-and 43 assertions (122), five parallel-transaction cases, Expo Doctor 21/21 in
+2026-10-14: 12 tooling tests, 28 Vitest files with 245 tests, 21 Android Jest
+suites with 142 tests, 4 mobile build-environment tests, pgTAP planning 32, 47
+and 50 assertions (129), five parallel-transaction cases, Expo Doctor 21/21 in
 CI, and a successful Android export and web production build.
 
 Two Expo Doctor checks — the config schema and the React Native Directory

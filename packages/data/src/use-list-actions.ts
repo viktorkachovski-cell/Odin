@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 
-import type { MoveDirection } from '@odin/contracts';
+import type { MoveDirection, TaskDto } from '@odin/contracts';
 
 import type { OdinSupabaseClient } from './client.ts';
 import {
   copyTemplate,
   createList,
   createTask,
+  deleteCompletedTasks,
   deleteList,
   saveListTemplate,
   updateList,
@@ -70,11 +71,17 @@ export function useListActions(
     (requestId, input: VersionedList) => deleteList(client, requestId, input),
     { invalidate, onSuccess: () => on.deleted?.() },
   );
+  /** Permanent. Callers confirm with the member, then pass the done tasks they saw. */
+  const removeDone = useCommand(
+    (requestId, tasks: readonly TaskDto[]) =>
+      deleteCompletedTasks(client, requestId, { listId: listId ?? '', tasks }),
+    { invalidate },
+  );
   /** Quick add: a title only; details come from the task editor. */
   const addTask = useCommand(
     (requestId, title: string) =>
       createTask(client, requestId, { listId: listId ?? '', title, notes: '' }),
     { invalidate },
   );
-  return { create, copy, update, saveTemplate, move, remove, addTask };
+  return { create, copy, update, saveTemplate, move, remove, removeDone, addTask };
 }

@@ -257,6 +257,32 @@ export function deleteTask(
   );
 }
 
+/**
+ * Permanently deletes the listed done tasks of one list, all or nothing. Each
+ * task carries the version the member confirmed; any change since returns
+ * CONFLICT and deletes nothing.
+ */
+export function deleteCompletedTasks(
+  client: OdinSupabaseClient,
+  requestId: string,
+  input: {
+    readonly listId: string;
+    readonly tasks: readonly { readonly id: string; readonly version: number }[];
+  },
+): Promise<CommandResult<string>> {
+  return command(
+    client,
+    'delete_completed_tasks',
+    {
+      request_id: requestId,
+      list_id: input.listId,
+      task_ids: input.tasks.map((task) => task.id),
+      expected_versions: input.tasks.map((task) => task.version),
+    },
+    parseListId,
+  );
+}
+
 /** Explicit desired state. Never a toggle, so a retry cannot invert completion. */
 export function setTaskCompleted(
   client: OdinSupabaseClient,

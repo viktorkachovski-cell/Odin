@@ -302,3 +302,34 @@ deployment `7060049890`, with
 as the provider deployment. This confirms the automatic rebuild, not an
 authenticated browser acceptance run. Subsequent release-record commits contain
 documentation only and may trigger the same automatic rebuild process.
+
+## 2026-10-14 — Task housekeeping: chronological order (database, partial)
+
+Repository migration
+`20261014081448_batch_delete_done_and_chronological_order.sql` is being
+applied to the hosted project in two parts, matching names and contents rather
+than pushing history:
+
+| Part                       | Hosted version   | Status                                                          |
+| -------------------------- | ---------------- | --------------------------------------------------------------- |
+| `chronological_task_order` | `20261014083101` | Applied: `private.get_household_tasks` with the new tie-breaker |
+| `batch_delete_done_tasks`  | —                | **Not applied.** `delete_completed_tasks` does not exist yet    |
+
+Before applying, the hosted `get_household_tasks` still carried the
+`t.list_id, t.id` order and no `delete_completed_tasks` existed. The combined
+migration and the batch-delete part each timed out in the Supabase connector
+after 60 s with nothing applied (checked after every attempt:
+`schema_migrations`, `pg_proc` and `pg_stat_activity`). The reorder alone
+applied. After it: the definition orders by `due_at nulls last, created_at,
+id`; `anon` cannot execute it and `authenticated` can. Security and
+performance advisors list only the standing findings in `operations.md` and
+earlier INFO items (three unindexed foreign keys, no primary key on
+`private.invitation_attempts`, unused `task_templates_created_by_idx`); nothing
+new.
+
+The reorder is compatible with every installed client: same signature and
+payload. The client code that calls `delete_completed_tasks` must not reach
+`main` until the second part is applied and verified.
+
+Rollback for the applied part is a forward migration restoring the
+`t.list_id, t.id` tie-breaker.

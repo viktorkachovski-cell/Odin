@@ -142,7 +142,7 @@ export function Settings(): ReactNode {
         <ul className="member-list">
           {members.map((member) => (
             <li className="chip" key={member.user_id}>
-              <Avatar displayName={member.display_name} userId={member.user_id} />
+              <Avatar displayName={member.display_name} members={members} userId={member.user_id} />
               {member.display_name}
             </li>
           ))}

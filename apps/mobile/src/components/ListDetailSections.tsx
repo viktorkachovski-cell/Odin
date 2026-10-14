@@ -156,6 +156,7 @@ export function ListHeader({
   canReorder,
   onEdit,
   onDelete,
+  onDeleteDone,
   onSaveTemplate,
   onToggleReorder,
 }: {
@@ -166,6 +167,8 @@ export function ListHeader({
   readonly canReorder: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  /** Present while the list has done tasks. */
+  readonly onDeleteDone?: (() => void) | undefined;
   readonly onSaveTemplate: () => void;
   readonly onToggleReorder: () => void;
 }): ReactNode {
@@ -187,6 +190,9 @@ export function ListHeader({
               },
             ]
           : []),
+        ...(onDeleteDone === undefined
+          ? []
+          : [{ label: t('list.delete_done'), onPress: onDeleteDone, destructive: true }]),
         { label: t('list.delete'), onPress: onDelete, destructive: true },
       ]}
       disabled={pending}

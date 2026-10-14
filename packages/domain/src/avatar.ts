@@ -1,12 +1,15 @@
 /**
  * Initials plus a deterministic, accessible colour satisfy the avatar fallback
- * requirement without Storage. The colour is derived from the stable user id so
- * every client and session renders the same person identically.
+ * requirement without Storage. Hues are spread evenly across the household's
+ * members, ordered by stable user id, so two members never share a colour and
+ * every client renders the same person identically.
  *
  * Colour is never the only signal: the display name always accompanies the chip.
  */
 
-/** Hue slots chosen to stay distinguishable and to keep contrast predictable. */
+import type { MemberDto } from '@odin/contracts';
+
+/** Fallback slots for someone outside the loaded member list. */
 const HUE_SLOTS = 12;
 
 export function initialsOf(displayName: string): string {
@@ -31,6 +34,9 @@ function hash(value: string): number {
   return result >>> 0;
 }
 
-export function avatarHue(userId: string): number {
-  return Math.round((hash(userId) % HUE_SLOTS) * (360 / HUE_SLOTS));
+export function avatarHue(userId: string, members: readonly MemberDto[]): number {
+  const ids = members.map((member) => member.user_id).sort();
+  const index = ids.indexOf(userId);
+  if (index === -1) return Math.round((hash(userId) % HUE_SLOTS) * (360 / HUE_SLOTS));
+  return Math.round((index * 360) / ids.length);
 }

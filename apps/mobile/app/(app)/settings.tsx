@@ -165,7 +165,11 @@ export default function SettingsScreen(): ReactNode {
             </Text>
             {members.map((member) => (
               <View key={member.user_id} style={styles.member}>
-                <Avatar displayName={member.display_name} userId={member.user_id} />
+                <Avatar
+                  displayName={member.display_name}
+                  members={members}
+                  userId={member.user_id}
+                />
                 <Text style={{ color: theme.colors.text }}>{member.display_name}</Text>
               </View>
             ))}
