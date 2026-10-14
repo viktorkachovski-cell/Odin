@@ -1,24 +1,27 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { MemberDto } from '@odin/contracts';
 import { avatarLightness, avatarSaturation, lightColors } from '@odin/design-tokens';
 import { avatarHue, initialsOf } from '@odin/domain';
 
 /**
- * Initials on a deterministic hue. The avatar is decorative and hidden from
- * TalkBack: the member's name always appears next to it, so neither colour nor
- * the avatar alone ever carries meaning.
+ * Initials on a hue unique within the household. The avatar is decorative and
+ * hidden from TalkBack: the member's name always appears next to it, so neither
+ * colour nor the avatar alone ever carries meaning.
  */
 export function Avatar({
   userId,
   displayName,
+  members,
   size = 32,
 }: {
   readonly userId: string;
   readonly displayName: string;
+  readonly members: readonly MemberDto[];
   readonly size?: number;
 }): ReactNode {
-  const hue = avatarHue(userId);
+  const hue = avatarHue(userId, members);
   return (
     <View
       accessibilityElementsHidden

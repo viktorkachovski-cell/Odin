@@ -10,6 +10,8 @@ grant execute on function public.delete_list(uuid, uuid, bigint) to authenticate
 grant execute on function public.delete_task(uuid, uuid, bigint) to authenticated;
 grant execute on function private.delete_list(uuid, uuid, bigint) to authenticated;
 grant execute on function private.delete_task(uuid, uuid, bigint) to authenticated;
+grant execute on function public.delete_completed_tasks(uuid, uuid, uuid[], bigint[]) to authenticated;
+grant execute on function private.delete_completed_tasks(uuid, uuid, uuid[], bigint[]) to authenticated;
 grant execute on function private.create_task_v2(uuid, uuid, text, uuid, timestamptz, text) to authenticated;
 grant execute on function private.update_task_v2(uuid, uuid, bigint, text, uuid, timestamptz, text) to authenticated;
 grant execute on function private.save_task_template(uuid, text, text) to authenticated;

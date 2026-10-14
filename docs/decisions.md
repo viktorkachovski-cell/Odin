@@ -82,6 +82,24 @@ environment. No Play Store listing, new application identity, permission model,
 backend contract or web layout was requested. The device verification gap
 remains recorded in `known-risks.md`.
 
+## Task housekeeping — confirmed 2026-10-14
+
+The owner asked for three changes and confirmed their meaning:
+
+- **Chronological order.** Cross-list views keep deadline ascending with
+  undated last, and break ties by creation time, oldest first, then task ID.
+  The previous list-ID tie-breaker made undated tasks look shuffled. List
+  detail keeps its shared manual order.
+- **Batch delete of done tasks** works on one list at a time, never across the
+  household, so a member cannot purge every list by accident. It deletes only
+  the done tasks the member saw, behind a confirmation, all or nothing.
+- **Avatar colours** must tell members apart when they share initials. Hues
+  are now spread evenly across the household's members instead of hashed into
+  twelve slots, where two members collided one time in twelve.
+
+Multiple assignees and shared claims were raised in the same request and
+deferred by the owner; the one-assignee rule is unchanged.
+
 ## Proposed implementation defaults
 
 These fill technical gaps without redefining confirmed task rules. Record deviations before implementation; do not silently treat proposed lifecycle policy as approved product scope.
@@ -96,11 +114,11 @@ These fill technical gaps without redefining confirmed task rules. Record deviat
 | Task time             | Optional local date and time converted to UTC; date-only tasks resolve to local end of day                                         |
 | Text limits           | List title 1–160; task title 1–500; notes 5,000; subtitle 300; display name 1–80 Unicode code points                               |
 | Drag-and-drop         | Confirmed up/down actions set shared order; drag-and-drop is not implemented                                                       |
-| Avatars               | Initials and deterministic accessible colors satisfy fallback requirement; uploads deferred                                        |
+| Avatars               | Initials and accessible colors unique within the household (amended 2026-10-14); uploads deferred                                  |
 | Templates             | Superseded 2026-09-22: no seed content. A household saves its own list templates; see item 4 below and `features.md`               |
 | Seed selection        | Household chooses seed language during creation; UI language changes never translate existing user content                         |
 | Offline               | Visible stale data and retained in-session drafts; no automatic offline write queue                                                |
-| Sorting               | Cross-list views: due timestamp ascending, nulls last, then stable list/task ID tie-breaker                                        |
+| Sorting               | Cross-list views: due timestamp ascending, nulls last, then oldest created first, then task ID (amended 2026-10-14)                |
 
 ## Decisions still required before release
 

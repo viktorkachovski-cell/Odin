@@ -231,6 +231,18 @@ Worklets, so it only installs with `--legacy-peer-deps`, which
 `code-standards.md` forbids. Upgrade when Expo tags SDK 58 as `latest` and React
 Native 0.88.0 is final.
 
+### R14 — Android APK build 3 predates the 2026-10-14 task housekeeping
+
+**Severity: low. Opened 2026-10-14.**
+
+The chronological tie-breaker, Delete done and household-unique avatar colours
+reach the web on deploy but reach Android only with a new APK. Until then,
+build 3 re-sorts the household read on the device with the old list-ID
+tie-breaker, so undated tasks can appear in a different order on a phone than
+on the web, and Android has no Delete done and can still show two members in
+one colour. Nothing is lost or corrupted; the server order and data are the
+same for both. Building and distributing APK build 4 closes it.
+
 ## Accepted, not tracked
 
 These are real, known, and deliberately not being worked. They are here so

@@ -41,6 +41,7 @@ export function ListTasks({
   busy,
   handlers,
   onMoveTask,
+  onDeleteDone,
   before,
 }: {
   readonly tasks: readonly TaskDto[];
@@ -52,6 +53,8 @@ export function ListTasks({
   readonly busy: boolean;
   readonly handlers: ListRowHandlers;
   readonly onMoveTask: (task: TaskRowModel, direction: MoveDirection) => void;
+  /** Offered on active lists; receives the done tasks currently shown. */
+  readonly onDeleteDone?: ((done: readonly TaskDto[]) => void) | undefined;
   readonly before?: ReactNode;
 }): ReactNode {
   const [showDone, setShowDone] = useState(false);
@@ -92,17 +95,29 @@ export function ListTasks({
       )}
       {done.length > 0 && (
         <section className="task-group">
-          <h2 className="task-group__heading">
-            <button
-              aria-expanded={showDone || reorder}
-              className="disclosure"
-              onClick={() => setShowDone((current) => !current)}
-              type="button"
-            >
-              <Icon name="chevron-down" size={16} />
-              {t('list.group.done', { count: done.length })}
-            </button>
-          </h2>
+          <div className="task-group__bar">
+            <h2 className="task-group__heading">
+              <button
+                aria-expanded={showDone || reorder}
+                className="disclosure"
+                onClick={() => setShowDone((current) => !current)}
+                type="button"
+              >
+                <Icon name="chevron-down" size={16} />
+                {t('list.group.done', { count: done.length })}
+              </button>
+            </h2>
+            {onDeleteDone !== undefined && !reorder && (
+              <button
+                className="button button--quiet button--danger"
+                disabled={busy}
+                onClick={() => onDeleteDone(done)}
+                type="button"
+              >
+                {t('list.delete_done')}
+              </button>
+            )}
+          </div>
           {(showDone || reorder) && <ul className="task-list">{done.map(row)}</ul>}
         </section>
       )}

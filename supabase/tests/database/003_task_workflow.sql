@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(50);
 
 create temporary table workflow_fixture (key text primary key, value text not null);
 grant all on workflow_fixture to authenticated;
@@ -8,6 +8,8 @@ create function pg_temp.fx(p_key text) returns uuid language sql stable
 as $$ select value::uuid from workflow_fixture where key = p_key $$;
 create function pg_temp.task_order(p_key text) returns text language sql stable
 as $$ select sort_order::text from public.tasks where id = pg_temp.fx(p_key) $$;
+create function pg_temp.task_version(p_key text) returns bigint language sql stable
+as $$ select version from public.tasks where id = pg_temp.fx(p_key) $$;
 
 insert into auth.users (
   id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -84,6 +86,24 @@ select is(jsonb_array_length(public.get_all_tasks(null, null, true) #> '{data,it
 select is(public.get_all_tasks('2026-10-27T00:00:00Z', '2026-10-25T00:00:00Z') #>> '{error,code}', 'VALIDATION', 'reversed range rejected');
 select is(public.get_all_tasks('2026-10-25T00:00:00Z', null, true) #>> '{error,code}', 'VALIDATION', 'undated cannot combine with bounds');
 
+-- Deadline ties put the oldest task first. The older task gets the larger id,
+-- so an id-only order would fail.
+reset role;
+update public.tasks set created_at = now() - interval '1 day'
+where id = greatest(pg_temp.fx('task_a'), pg_temp.fx('task_b'));
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000001', true);
+select is(public.get_all_tasks(null, null, true) #>> '{data,items,0,id}', greatest(pg_temp.fx('task_a'), pg_temp.fx('task_b'))::text, 'deadline ties put the oldest task first');
+
+-- Batch delete of done tasks: all or nothing, against the versions the member saw.
+insert into workflow_fixture values ('done_task', public.create_task(gen_random_uuid(), pg_temp.fx('list_a'), 'Done task') #>> '{data,id}');
+select public.set_task_state(gen_random_uuid(), pg_temp.fx('done_task'), 1, 'done');
+select is(public.delete_completed_tasks(gen_random_uuid(), pg_temp.fx('list_a'), array[pg_temp.fx('task_a'), pg_temp.fx('done_task')], array[pg_temp.task_version('task_a'), pg_temp.task_version('done_task') - 1]) #>> '{error,code}', 'CONFLICT', 'a stale done task rejects the whole batch');
+select is(public.delete_completed_tasks(gen_random_uuid(), pg_temp.fx('list_a'), array[pg_temp.fx('task_a'), pg_temp.fx('task_b')], array[pg_temp.task_version('task_a'), pg_temp.task_version('task_b')]) #>> '{error,code}', 'CONFLICT', 'an open task cannot be batch deleted');
+select is(public.delete_completed_tasks(gen_random_uuid(), pg_temp.fx('list_a'), array[pg_temp.fx('task_a'), pg_temp.fx('task_a')], array[1, 1]::bigint[]) #>> '{error,code}', 'VALIDATION', 'duplicate task ids are rejected');
+select is(public.delete_completed_tasks(gen_random_uuid(), pg_temp.fx('list_a'), array[pg_temp.fx('task_a'), pg_temp.fx('done_task')], array[pg_temp.task_version('task_a'), pg_temp.task_version('done_task')]) #>> '{data,deleted}', '2', 'confirmed done tasks are deleted together');
+select is((select string_agg(title, ',' order by title) from public.tasks where list_id = pg_temp.fx('list_a')), 'Dated task,Second task', 'open tasks remain');
+
 -- A collection past the ceiling fails instead of being truncated.
 reset role;
 insert into public.tasks (household_id, list_id, title, sort_order)
@@ -104,6 +124,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000001', true);
 select is((select count(*)::text from public.tasks where list_id = '40000000-0000-0000-0000-000000000004'), '0', 'other household tasks are hidden');
 select is(public.get_list_v2('40000000-0000-0000-0000-000000000004') #>> '{error,code}', 'NOT_FOUND', 'list snapshot scoped to caller household');
+select is(public.delete_completed_tasks(gen_random_uuid(), '40000000-0000-0000-0000-000000000004', array[gen_random_uuid()], array[1]::bigint[]) #>> '{error,code}', 'NOT_FOUND', 'batch delete scoped to caller household');
 
 select * from finish();
 rollback;

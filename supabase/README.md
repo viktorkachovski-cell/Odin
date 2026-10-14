@@ -43,6 +43,7 @@ The `authenticated` role can select RLS-filtered rows and execute public RPCs. I
 | `copy_template`                                         | `private.copy_template`          | One transaction; source unchanged; runtime fields reset                           |
 | `delete_list`                                           | `private.delete_list`            | Archives any open list, template or active; optimistic version; tasks kept        |
 | `delete_task`                                           | `private.delete_task`            | Permanent; active/open parent only; parent list lock; optimistic version          |
+| `delete_completed_tasks`                                | `private.delete_completed_tasks` | Permanent; one active/open list; list then task locks; all-or-nothing versions    |
 | `create_task`, `update_task`                            | matching private helper          | Active list/member locks; same-household assignee                                 |
 | `set_task_completed`                                    | matching private helper          | Explicit desired state; optimistic version                                        |
 | `set_task_state`                                        | matching private helper          | Open/blocked/done; never touches assignee; parent list lock; optimistic version   |

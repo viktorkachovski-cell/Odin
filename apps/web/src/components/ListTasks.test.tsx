@@ -57,6 +57,7 @@ const tasks: TaskDto[] = [
 function renderList(isTemplate: boolean, reorder = true) {
   const onMoveTask = vi.fn();
   const onSetState = vi.fn();
+  const onDeleteDone = vi.fn();
   render(
     <ListTasks
       busy={false}
@@ -70,19 +71,21 @@ function renderList(isTemplate: boolean, reorder = true) {
       isTemplate={isTemplate}
       locale="en"
       members={members}
+      onDeleteDone={isTemplate ? undefined : onDeleteDone}
       onMoveTask={onMoveTask}
       reorder={reorder}
       t={t}
       tasks={isTemplate ? tasks.filter((task) => !task.completed) : tasks}
     />,
   );
-  return { onMoveTask, onSetState };
+  return { onMoveTask, onSetState, onDeleteDone };
 }
 
 describe('ListTasks', () => {
   it('keeps moves inside completion groups and sets state from the row menu', async () => {
     const user = userEvent.setup();
     const { onMoveTask, onSetState } = renderList(false);
+    expect(screen.queryByRole('button', { name: 'Delete done' })).not.toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Move First up' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Move Second down' })).toBeDisabled();
@@ -106,10 +109,19 @@ describe('ListTasks', () => {
     expect(screen.getByText('Finished')).toBeInTheDocument();
   });
 
+  it('offers deleting exactly the done tasks', async () => {
+    const user = userEvent.setup();
+    const { onDeleteDone } = renderList(false, false);
+
+    await user.click(screen.getByRole('button', { name: 'Delete done' }));
+    expect(onDeleteDone).toHaveBeenCalledWith([expect.objectContaining({ id: 't3' })]);
+  });
+
   it('lets a template reorder its tasks without offering any runtime state', async () => {
     const user = userEvent.setup();
     const { onMoveTask } = renderList(true);
 
+    expect(screen.queryByRole('button', { name: 'Delete done' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /complete/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Move First down' }));

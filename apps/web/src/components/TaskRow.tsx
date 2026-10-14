@@ -138,7 +138,7 @@ function AssigneeCell({
   if (assignee !== undefined) {
     return (
       <span className="task-row__cell task-row__assignee">
-        <Avatar displayName={assignee.display_name} userId={assignee.user_id} />
+        <Avatar displayName={assignee.display_name} members={members} userId={assignee.user_id} />
         {assignee.display_name}
       </span>
     );

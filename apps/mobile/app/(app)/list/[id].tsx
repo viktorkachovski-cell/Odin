@@ -41,6 +41,7 @@ export default function ListDetailScreen(): ReactNode {
     update: saveList,
     saveTemplate,
     remove: removeList,
+    removeDone,
     addTask,
   } = useListActions(client, id, {
     templateSaved: () => showToast(t('toast.template_saved')),
@@ -58,6 +59,7 @@ export default function ListDetailScreen(): ReactNode {
 
   const page = list.data;
   const ordered = sortTasksInList(page.tasks);
+  const done = ordered.filter((task) => task.completed);
 
   return (
     <Screen
@@ -87,10 +89,25 @@ export default function ListDetailScreen(): ReactNode {
                 },
               ])
             }
+            onDeleteDone={
+              isTemplate || done.length === 0
+                ? undefined
+                : () =>
+                    Alert.alert(t('list.delete_done.title'), t('list.delete_done.confirm'), [
+                      { text: t('action.cancel'), style: 'cancel' },
+                      {
+                        text: t('list.delete_done'),
+                        style: 'destructive',
+                        onPress: () => void removeDone.run(done),
+                      },
+                    ])
+            }
             onEdit={() => setEditingList(true)}
             onSaveTemplate={() => void saveTemplate.run(page.list.id)}
             onToggleReorder={() => setReorder((current) => !current)}
-            pending={removeList.state.pending || saveTemplate.state.pending}
+            pending={
+              removeList.state.pending || saveTemplate.state.pending || removeDone.state.pending
+            }
             reorder={reorder}
             t={t}
           />
@@ -104,6 +121,7 @@ export default function ListDetailScreen(): ReactNode {
           errors={[
             { error: removeList.state.error, retry: () => void removeList.retry() },
             { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
+            { error: removeDone.state.error, retry: () => void removeDone.retry() },
           ]}
           t={t}
         />

@@ -302,3 +302,49 @@ deployment `7060049890`, with
 as the provider deployment. This confirms the automatic rebuild, not an
 authenticated browser acceptance run. Subsequent release-record commits contain
 documentation only and may trigger the same automatic rebuild process.
+
+## 2026-10-14 — Task housekeeping: chronological order and Delete done (database)
+
+Repository migration
+`20261014081448_batch_delete_done_and_chronological_order.sql` reached the
+hosted project in two parts, matching names and contents rather than pushing
+history:
+
+| Part                         | Hosted version   | Applied by                                                               |
+| ---------------------------- | ---------------- | ------------------------------------------------------------------------ |
+| `chronological_task_order`   | `20261014083101` | Supabase connector: `private.get_household_tasks` with the new tie order |
+| `delete_completed_tasks` SQL | none recorded    | Owner, Supabase SQL editor, one transaction; no `schema_migrations` row  |
+
+Before applying, the hosted `get_household_tasks` still carried the
+`t.list_id, t.id` order and no `delete_completed_tasks` existed. Every connector
+attempt that contained the batch-delete function (`apply_migration` four times,
+`execute_sql` once) timed out after 60 s with nothing applied, checked each time
+in `schema_migrations`, `pg_proc` and `pg_stat_activity`; the reorder alone
+applied. The owner then ran the same reviewed SQL, which had replayed cleanly
+on a local stack, in the SQL editor.
+
+Verification after both parts:
+
+- `get_household_tasks` orders by `due_at nulls last, created_at, id`.
+- `public.delete_completed_tasks` (invoker) and `private.delete_completed_tasks`
+  (definer, `search_path=""`) exist; `authenticated` can execute both, `anon`
+  and `service_role` neither. The public wrapper's definition hashes
+  identically to a local stack built from the repository migration; the
+  private body is identical apart from the editor's CRLF line endings
+  (2,693 against 2,640 characters, equal once whitespace is removed).
+- `supabase/smoke/task-housekeeping-smoke.sql` passed on the hosted project and
+  rolled back: unauthenticated guard, oldest-first tie order, a stale batch
+  rejected with `CONFLICT` and nothing deleted, another household refused with
+  `NOT_FOUND`, a confirmed batch deleting exactly its two done tasks. Afterwards
+  no QA household, profile or `delete_completed_tasks` receipt remained.
+- `packages/contracts/src/database.generated.ts` gains only the
+  `delete_completed_tasks` entry, exactly as the hosted generator emits it.
+- Security advisors list only the standing findings in `operations.md`;
+  performance advisors only the earlier INFO items (three unindexed foreign
+  keys, no primary key on `private.invitation_attempts`, unused
+  `task_templates_created_by_idx`). Nothing new.
+
+Both parts are compatible with every installed client; nothing they call
+changed signature or payload. Rollback is a reviewed forward migration that
+restores the `t.list_id, t.id` tie order and revokes and drops both
+`delete_completed_tasks` functions.

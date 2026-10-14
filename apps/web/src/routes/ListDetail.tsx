@@ -43,6 +43,7 @@ export function ListDetail(): ReactNode {
     update: saveList,
     saveTemplate,
     remove: removeList,
+    removeDone,
     addTask,
   } = useListActions(client, listId, {
     templateSaved: () => setToast(true),
@@ -103,6 +104,7 @@ export function ListDetail(): ReactNode {
         errors={[
           { error: removeList.state.error, retry: () => void removeList.retry() },
           { error: saveTemplate.state.error, retry: () => void saveTemplate.retry() },
+          { error: removeDone.state.error, retry: () => void removeDone.retry() },
         ]}
         t={t}
       />
@@ -122,11 +124,22 @@ export function ListDetail(): ReactNode {
             />
           )
         }
-        busy={wiring.actions.busy}
+        busy={wiring.actions.busy || removeDone.state.pending}
         handlers={wiring.handlers}
         isTemplate={isTemplate}
         locale={locale}
         members={memberList}
+        onDeleteDone={
+          isTemplate
+            ? undefined
+            : (done) =>
+                setConfirming({
+                  titleKey: 'list.delete_done.title',
+                  bodyKey: 'list.delete_done.confirm',
+                  confirmKey: 'list.delete_done',
+                  run: () => void removeDone.run(done),
+                })
+        }
         onMoveTask={wiring.actions.move}
         reorder={reorder}
         t={t}
@@ -137,7 +150,7 @@ export function ListDetail(): ReactNode {
       <DestructiveConfirm
         confirm={confirming}
         onClose={() => setConfirming(null)}
-        pending={removeList.state.pending}
+        pending={removeList.state.pending || removeDone.state.pending}
         t={t}
       />
       {wiring.overlays}

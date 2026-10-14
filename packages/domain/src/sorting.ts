@@ -12,8 +12,8 @@ import type { TaskDto } from '@odin/contracts';
  */
 export interface DueOrdered {
   readonly id: string;
-  readonly list_id: string;
   readonly due_at: string | null;
+  readonly created_at: string;
 }
 
 /** Undated tasks sort last; the server uses coalesce(due_at, 'infinity') for the same effect. */
@@ -36,13 +36,13 @@ export function compareTasksInList(a: TaskDto, b: TaskDto): number {
   return compareText(a.id, b.id);
 }
 
-/** My Tasks and Unassigned: due ascending with undated last, then list id, then task id. */
-export function compareTasksByDue(a: DueOrdered, b: DueOrdered): number {
+/** Cross-list views: due ascending with undated last, then oldest created first, then task id. */
+function compareTasksByDue(a: DueOrdered, b: DueOrdered): number {
   const left = dueKey(a.due_at);
   const right = dueKey(b.due_at);
   if (left !== right) return left - right;
-  const byList = compareText(a.list_id, b.list_id);
-  if (byList !== 0) return byList;
+  const created = Date.parse(a.created_at) - Date.parse(b.created_at);
+  if (created !== 0) return created;
   return compareText(a.id, b.id);
 }
 

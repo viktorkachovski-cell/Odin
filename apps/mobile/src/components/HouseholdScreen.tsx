@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { useOdin } from '../state/OdinContext.ts';
-import { useProfileQuery } from '../state/queries.ts';
+import { NO_MEMBERS, useMembersQuery, useProfileQuery } from '../state/queries.ts';
 import { Avatar } from './Avatar.tsx';
 import { Screen } from './Screen.tsx';
 
@@ -19,6 +19,7 @@ export function HouseholdScreen({
 }): ReactNode {
   const { t, locale, user } = useOdin();
   const profile = useProfileQuery();
+  const members = useMembersQuery().data ?? NO_MEMBERS;
   return (
     <Screen
       title={title}
@@ -34,6 +35,7 @@ export function HouseholdScreen({
         >
           <Avatar
             displayName={profile.data?.display_name ?? ''}
+            members={members}
             userId={user?.id ?? ''}
             size={36}
           />

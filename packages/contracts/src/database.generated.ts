@@ -298,6 +298,15 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_completed_tasks: {
+        Args: {
+          expected_versions: number[]
+          list_id: string
+          request_id: string
+          task_ids: string[]
+        }
+        Returns: Json
+      }
       delete_list: {
         Args: { expected_version: number; list_id: string; request_id: string }
         Returns: Json

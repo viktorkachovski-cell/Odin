@@ -328,6 +328,10 @@ export const bg: Record<TranslationKey, string> = {
   'list.quick_add.placeholder': 'Добавете задача и натиснете Enter',
   'list.quick_add.short': 'Добави задача',
   'list.group.open': 'Отворени · {count}',
+  'list.delete_done': 'Изтрий изпълнените',
+  'list.delete_done.title': 'Да изтрия ли изпълнените задачи?',
+  'list.delete_done.confirm':
+    'Изтрий окончателно изпълнените задачи в този списък? Отворените остават.',
   'list.group.done': 'Изпълнени · {count}',
   'list.notes': 'Бележки',
   'toast.template_saved': 'Запазено като шаблон на списък',

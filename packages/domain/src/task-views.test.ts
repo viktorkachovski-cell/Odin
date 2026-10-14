@@ -21,7 +21,7 @@ function at(day: number, hour: number, minute = 0): string {
 function task(id: string, overrides: Partial<ViewTask> = {}): ViewTask {
   return {
     id,
-    list_id: 'list-a',
+    created_at: at(1, 0),
     title: `Task ${id}`,
     notes: null,
     completed: false,

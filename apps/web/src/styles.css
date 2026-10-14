@@ -1264,6 +1264,14 @@ a {
   color: var(--color-text-muted);
 }
 
+.task-group__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-right: var(--space-lg);
+}
+
 .task-group__heading--overdue {
   color: var(--color-danger);
 }

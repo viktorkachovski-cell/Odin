@@ -67,7 +67,8 @@ matching view, so links, bookmarks and notification taps still land.
   `groupMyTasksForToday` and `summarizeTasks`. The deadline presets apply the
   bounds `resolveTaskDeadlineFilter` gives the server, so a filter moved
   client-side returns the same tasks. Mine and Unassigned show open tasks
-  only, the member's own or nobody's, due-ascending with undated last.
+  only, the member's own or nobody's, due-ascending with undated last. Tasks
+  with the same deadline, or none, are oldest-created first.
 - **Today** shows four counts that open the matching Tasks filter (Overdue and
   Due today across the household, Unassigned, Blocked), the member's open tasks
   grouped Overdue / Today / Upcoming with undated ones summarised by a link, up
@@ -108,6 +109,13 @@ matching view, so links, bookmarks and notification taps still land.
 - **List detail** has a quick add (title only; details from the editor), keeps
   completed tasks collapsed behind a count, and puts Edit, Save as template,
   Reorder (Android) and Delete in one menu. An empty list reads "No tasks yet".
+  **Delete done** removes the list's done tasks after a confirmation: on web
+  beside the Done count (hidden while reordering), on Android in the list menu
+  while the list has done tasks. It never reaches other lists.
+- **Avatars** are initials on a colour unique within the household: hues are
+  spread evenly across the members ordered by user ID, so two members never
+  share one even with the same initials. A member joining or leaving can shift
+  the others' colours. The name always accompanies the avatar.
 
 Android's four tabs remain visible while scrolling, following approval of the
 mobile review on 2026-10-13. Today distinguishes household counts from My tasks,
@@ -215,6 +223,12 @@ R9 in `known-risks.md`.
 - **Tasks.** "Delete" permanently removes a task from an active, open list. It
   requires the current task version, so a stale screen gets a conflict instead
   of deleting a newer edit.
+
+- **Done tasks in one list.** "Delete done" permanently removes the done tasks
+  the member was shown, in one transaction, each under the version they saw.
+  If any of them was reopened, edited, moved or deleted meanwhile, nothing is
+  deleted and the member gets a conflict. A task completed after they looked
+  is not in the request and stays.
 
 - **Assignment.** "Unassign" is an `update_task` that preserves title and
   deadline while sending `assignee_id: null`, under the same expected-version
