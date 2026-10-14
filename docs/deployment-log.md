@@ -370,3 +370,42 @@ build 3 until a new APK ships (R14).
 Rollback is a Vercel promotion of `dpl_6cj6fhp9FAAVQWH1npCLLfvbBesC`
 (`da68cba`). The database functions can stay: the previous client never calls
 `delete_completed_tasks`, and the tie order is compatible with it.
+
+## 2026-10-14 — Editable list templates, database
+
+Owner-approved before merging
+[viktorkachovski-cell/Odin#22](https://github.com/viktorkachovski-cell/Odin/pull/22),
+whose head `681bc58` passed Quality and Database. The repository migration
+`20261014130000_editable_list_templates.sql` replaces seven private functions
+(`update_list`, `update_list_v2`, `create_task`, `create_task_v2`,
+`update_task`, `update_task_v2`, `delete_task`); no signature, grant or table
+changed.
+
+- Before applying, the seven hosted function bodies hashed identically to a
+  local replay of `main`, so nothing hosted was overwritten unseen.
+- One `apply_migration` call for the whole file timed out twice without
+  committing (no migration row, bodies unchanged, no session left running).
+  It went in as four parts: `editable_list_templates_1_list_text`
+  (`20261014122631`), `_2_task_create` (`20261014122651`) and
+  `_3_task_update` (`20261014122710`) through the connector, and part 4,
+  `delete_task`, which the connector would not apply, by the owner in the
+  dashboard SQL editor. Part 4 therefore has no migration row, and its body
+  carries the editor's CRLF line endings: 1,909 characters, identical to the
+  repository once carriage returns are removed (`md5` `5914d0f2…` both ways).
+  The other six bodies hash identically to the repository.
+- `anon` cannot execute any of the seven private functions or their public
+  wrappers; `authenticated` can.
+- `supabase/smoke/editable-templates-smoke.sql` passed on the hosted project
+  and rolled back: template text edit, task add, edit and delete, deadline
+  and assignee refused with `error.template_task_runtime`, claim refused with
+  `NOT_FOUND`, the copy taking the edited tasks, and another household refused
+  with `NOT_FOUND`. Users, households, lists, tasks and receipts counted
+  2 / 1 / 23 / 235 / 411 before and after.
+- Security advisors list only the standing findings in `operations.md`;
+  performance advisors only the earlier INFO items. Nothing new.
+
+Compatible with every installed client: none sends these commands for a
+template, and an active list behaves exactly as before. Rollback is a reviewed
+forward migration restoring the `kind = 'active'` checks in the seven
+functions; template tasks created meanwhile are ordinary template rows and can
+stay.
