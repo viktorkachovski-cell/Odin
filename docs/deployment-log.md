@@ -348,3 +348,25 @@ Both parts are compatible with every installed client; nothing they call
 changed signature or payload. Rollback is a reviewed forward migration that
 restores the `t.list_id, t.id` tie order and revokes and drops both
 `delete_completed_tasks` functions.
+
+## 2026-10-14 — Task housekeeping released to the web
+
+[viktorkachovski-cell/Odin#19](https://github.com/viktorkachovski-cell/Odin/pull/19)
+merged as `002a866` after Quality and Database passed on its head `196946d`
+(13 checks). The database half is recorded in the entry above and was live
+before the merge.
+
+Vercel production deployment `dpl_9AukMCuxQ8cs2MZYWXQ1CDB1r6ts` is READY and
+aliased to `odin-ten-tau.vercel.app`. Its build log names
+`mvltbhtsukorspmpyhpw.supabase.co` and emitted 614.39 kB of JavaScript,
+174.79 kB gzipped (`index-BZvPS2vL.js`). `/lists/<uuid>` returns the SPA with
+the checked-in security headers and the new bundle. The install step's
+`npm audit` reported 68 advisories (16 moderate, 52 high) on an unchanged
+lockfile, two more than R13 records; this change added no dependency.
+
+Nobody has signed in to the deployed build since. Android installs keep APK
+build 3 until a new APK ships (R14).
+
+Rollback is a Vercel promotion of `dpl_6cj6fhp9FAAVQWH1npCLLfvbBesC`
+(`da68cba`). The database functions can stay: the previous client never calls
+`delete_completed_tasks`, and the tie order is compatible with it.
