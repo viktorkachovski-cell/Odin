@@ -111,6 +111,7 @@ export const bg: Record<TranslationKey, string> = {
   'task.assignee.unassigned': 'Незаета',
   'task.assignee.you': 'Ти',
   'task.optional_details': 'Отговорник, срок и бележки',
+  'task.optional_notes': 'Бележки',
   'tasks.filters': 'Филтри',
   'tasks.filters.apply': 'Приложи филтрите',
   'tasks.filters.reset': 'Нулирай филтрите',

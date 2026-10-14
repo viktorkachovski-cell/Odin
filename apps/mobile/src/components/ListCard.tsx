@@ -11,12 +11,13 @@ import { MoveButtons, ProgressBar } from './Blocks.tsx';
 import { AccentButton } from './Button.tsx';
 
 /**
- * One list on the Lists screen: title,
- * subtitle, progress, and one overflow menu. A template shows how many tasks
- * it holds and offers Use template. In reorder mode the menu gives way to the
- * move controls, so the arrows are not on every row all the time.
+ * One list on the Lists screen: title, subtitle, progress, and one overflow
+ * menu. Either kind opens its list on a tap. A template shows how many tasks it
+ * holds and offers Use template, a separate target so using a template never
+ * also opens it. In reorder mode the menu gives way to the move controls, so
+ * the arrows are not on every row all the time.
  *
- * An active row navigates from a plain Pressable rather than `Link asChild`:
+ * A row navigates from a plain Pressable rather than `Link asChild`:
  * the Slot behind `asChild` spreads the child's style as an object, so a style
  * array arrives as `{0: …, 1: …}` in a release build and the row loses its
  * flex, collapsing the title to a few characters per line.
@@ -57,11 +58,9 @@ function ListText({ list, t }: Pick<ListCardProps, 'list' | 't'>): ReactNode {
     <View style={styles.text}>
       <View style={styles.heading}>
         <Text style={[styles.title, { color: theme.colors.text }]}>{list.title}</Text>
-        {list.kind === 'active' && (
-          <Text accessible={false} style={[styles.chevron, { color: theme.colors.textMuted }]}>
-            ›
-          </Text>
-        )}
+        <Text accessible={false} style={[styles.chevron, { color: theme.colors.textMuted }]}>
+          ›
+        </Text>
       </View>
       {list.subtitle !== null && <Text style={muted}>{list.subtitle}</Text>}
       {list.notes !== null && (
@@ -96,19 +95,13 @@ export const ListCard = memo(function ListCard(props: ListCardProps): ReactNode 
 
   return (
     <View style={[styles.row, stacked && styles.stacked, { borderTopColor: theme.colors.border }]}>
-      {template ? (
-        <View style={[styles.text, stacked && styles.fullWidth]}>
-          <ListText list={list} t={t} />
-        </View>
-      ) : (
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => router.push({ pathname: '/list/[id]', params: { id: list.id } })}
-          style={[styles.text, stacked && styles.fullWidth]}
-        >
-          <ListText list={list} t={t} />
-        </Pressable>
-      )}
+      <Pressable
+        accessibilityRole="link"
+        onPress={() => router.push({ pathname: '/list/[id]', params: { id: list.id } })}
+        style={[styles.text, stacked && styles.fullWidth]}
+      >
+        <ListText list={list} t={t} />
+      </Pressable>
       {template && onCopy !== undefined && !reorder && (
         <AccentButton
           accessibilityLabel={t('home.copy_template', { title: list.title })}

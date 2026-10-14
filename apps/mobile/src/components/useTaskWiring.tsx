@@ -28,11 +28,12 @@ export interface TaskRowHandlers {
 export function useTaskWiring({
   members,
   listId,
-  editable = true,
+  textOnly = false,
 }: {
   readonly members: readonly MemberDto[];
   readonly listId?: string | undefined;
-  readonly editable?: boolean;
+  /** A template's tasks: title and notes only. */
+  readonly textOnly?: boolean;
 }): {
   readonly actions: TaskRowActions;
   readonly handlers: TaskRowHandlers;
@@ -70,7 +71,7 @@ export function useTaskWiring({
 
   const overlays = (
     <TaskDetailsFlow
-      editable={editable}
+      textOnly={textOnly}
       key={detailsId ?? 'closed'}
       members={members}
       onClose={() => setDetailsId(null)}

@@ -87,4 +87,24 @@ describe('Task entry disclosure', () => {
     await fireEvent.press(screen.getByLabelText('Review latest'));
     expect(props.onReviewConflict).toHaveBeenCalledTimes(1);
   });
+
+  it('edits a template task as text only', async () => {
+    const onSubmit = jest.fn();
+    const templateTask = { ...task, assignee_id: null };
+    await render(<TaskEditor {...props} task={templateTask} onSubmit={onSubmit} textOnly />);
+
+    expect(screen.queryByLabelText('Ana')).toBeNull();
+    expect(screen.queryByText(/Assignment, deadline/)).toBeNull();
+    expect(screen.getByText(/Notes$/)).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Task title'), 'Clean the pantry shelves');
+    await fireEvent.changeText(screen.getByLabelText('Notes (optional)'), 'Top shelf first');
+    await fireEvent.press(screen.getByLabelText('Save task'));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      title: 'Clean the pantry shelves',
+      notes: 'Top shelf first',
+      assigneeId: null,
+      dueAt: null,
+    });
+  });
 });

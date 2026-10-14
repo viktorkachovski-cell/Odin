@@ -82,6 +82,17 @@ environment. No Play Store listing, new application identity, permission model,
 backend contract or web layout was requested. The device verification gap
 remains recorded in `known-risks.md`.
 
+## Editable list templates — requested 2026-10-14
+
+The owner found that a template could not be opened or edited on Android.
+Templates had in fact never been editable: the database refused it, and the
+2026-10-11 client overhaul also removed the way into a template's read-only
+view. The owner chose full editing on both clients. A template's title,
+subtitle, note and tasks are now edited like a list's, with the template rules
+intact: its tasks carry text and order only, and copying still resets every
+runtime field. This goes beyond optional FR 27 (a read-only preview), which it
+supersedes. Details are in `features.md`.
+
 ## Android appearance setting — requested 2026-10-14
 
 The owner found the app darker than the ivory/oak/green palette with no way to
@@ -155,8 +166,9 @@ judgement:
   **Android settled 2026-10-13:** persistent tabs, as approved above.
 - ~~**Collapsing completed tasks**~~ — **settled 2026-10-11**: list detail
   collapses them behind a count, kept in the totals (see above).
-- **FR 27 read-only template preview** is optional and unimplemented. It must
-  never block Must scope, and tapping Copy must never also trigger preview.
+- ~~**FR 27 read-only template preview**~~ — **superseded 2026-10-14** by
+  editable templates (above). Tapping Use template still never also opens the
+  template.
 - **Rewards, streaks or fairness rankings** are excluded. They change what the
   product is and need their own discussion, not an implementation decision.
 

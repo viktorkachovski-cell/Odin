@@ -33,7 +33,7 @@ export function ListDetail(): ReactNode {
   const members = useMembersQuery();
   const memberList = members.data ?? [];
   const isTemplate = list.data?.list.kind === 'template';
-  const wiring = useTaskWiring({ members: memberList, listId, canEdit: !isTemplate });
+  const wiring = useTaskWiring({ members: memberList, listId, textOnly: isTemplate });
 
   const [editingList, setEditingList] = useState(false);
   const [reorder, setReorder] = useState(false);
@@ -111,18 +111,16 @@ export function ListDetail(): ReactNode {
 
       <ListTasks
         before={
-          isTemplate ? undefined : (
-            <QuickAdd
-              error={addTask.state.error}
-              onAdd={(title, done) =>
-                void addTask.run(title).then((result) => {
-                  if (result.ok) done();
-                })
-              }
-              pending={addTask.state.pending}
-              t={t}
-            />
-          )
+          <QuickAdd
+            error={addTask.state.error}
+            onAdd={(title, done) =>
+              void addTask.run(title).then((result) => {
+                if (result.ok) done();
+              })
+            }
+            pending={addTask.state.pending}
+            t={t}
+          />
         }
         busy={wiring.actions.busy || removeDone.state.pending}
         handlers={wiring.handlers}

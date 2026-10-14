@@ -108,19 +108,23 @@ export function ActiveListRow(props: ListRowProps): ReactNode {
   );
 }
 
-/** A list template: what it holds, and the one thing to do with it. */
+/**
+ * A list template: what it holds, and the one thing to do with it. The name
+ * opens it for editing; Use template is a separate control, so using a
+ * template never also opens it.
+ */
 export function TemplateRow(props: ListRowProps): ReactNode {
   const { list, t, busy, reorder, onCopy } = props;
   return (
     <li className="list-row list-row--template">
-      <span className="list-row__name">
+      <Link className="list-row__name" to={`/lists/${list.id}`}>
         <span className="list-row__title">{list.title}</span>
         <span className="list-row__subtitle">
           {list.subtitle === null
             ? t('lists.task_count', { count: list.total_tasks })
             : `${list.subtitle} · ${t('lists.task_count', { count: list.total_tasks })}`}
         </span>
-      </span>
+      </Link>
       <span className="list-row__actions">
         {reorder && <ListMoves {...props} />}
         {onCopy !== undefined && !reorder && (

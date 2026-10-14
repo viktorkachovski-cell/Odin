@@ -20,7 +20,7 @@ import { GroupHeading } from './Blocks.tsx';
 import { useNavBarHeight } from './layout.ts';
 import { rowFromTask, TaskRow } from './TaskRow.tsx';
 
-/** Row handlers a list screen passes; a template passes only `onPress`. */
+/** Row handlers a list screen passes; a template's rows only open and delete. */
 interface ListRowHandlers {
   readonly onPress: (task: TaskRowModel) => void;
   readonly onToggleCompleted?: (task: TaskRowModel, completed: boolean) => void;
@@ -33,7 +33,8 @@ interface ListRowHandlers {
 /**
  * A list's tasks: open first, completed collapsed behind a count. In reorder
  * mode the overflow gives way to move controls that keep each task inside its
- * completion group. A template's tasks are read-only apart from order.
+ * completion group. A template's tasks have no completion, assignee or state:
+ * they open into the text-only editor, delete and move.
  */
 export function ListTasks({
   tasks,
@@ -60,7 +61,9 @@ export function ListTasks({
   const [showDone, setShowDone] = useState(false);
   const open = tasks.filter((task) => !task.completed);
   const done = tasks.filter((task) => task.completed);
-  const runtime = isTemplate ? { onPress: handlers.onPress } : handlers;
+  const runtime = isTemplate
+    ? { onPress: handlers.onPress, onDelete: handlers.onDelete }
+    : handlers;
 
   const row = (task: TaskDto): ReactNode => {
     const moves = adjacentMoves(tasks, tasks.indexOf(task), (entry) => entry.completed);
@@ -74,6 +77,7 @@ export function ListTasks({
         moveDownDisabled={!moves.down}
         moveUpDisabled={!moves.up}
         onMove={reorder ? onMove : undefined}
+        showAssignee={!isTemplate}
         t={t}
         task={rowFromTask(task)}
       />
@@ -176,12 +180,9 @@ export function ListHeader({
     <ActionMenu
       accessibilityLabel={t('list.actions')}
       actions={[
-        ...(isTemplate
-          ? []
-          : [
-              { label: t('list.edit'), onPress: onEdit },
-              { label: t('list.template.save'), onPress: onSaveTemplate },
-            ]),
+        { label: t('list.edit'), onPress: onEdit },
+        // A template is never saved as another template.
+        ...(isTemplate ? [] : [{ label: t('list.template.save'), onPress: onSaveTemplate }]),
         ...(canReorder
           ? [
               {

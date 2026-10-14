@@ -53,9 +53,10 @@ describe('TaskDetailsFlow', () => {
       .mockResolvedValueOnce({ data: { ok: true, data: { ...latest, version: 4 } }, error: null });
     const onClose = vi.fn();
 
-    render(<TaskDetailsFlow canEdit members={members} onClose={onClose} taskId={task.id} />, {
-      wrapper,
-    });
+    render(
+      <TaskDetailsFlow members={members} onClose={onClose} taskId={task.id} textOnly={false} />,
+      { wrapper },
+    );
 
     // The panel opens straight into the editor: no read-only step first.
     const title = screen.getByLabelText('Task title');
@@ -75,18 +76,40 @@ describe('TaskDetailsFlow', () => {
     );
   });
 
-  it('offers no editor for a template task', () => {
+  it('edits a template task as text only', async () => {
+    const user = userEvent.setup();
     useTaskQuery.mockReturnValue({
       data: task,
       isError: false,
       isPending: false,
       refetch: vi.fn(),
     });
-    render(
-      <TaskDetailsFlow canEdit={false} members={members} onClose={vi.fn()} taskId={task.id} />,
-      { wrapper },
+    rpc.mockReset().mockResolvedValueOnce({
+      data: { ok: true, data: { ...task, title: 'Water the ferns', version: 3 } },
+      error: null,
+    });
+    const onClose = vi.fn();
+    render(<TaskDetailsFlow members={members} onClose={onClose} taskId={task.id} textOnly />, {
+      wrapper,
+    });
+
+    expect(screen.queryByLabelText('Assigned to')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Date')).not.toBeInTheDocument();
+    const title = screen.getByLabelText('Task title');
+    await user.clear(title);
+    await user.type(title, 'Water the ferns');
+    await user.type(screen.getByLabelText('Notes (optional)'), 'Mist, do not soak');
+    await user.click(screen.getByRole('button', { name: 'Save task' }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(rpc).toHaveBeenLastCalledWith(
+      'update_task_v2',
+      expect.objectContaining({
+        title: 'Water the ferns',
+        notes: 'Mist, do not soak',
+        assignee_id: null,
+        due_at: null,
+      }),
     );
-    expect(screen.getByRole('dialog', { name: 'Water the plants' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Task title')).not.toBeInTheDocument();
   });
 });

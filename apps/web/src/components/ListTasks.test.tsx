@@ -117,13 +117,15 @@ describe('ListTasks', () => {
     expect(onDeleteDone).toHaveBeenCalledWith([expect.objectContaining({ id: 't3' })]);
   });
 
-  it('lets a template reorder its tasks without offering any runtime state', async () => {
+  it('lets a template reorder and delete its tasks without offering any runtime state', async () => {
     const user = userEvent.setup();
     const { onMoveTask } = renderList(true);
 
     expect(screen.queryByRole('button', { name: 'Delete done' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /complete/ })).not.toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: /Actions for/ })[0] as HTMLElement);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Delete']);
+    await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Move First down' }));
     expect(onMoveTask).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'down');
   });

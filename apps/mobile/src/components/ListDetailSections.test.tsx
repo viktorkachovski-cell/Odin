@@ -1,21 +1,33 @@
-import { render } from '@testing-library/react-native';
+import { render, screen as rendered } from '@testing-library/react-native';
 
 import type { TaskDto } from '@odin/contracts';
 import { createTranslator } from '@odin/i18n';
 
 import { ListTasks } from './ListDetailSections.tsx';
 
-/** Each task row renders one action menu, so the menu counts row renders. */
+/**
+ * Each task row renders one action menu, so the menu counts row renders; the
+ * double also keeps the last menu's labels.
+ */
 const mockMenus: string[] = [];
+let mockLastActions: string[] = [];
 jest.mock('./ActionMenu.tsx', () => ({
-  ActionMenu: ({ accessibilityLabel }: { readonly accessibilityLabel: string }) => {
+  ActionMenu: ({
+    accessibilityLabel,
+    actions,
+  }: {
+    readonly accessibilityLabel: string;
+    readonly actions: readonly { readonly label: string }[];
+  }) => {
     mockMenus.push(accessibilityLabel);
+    mockLastActions = actions.map((action) => action.label);
     return null;
   },
 }));
 
 const t = createTranslator('en');
 const handlers = {
+  onClaim: jest.fn(),
   onDelete: jest.fn(),
   onPress: jest.fn(),
   onSetState: jest.fn(),
@@ -41,11 +53,11 @@ function task(id: string, sortOrder: number): TaskDto {
   };
 }
 
-function view(tasks: readonly TaskDto[]) {
+function view(tasks: readonly TaskDto[], isTemplate = false) {
   return (
     <ListTasks
       busy={false}
-      isTemplate={false}
+      isTemplate={isTemplate}
       locale="en"
       handlers={handlers}
       members={members}
@@ -66,4 +78,13 @@ it('renders again only the row whose task changed', async () => {
   await screen.rerender(view([a, { ...b, title: 'Task b, renamed', version: 2 }, c]));
 
   expect(mockMenus).toEqual(['Actions for Task b, renamed']);
+});
+
+it('gives a template task no completion, claim or state, only delete', async () => {
+  await render(view([{ ...task('a', 1), due_at: null }], true));
+
+  expect(rendered.queryByRole('checkbox')).toBeNull();
+  expect(rendered.queryByText('Claim')).toBeNull();
+  expect(rendered.queryByText('Unassigned')).toBeNull();
+  expect(mockLastActions).toEqual(['Delete']);
 });

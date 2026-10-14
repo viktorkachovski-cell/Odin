@@ -26,11 +26,12 @@ export interface TaskRowHandlers {
 export function useTaskWiring({
   members,
   listId,
-  canEdit = true,
+  textOnly = false,
 }: {
   readonly members: readonly MemberDto[];
   readonly listId?: string | undefined;
-  readonly canEdit?: boolean;
+  /** A template's tasks: title and notes only. */
+  readonly textOnly?: boolean;
 }): {
   readonly actions: TaskRowActions;
   readonly handlers: TaskRowHandlers;
@@ -76,7 +77,7 @@ export function useTaskWiring({
       />
       {detailsId !== null && (
         <TaskDetailsFlow
-          canEdit={canEdit}
+          textOnly={textOnly}
           members={members}
           onClose={() => setDetailsId(null)}
           onDelete={(task) => {

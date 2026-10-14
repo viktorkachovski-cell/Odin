@@ -171,6 +171,7 @@ in `features.md`.
 | -------------------------- | ------------------------------------------------- | --------------------------- |
 | Save a list as a template  | Overflow on the Lists row and on list detail      | `save_list_template`        |
 | Delete a list or template  | Overflow on the Lists row and on list detail      | `delete_list`               |
+| Edit a template            | Tap the Templates row, then as list detail        | `update_list_v2`, task cmds |
 | Read a list's shared note  | Lists row; collapsible Notes on list detail       | `get_home_v2`/`get_list_v2` |
 | Write a list's shared note | Note field under the subtitle field in the editor | `update_list_v2`            |
 

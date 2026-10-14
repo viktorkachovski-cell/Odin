@@ -35,8 +35,8 @@ ones collapsed. `useTaskWiring` gives every screen the same row commands, the
 task panel and the destructive confirmations.
 
 Opening a task opens `TaskDetailsFlow` as a side panel (`Dialog` with
-`variant="side"`, a bottom sheet on a phone) that is the editor itself; a
-template task, or one still loading, shows `TaskDetailsDialog` read-only.
+`variant="side"`, a bottom sheet on a phone) that is the editor itself, text
+only for a template task; a task still loading shows `TaskDetailsDialog`.
 `NewTaskAction` is the header button, its Fab and the same editor with a list
 picker. Saving a list as a template confirms with a `Toast`. `Controls` holds
 the segmented control, the Reorder toggle and the move buttons that Tasks,

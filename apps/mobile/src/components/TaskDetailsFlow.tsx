@@ -6,40 +6,36 @@ import { keysAffectedByTaskChange, updateTask, useCommand } from '@odin/data';
 import { useOdin } from '../state/OdinContext.ts';
 import { useTaskQuery } from '../state/queries.ts';
 import { TaskEditor } from './TaskEditor.tsx';
-import {
-  TaskDetailsErrorSheet,
-  TaskDetailsLoadingSheet,
-  TaskDetailsSheet,
-} from './TaskDetailsSheet.tsx';
+import { TaskDetailsErrorSheet, TaskDetailsLoadingSheet } from './TaskDetailsSheet.tsx';
 
 /**
- * Opening a task from any row. An active task opens straight into its editor;
- * a template task stays a read-only sheet. A conflicting save keeps the draft
- * and reloads the task, so resubmitting targets the latest version -- the same
- * flow as the web client.
+ * Opening a task from any row opens straight into its editor; a template task
+ * is edited text-only. A conflicting save keeps the draft and reloads the task,
+ * so resubmitting targets the latest version -- the same flow as the web
+ * client.
  */
 export function TaskDetailsFlow({
   taskId,
   members,
-  editable,
+  textOnly,
   onClose,
   onDelete,
 }: {
   readonly taskId: string | null;
   readonly members: readonly MemberDto[];
-  readonly editable: boolean;
+  readonly textOnly: boolean;
   readonly onClose: () => void;
   /** Hands the loaded task back for the caller to confirm and delete. */
   readonly onDelete?: ((task: TaskDto) => void) | undefined;
 }): ReactNode {
-  const { t, locale, client } = useOdin();
+  const { t, client } = useOdin();
   const task = useTaskQuery(taskId);
   // The version the draft started from. Pinned on first load so a realtime
   // refetch mid-edit cannot quietly move the save onto a newer version; only an
   // explicit conflict review replaces it.
   const [base, setBase] = useState<TaskDto | null>(null);
   const loaded = task.isError ? undefined : task.data;
-  if (editable && base === null && loaded !== undefined) setBase(loaded);
+  if (base === null && loaded !== undefined) setBase(loaded);
   const save = useCommand(
     (
       requestId,
@@ -65,12 +61,6 @@ export function TaskDetailsFlow({
     );
   }
 
-  if (!editable) {
-    return (
-      <TaskDetailsSheet locale={locale} members={members} onClose={onClose} t={t} task={editing} />
-    );
-  }
-
   return (
     <TaskEditor
       error={save.state.error}
@@ -93,6 +83,7 @@ export function TaskDetailsFlow({
       pending={save.state.pending}
       t={t}
       task={editing}
+      textOnly={textOnly}
     />
   );
 }

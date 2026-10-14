@@ -112,6 +112,7 @@ export const en = {
   'task.assignee.unassigned': 'Unassigned',
   'task.assignee.you': 'You',
   'task.optional_details': 'Assignment, deadline & notes',
+  'task.optional_notes': 'Notes',
   'tasks.filters': 'Filters',
   'tasks.filters.apply': 'Apply filters',
   'tasks.filters.reset': 'Reset filters',

@@ -29,7 +29,8 @@ type ListRowHandlers = Partial<TaskRowHandlers> & {
 /**
  * A list's tasks: open ones first, completed ones collapsed behind a count.
  * Move controls appear only in reorder mode and keep each task inside its own
- * completion group. A template's tasks are read-only apart from order.
+ * completion group. A template's tasks have no completion, assignee or state:
+ * they open into the text-only editor, delete and move.
  */
 export function ListTasks({
   tasks,
@@ -65,7 +66,7 @@ export function ListTasks({
   const row = (task: TaskDto): ReactNode => {
     const index = tasks.indexOf(task);
     const moves = adjacentMoves(tasks, index, (entry) => entry.completed);
-    const runtime = isTemplate ? {} : handlers;
+    const runtime = isTemplate ? { onDelete: handlers.onDelete } : handlers;
     return (
       <TaskRow
         {...runtime}
@@ -224,16 +225,14 @@ export function ListHeader({
         </div>
         <div className="action-group">
           {canReorder && <ReorderToggle on={reorder} onToggle={onToggleReorder} t={t} />}
-          {/* A template is read-only apart from being removable. */}
           <OverflowMenu
             disabled={pending}
             items={[
+              { key: 'edit', label: t('list.edit'), onSelect: onEdit },
+              // A template is never saved as another template.
               ...(isTemplate
                 ? []
-                : [
-                    { key: 'edit', label: t('list.edit'), onSelect: onEdit },
-                    { key: 'template', label: t('list.template.save'), onSelect: onSaveTemplate },
-                  ]),
+                : [{ key: 'template', label: t('list.template.save'), onSelect: onSaveTemplate }]),
               { key: 'delete', label: t('list.delete'), danger: true, onSelect: onDelete },
             ]}
             label={t('list.actions')}

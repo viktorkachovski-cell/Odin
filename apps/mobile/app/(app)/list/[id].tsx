@@ -26,6 +26,8 @@ import { useTaskWiring } from '../../../src/components/useTaskWiring.tsx';
 /**
  * List detail: progress, subtitle and the shared note, then the tasks, with a
  * quick add pinned above the navigation. A task opens straight into its editor.
+ * A template is edited the same way, without progress, completion or Delete
+ * done, and its tasks take text only.
  */
 
 export default function ListDetailScreen(): ReactNode {
@@ -34,7 +36,7 @@ export default function ListDetailScreen(): ReactNode {
   const list = useListQuery(id);
   const members = useMembersQuery().data ?? NO_MEMBERS;
   const isTemplate = list.data?.list.kind === 'template';
-  const wiring = useTaskWiring({ members, listId: id, editable: !isTemplate });
+  const wiring = useTaskWiring({ members, listId: id, textOnly: isTemplate });
   const [editingList, setEditingList] = useState(false);
   const [reorder, setReorder] = useState(false);
   const {
@@ -146,20 +148,18 @@ export default function ListDetailScreen(): ReactNode {
         )}
 
         <NavSpacer />
-        {!isTemplate && <View style={styles.quickSpacer} />}
+        <View style={styles.quickSpacer} />
       </ScrollView>
 
-      {!isTemplate && (
-        <QuickAddBar
-          onAdd={(title, done) =>
-            void addTask.run(title).then((result) => {
-              if (result.ok) done();
-            })
-          }
-          pending={addTask.state.pending}
-          t={t}
-        />
-      )}
+      <QuickAddBar
+        onAdd={(title, done) =>
+          void addTask.run(title).then((result) => {
+            if (result.ok) done();
+          })
+        }
+        pending={addTask.state.pending}
+        t={t}
+      />
 
       {wiring.overlays}
 
