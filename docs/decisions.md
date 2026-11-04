@@ -15,7 +15,7 @@
 
 ## Confirmed by the source requirements
 
-One active household per account in MVP; equal task permissions for every member; at most one task assignee; deadlines only on tasks. Any member may create, assign, reassign, claim, complete or reopen tasks. Template copying copies text/order only and resets ownership, deadlines and completion. Templates and active lists remain independent.
+One active household per account in MVP; equal task permissions for every member; ~~at most one task assignee~~ (amended 2026-11-04: zero or more assignees, see below); deadlines only on tasks. Any member may create, assign, reassign, claim, complete or reopen tasks. Template copying copies text/order only and resets ownership, deadlines and completion. Templates and active lists remain independent.
 
 Scrolling hides/reveals narrow web navigation. Android's navigation stays visible by the 2026-10-13 amendment below. The Mine and Unassigned views exclude completed/template tasks. Empty-list progress is 0 percent. The source Home screen and its question-mark/person controls were replaced on 2026-10-11; see below.
 
@@ -32,8 +32,8 @@ shared across household members, and date filters refer to task deadlines.
 Blocked and Done are explicit choices. Task movement preserves the existing
 incomplete-first groups; list movement is within the existing active/template
 sections. New tasks and lists still append before a member moves them. No list
-deadline, multi-assignee, permission hierarchy or template runtime state is
-introduced.
+deadline, permission hierarchy or template runtime state is introduced.
+Multi-assignee was excluded here and is **superseded 2026-11-04** (below).
 
 Implementation choices, with their tradeoffs in `known-risks.md`: the stored
 lifecycle is Open/Blocked/Done, and Unassigned and To-do are display labels
@@ -117,7 +117,42 @@ The owner asked for three changes and confirmed their meaning:
   twelve slots, where two members collided one time in twelve.
 
 Multiple assignees and shared claims were raised in the same request and
-deferred by the owner; the one-assignee rule is unchanged.
+deferred by the owner; **superseded 2026-11-04** by the amendment below.
+
+## Multiple assignees — approved 2026-11-04
+
+The owner explicitly replaced the one-assignee restriction. This is a narrow
+amendment; equal household permissions, household isolation, task-only
+deadlines and the template copy/reset rules are unchanged.
+
+- A task has **zero or more distinct active household members** assigned. It is
+  still one shared task with one deadline, one notes field and one
+  Open/Blocked/Done state, and it counts **once** toward list progress and
+  household totals however many people are on it.
+- **Any active member may complete or reopen it for everyone.** There is no
+  per-person completion or approval. Reopening keeps its assignments.
+- **Mine** holds every incomplete task the member is assigned to, so a shared
+  task appears once in each assignee's Mine and once in Everyone. **Unassigned**
+  means zero assignees. An open task with one or more assignees shows To-do.
+  Assignment changes preserve Blocked and Done.
+- **Assign to me** adds the member without removing anyone, including on a task
+  that already has assignees. **Remove me** removes only the member. Any active
+  member can add or remove assignees in the task editor, or clear everyone.
+- List templates and task templates keep their reset behaviour: nothing saved,
+  applied or copied carries assignments, a deadline or completion.
+- **Notifications** (Android) follow membership: a task is yours when you are
+  assigned, whoever else is. Each assignee gets the existing notifications; the
+  deadline-reminder scope (yours plus unassigned) and every gate are unchanged.
+
+Implementation choices, with their tradeoffs in `known-risks.md` (R15): the
+assignment is a normalized relation (`task_assignees`); the old `assignee_id`
+column stays as a trigger-verified single-assignee projection so installed
+Android builds keep working; adding or removing one member needs no version
+(so concurrent additions all survive) while replacing the whole set from the
+editor does (so it cannot overwrite what it never saw); and an installed
+single-assignee editor may keep a shared task's assignees but cannot reduce
+them. A set holds at most 50 members. The contract and its compatibility note
+are in `contract.md`.
 
 ## Proposed implementation defaults
 
@@ -190,15 +225,15 @@ decision row. The owner selected it on 2026-09-22, so notifications are in
 scope for the Android client. `code-standards.md` still forbids _inventing_
 notifications; this is an instruction, not an invention.
 
-| Topic           | Decision                                                                                       |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| Triggers        | A task becomes yours; a task of yours is changed; a deadline approaches                        |
-| Deadline ladder | 24 hours, then 4 hours, then 1 hour before the deadline                                        |
-| Deadline scope  | Tasks assigned to you **and** unassigned tasks, so dated work nobody has claimed is not missed |
-| Change scope    | Tasks assigned to you only                                                                     |
-| Gate            | Android's own permission **and** a per-device mute the member controls; both must allow it     |
-| Platform        | Android only. The web client is untouched and gains no notification behaviour                  |
-| Delivery        | Device-local. Deferred: remote push (open decision 7)                                          |
+| Topic           | Decision                                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Triggers        | A task becomes yours; a task of yours is changed; a deadline approaches                                                                                             |
+| Deadline ladder | 24 hours, then 4 hours, then 1 hour before the deadline                                                                                                             |
+| Deadline scope  | Tasks assigned to you **and** unassigned tasks, so dated work nobody has claimed is not missed (assigned to you = you are one of its assignees; amended 2026-11-04) |
+| Change scope    | Tasks assigned to you only                                                                                                                                          |
+| Gate            | Android's own permission **and** a per-device mute the member controls; both must allow it                                                                          |
+| Platform        | Android only. The web client is untouched and gains no notification behaviour                                                                                       |
+| Delivery        | Device-local. Deferred: remote push (open decision 7)                                                                                                               |
 
 "Imminent" was left undefined in the request and the owner chose one hour.
 

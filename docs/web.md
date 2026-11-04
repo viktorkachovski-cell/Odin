@@ -27,8 +27,8 @@ with Settings set apart at its foot; compact viewports show the same four in
 the bottom bar. Content is centred in a capped column.
 
 Task lists render as one table surface (`TaskTable`, `TaskRow`): completion,
-title with notes underneath, list, assignee or Claim, deadline and one overflow
-menu, on a shared grid so columns line up. Below 860px the header hides and
+title with notes underneath, list, assignees or Assign to me, deadline and one
+overflow menu, on a shared grid so columns line up. Below 860px the header hides and
 each row's metadata wraps under its title. Rows are grouped by deadline
 (`TaskGroups`) on Today and Tasks; list detail shows open tasks with completed
 ones collapsed. `useTaskWiring` gives every screen the same row commands, the
@@ -55,6 +55,13 @@ glyphs.
   languages; overdue is text, not colour alone.
 - Long task names wrap, assignee chips keep their names, and Bulgarian text
   does not overflow.
+- The task editor's **Assigned to** is a fieldset of native checkboxes, one per
+  active member, so Tab/Space and screen-reader state come from the browser;
+  the selected names are written out in full above it (long names wrap, never
+  truncate), an `aria-live` status announces the count, and Assign to me,
+  Remove me and Clear all are ordinary buttons. A row with more than two
+  assignees shows two names and "+N more" and reads every name to assistive
+  technology.
 
 ## Authentication
 

@@ -140,13 +140,20 @@ in `features.md`.
   add docked above the persistent navigation instead.
 - Secondary task and list actions use Android overflow controls and modal
   bottom menus rather than rows of desktop buttons.
+- **Assigned to** in the task editor is a vertical list of checkbox rows, one
+  per active member, so a long name wraps and large fonts only make rows
+  taller. Each row is a TalkBack checkbox labelled with the full name ("you"
+  for the member, "Boris (2)" for a repeated display name); the selected names
+  are written out above it with a polite live region, with Assign to me, Remove
+  me and Clear all beside them. Nothing is sent until Save.
 - Task-template selection uses a scrollable bottom picker, so long titles and a
   growing template collection do not crowd the editor.
 - List detail has an explicit in-app back control alongside Android system
   back.
 - Destructive actions keep the native confirmation alert.
-- Completion and Claim stay directly reachable: they are the primary action of
-  their row. Reorder is in the Lists toolbar or the list-detail menu.
+- Completion and Assign to me stay directly reachable: they are the primary
+  action of their row. A task with assignees offers Assign to me, Remove me and
+  Clear assignees in its overflow menu. Reorder is in the Lists toolbar or the list-detail menu.
 - Confirmations such as a saved template use an Android toast.
 - Touch targets stay at least 48 dp, every control carries a TalkBack label,
   and English/Bulgarian text is shared with web.
@@ -214,20 +221,33 @@ the Android binary is rebuilt.**
   `getUnassigned`, which the app already has, and compares the per-task
   `version` the contract increments once per change. This is why the feature
   needed no contract change and why the web client is untouched.
+- **A task is mine when I am in its assignment set** (`isMyOpenTask`,
+  `reminderTasks` in `@odin/domain`), whoever else is. Each assignee's phone
+  runs the same hook for its own member, so one shared task is announced once on
+  every assignee's device and holds one reminder per stage on each. My Tasks and
+  Unassigned are two reads taken a moment apart; a task listed by both while it
+  moves between them still yields one reminder per stage, one that no longer
+  names the member is ignored, and one completed by anyone is cancelled at the
+  next reconciliation. Someone else joining a task of mine advances its version
+  and so is announced as a change to it.
 - **It is mounted on the `(app)` layout, not a screen.** The watcher has to
   keep both queries live whichever section is open, and while no screen is
   focused at all.
 - **Announcements are suppressed in the foreground.** This is the whole of the
-  self-notification defence: a member cannot be tapping Claim in the foreground
+  self-notification defence: a member cannot be tapping Assign to me in the foreground
   and be somewhere else at the same time. The alternative — a list of task IDs
   the device just mutated — has to be updated at every task mutation call site,
   and a new one that forgets it produces a notification about your own edit.
 - **Scheduled reminders are reconciled, not tracked.** The set Android already
   holds is read back through `getAllScheduledNotificationsAsync` rather than
   remembered in the app, so a restart cannot desynchronise it. Identifiers are
-  `odin-due:<locale>:<taskId>:<stage>`, which makes rescheduling idempotent and
-  makes a language change retire the old wording rather than leave a Bulgarian
-  member with English reminders.
+  `odin-due:<locale>:<taskId>:<stage>:<fireAtMs>`, which makes reconciling
+  idempotent, makes a moved deadline retire the reminders for the old time
+  rather than leave them firing (the identifier once omitted the time, so a
+  rescheduled deadline kept its old alarms), and makes a language change retire
+  the old wording rather than leave a Bulgarian member with English reminders.
+  Alarms scheduled under the older three-part identifier are not wanted by the
+  new reconciler, so the first run after an update cancels and rebuilds them.
 - **Reminders do not outlive the account.** `OdinProvider.applyUser` cancels
   every scheduled reminder when the identity changes away from a signed-in
   account, because a reminder carries a task title. A cold start is

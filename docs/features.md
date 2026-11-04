@@ -33,17 +33,36 @@ it under the subtitle and put its editor field under the subtitle field.
 ## Tasks
 
 A task has a title (1–500 code points), an optional shared note (up to 5,000),
-at most one assignee, an optional deadline and an explicit state.
+zero or more assignees, an optional deadline and an explicit state.
 
 - A date with no time resolves on the client to `23:59:59.999` in the device's
   local time zone and is stored as UTC. A time without a date is invalid.
 - Completion is an explicit desired state, never a toggle, so a retry cannot
   invert it. A completed task never shows as overdue.
 - Four visible statuses: Unassigned, To-do, Blocked and Done. A task is stored
-  as Open, Blocked or Done; an open task shows Unassigned without an assignee
-  and To-do with one, so that label follows assignment automatically. Blocked
-  and Done are explicit choices and do not change the assignee. Assignment
-  changes preserve a blocked state; completion and reopening clear it.
+  as Open, Blocked or Done; an open task shows Unassigned with nobody assigned
+  and To-do with one or more people, so that label follows assignment
+  automatically. Blocked and Done are explicit choices and do not change the
+  assignees. Assignment changes preserve Blocked and Done; completion and
+  reopening never touch assignments (reopening clears Blocked).
+- **Several assignees (2026-11-04).** A task is one shared task however many
+  members are on it: one deadline, one note, one state, counted once in
+  progress and totals. Each assignee sees it once in Mine (and once in the
+  Tasks/Today badges and counts); Unassigned means nobody; Everyone shows it
+  once. Any member can complete or reopen it for everyone and nobody approves
+  anything. In the editor, **Assigned to** lists every active member as a
+  checkbox with the selected names written out in full, plus **Assign to me**,
+  **Remove me** and **Clear all**; the whole set is saved with the task, under
+  the version the editor opened at. If the save conflicts, the member's own
+  additions and removals are carried onto the latest version, so someone added
+  meanwhile is kept. On a row, a task nobody has offers **Assign to me**; on a
+  task with assignees the row menu offers **Assign to me** (when someone else
+  has it), **Remove me** (when you do) and **Clear assignees**, none of which
+  need the editor and none of which disturb the other assignees. Rows show the
+  first two names (you as "You") and "+N more", with every name available to
+  screen readers and on hover; two members with one display name read "Boris"
+  and "Boris (2)". A set holds at most 50 members. Nothing about templates
+  changed: they carry no assignees.
 - Up/down moves persist one shared household order: tasks within their
   incomplete/completed group (a template's tasks too), active lists and list
   templates each within their own kind. End-of-group moves are disabled, and
@@ -92,10 +111,10 @@ matching view, so links, bookmarks and notification taps still land.
 - **Reordering is a mode.** Up/down controls appear only after choosing
   Reorder, on Lists and on list detail.
 - **Task rows show exceptions, not defaults.** A status label appears only for
-  Blocked; Mark blocked / Unblock, Unassign and Delete sit in the row menu
+  Blocked; Mark blocked / Unblock, Assign to me, Remove me, Clear assignees and Delete sit in the row menu
   (`taskRowActions`). Completion stays a checkbox, separate from opening the
-  task. An empty deadline is an empty cell and an unclaimed task offers Claim
-  (assistive technology still hears "Unassigned"). Overdue is spelled out.
+  task. An empty deadline is an empty cell and a task nobody has offers Assign to
+  me (assistive technology still hears "Unassigned"). Overdue is spelled out.
 - **Opening a task opens its editor** (a side panel on web, the editor sheet on
   Android). The draft is pinned to the version it was opened at, so a refetch
   while editing cannot move the save onto a newer version; a conflict keeps the
@@ -162,10 +181,10 @@ the same commands:
 - **Its tasks.** Quick add appends a task; opening a task edits its title and
   notes; Delete removes it; Reorder moves it. Nothing else applies: a template
   task never has an assignee, a deadline, completion or Blocked, so the editor
-  hides those fields, rows show no checkbox or Claim, and the server refuses an
+  hides those fields, rows show no checkbox or assignment action, and the server refuses an
   assignee or deadline on a template task with `VALIDATION`
   (`error.template_task_runtime`).
-- **What stays active-list only.** Claim, Done, Blocked, Delete done and Save
+- **What stays active-list only.** Assignment, Done, Blocked, Delete done and Save
   as list template. A template has no progress bar.
 - **Copies are unaffected.** Use template copies the template as it is now;
   lists already made from it do not change, and editing a list never changes
@@ -213,8 +232,13 @@ Odin notifies a member about three things:
   per-device mute in Settings must both allow it. Muting is per device, not per
   account, so a spare phone can be silenced without silencing the one you carry.
 - **Deadline reminders cover your own tasks and unassigned ones**, so dated
-  work nobody has claimed is not missed. The two sets are disjoint, and a task
-  you claim keeps the reminders it already had.
+  work nobody has taken is not missed. A task is yours when you are one of its
+  assignees, however many others share it, so each assignee holds one reminder
+  per stage for it. The two sets are disjoint (a task assigned to you and
+  someone else is yours), and a task that moves between Mine and Unassigned
+  keeps the reminders it already had. A reminder is cancelled when you are
+  removed and others remain, when the task is completed by anyone, and
+  rescheduled when its deadline moves.
 - **A stage that has already passed is skipped**, never fired late. A task
   created 30 minutes before its deadline gets no deadline reminder at all,
   because a "due in 4 hours" warning delivered 30 minutes before the deadline
@@ -261,9 +285,13 @@ R9 in `known-risks.md`.
   deleted and the member gets a conflict. A task completed after they looked
   is not in the request and stays.
 
-- **Assignment.** "Unassign" is an `update_task` that preserves title and
-  deadline while sending `assignee_id: null`, under the same expected-version
-  and membership checks as any task edit.
+- **Assignment.** Four commands change who a task is assigned to
+  (`contract.md`): the editor replaces the whole set under the task's version;
+  "Clear assignees" is `set_task_assignees` with an empty set under the row's
+  version (title, notes and deadline untouched); "Assign to me" and "Remove me"
+  add or remove one member with no version, so concurrent changes by other
+  members are never lost. Installed Android builds keep the old single-assignee
+  commands, which can edit a shared task but never reduce its assignees.
 
 All of these are actor-scoped, idempotent by `request_id`, and available to any
 active household member. Both clients confirm destructive actions and
@@ -272,8 +300,8 @@ invalidate every affected read after success.
 ## Client compatibility
 
 Installed Android builds retain their original note-preserving create/update
-RPCs and the paged household reads. Current clients use `*_v2` note commands
-and snapshot reads. Parsers tolerate a missing `notes`, `blocked` or list
+RPCs and the paged household reads. Current clients use `*_v2` note commands,
+the `*_v3` assignment commands and snapshot reads. Parsers tolerate a missing `notes`, `blocked` or list
 `sort_order` in legacy payloads, but current clients need all three
 task-workflow migrations.
 
