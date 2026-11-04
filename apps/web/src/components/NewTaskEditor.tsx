@@ -50,7 +50,7 @@ function NewTaskEditor({
   readonly members: readonly MemberDto[];
   readonly onClose: () => void;
 }): ReactNode {
-  const { t, client } = useOdin();
+  const { t, client, user } = useOdin();
   const fieldId = useId();
   const active = lists.filter((list) => list.kind === 'active');
   const [listId, setListId] = useState(active[0]?.id ?? '');
@@ -61,7 +61,7 @@ function NewTaskEditor({
         readonly listId: string;
         readonly title: string;
         readonly notes: string;
-        readonly assigneeId: string | null;
+        readonly assigneeIds: readonly string[];
         readonly dueAt: string | null;
       },
     ) => createTask(client, requestId, input),
@@ -90,6 +90,7 @@ function NewTaskEditor({
 
   return (
     <TaskEditor
+      currentUserId={user?.id ?? null}
       error={save.state.error}
       listField={listField}
       members={members}

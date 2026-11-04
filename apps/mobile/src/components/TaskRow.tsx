@@ -11,7 +11,14 @@ import {
   type TaskRowModel,
   type TaskState,
 } from '@odin/contracts';
-import { isOverdue, taskRowActions, type TaskRowAction } from '@odin/domain';
+import {
+  assigneeEntries,
+  isOverdue,
+  summarizeAssignees,
+  taskAssigneeIds,
+  taskRowActions,
+  type TaskRowAction,
+} from '@odin/domain';
 import { formatDueShort, TASK_ACTION_KEYS, type Locale, type Translator } from '@odin/i18n';
 
 import { useTheme } from '../theme.ts';
@@ -22,7 +29,7 @@ import { AccentButton } from './Button.tsx';
 /**
  * A task row: completion, the task, who has it, and one overflow menu. It
  * shows exceptions rather than defaults -- a status label only when Blocked, no
- * "No deadline" text, and Claim instead of an "Unassigned" label. Completing a
+ * "No deadline" text, and Assign to me instead of an "Unassigned" label. Completing a
  * task and opening it are separate targets. Move controls appear only in
  * reorder mode.
  */
@@ -55,10 +62,11 @@ interface TaskRowProps {
   readonly busy?: boolean | undefined;
   /** Off on Today's My tasks, where every row is the member's own. */
   readonly showAssignee?: boolean;
-  readonly currentUserId?: string | undefined;
+  readonly currentUserId?: string | null | undefined;
   readonly onPress?: ((task: TaskRowModel) => void) | undefined;
   readonly onToggleCompleted?: ((task: TaskRowModel, completed: boolean) => void) | undefined;
-  readonly onClaim?: ((task: TaskRowModel) => void) | undefined;
+  readonly onAssignMe?: ((task: TaskRowModel) => void) | undefined;
+  readonly onRemoveMe?: ((task: TaskRowModel) => void) | undefined;
   readonly onUnassign?: ((task: TaskRowModel) => void) | undefined;
   readonly onDelete?: ((task: TaskRowModel) => void) | undefined;
   /** Offered as Mark blocked / Unblock in the overflow. */
@@ -71,22 +79,39 @@ interface TaskRowProps {
 function menuActions({
   task,
   t,
+  currentUserId,
   onSetState,
+  onAssignMe,
+  onRemoveMe,
   onUnassign,
   onDelete,
-}: Pick<TaskRowProps, 'task' | 't' | 'onSetState' | 'onUnassign' | 'onDelete'>): ActionMenuItem[] {
+}: Pick<
+  TaskRowProps,
+  | 'task'
+  | 't'
+  | 'currentUserId'
+  | 'onSetState'
+  | 'onAssignMe'
+  | 'onRemoveMe'
+  | 'onUnassign'
+  | 'onDelete'
+>): ActionMenuItem[] {
   const run: Record<TaskRowAction, () => void> = {
     block: () => onSetState?.(task, 'blocked'),
     unblock: () => onSetState?.(task, 'open'),
+    assign_me: () => onAssignMe?.(task),
+    remove_me: () => onRemoveMe?.(task),
     unassign: () => onUnassign?.(task),
     delete: () => onDelete?.(task),
   };
   const wired = {
     state: onSetState !== undefined,
+    assignMe: onAssignMe !== undefined,
+    removeMe: onRemoveMe !== undefined,
     unassign: onUnassign !== undefined,
     remove: onDelete !== undefined,
   };
-  return taskRowActions(task, wired).map((action) => ({
+  return taskRowActions(task, wired, currentUserId ?? null).map((action) => ({
     label: t(TASK_ACTION_KEYS[action]),
     onPress: run[action],
     destructive: action === 'delete',
@@ -144,22 +169,21 @@ function Who({
   task,
   t,
   busy,
-  onClaim,
-}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'onClaim'>): ReactNode {
-  if (task.assignee_id === null && onClaim !== undefined && !task.completed) {
+  onAssignMe,
+}: Pick<TaskRowProps, 'task' | 't' | 'busy' | 'onAssignMe'>): ReactNode {
+  const unassigned = taskAssigneeIds(task).length === 0;
+  if (unassigned && onAssignMe !== undefined && !task.completed) {
     return (
       <AccentButton
         accessibilityLabel={t('task.claim', { title: task.title })}
         disabled={busy === true}
         label={t('task.claim.short')}
-        onPress={() => onClaim(task)}
+        onPress={() => onAssignMe(task)}
       />
     );
   }
   // Read by TalkBack only: the row says nobody has it without a visible label.
-  return task.assignee_id === null ? (
-    <Text style={styles.srOnly}>{t('task.assignee.unassigned')}</Text>
-  ) : null;
+  return unassigned ? <Text style={styles.srOnly}>{t('task.assignee.unassigned')}</Text> : null;
 }
 
 function Toggle({
@@ -213,21 +237,28 @@ function Body({
   'task' | 'members' | 'currentUserId' | 'showAssignee' | 'locale' | 't' | 'onPress'
 >): ReactNode {
   const theme = useTheme();
-  const assignee =
+  const entries =
     showAssignee === false
-      ? undefined
-      : members.find((member) => member.user_id === task.assignee_id);
+      ? []
+      : assigneeEntries(taskAssigneeIds(task), members, currentUserId ?? null);
+  const nameOf = (entry: (typeof entries)[number]): string =>
+    entry.former ? t('task.assignee.former') : entry.isYou ? t('task.assignee.you') : entry.name;
+  const { shown, more } = summarizeAssignees(entries);
+  // Every name is spoken even when the row only has room for the first few.
+  const everyone = entries.map(nameOf).join(', ');
   const assigneeName =
-    assignee?.user_id === currentUserId && assignee !== undefined
-      ? t('task.assignee.you')
-      : assignee?.display_name;
+    entries.length === 0
+      ? undefined
+      : [shown.map(nameOf).join(', '), more > 0 ? t('task.assignee.more', { count: more }) : '']
+          .filter((part) => part.length > 0)
+          .join(' ');
   const due = task.due_at === null ? undefined : formatDueShort(task.due_at, locale);
   const label = [
     task.title,
     task.list_title,
     due,
     task.blocked && !task.completed ? t('task.status.blocked') : undefined,
-    assigneeName,
+    entries.length === 0 ? undefined : t('task.assignee.summary', { names: everyone }),
   ]
     .filter(Boolean)
     .join(', ');
@@ -285,7 +316,7 @@ export const TaskRow = memo(function TaskRow(props: TaskRowProps): ReactNode {
         />
       </View>
       <View style={styles.actions}>
-        {showAssignee && <Who busy={busy} onClaim={props.onClaim} t={t} task={task} />}
+        {showAssignee && <Who busy={busy} onAssignMe={props.onAssignMe} t={t} task={task} />}
         {onMove === undefined ? (
           <ActionMenu
             accessibilityLabel={t('task.actions', { title: task.title })}

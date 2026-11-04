@@ -17,7 +17,9 @@ export interface TaskRowHandlers {
   readonly busy: boolean;
   readonly onToggleCompleted: TaskRowActions['toggleCompleted'];
   readonly onSetState: TaskRowActions['setState'];
-  readonly onClaim: TaskRowActions['claim'];
+  readonly currentUserId: string | null;
+  readonly onAssignMe: TaskRowActions['assignMe'];
+  readonly onRemoveMe: TaskRowActions['removeMe'];
   readonly onOpenDetails: (task: TaskRowModel) => void;
   readonly onUnassign: (task: TaskRowModel) => void;
   readonly onDelete: (task: TaskRowModel) => void;
@@ -38,8 +40,9 @@ export function useTaskWiring({
   readonly errors: ReactNode;
   readonly overlays: ReactNode;
 } {
-  const { t, client } = useOdin();
-  const actions = useTaskRowActions(client, listId);
+  const { t, client, user } = useOdin();
+  const userId = user?.id ?? null;
+  const actions = useTaskRowActions(client, { userId, listId });
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
 
@@ -55,14 +58,16 @@ export function useTaskWiring({
     busy: actions.busy,
     onToggleCompleted: actions.toggleCompleted,
     onSetState: actions.setState,
-    onClaim: actions.claim,
+    currentUserId: userId,
+    onAssignMe: actions.assignMe,
+    onRemoveMe: actions.removeMe,
     onOpenDetails: (task) => setDetailsId(task.id),
     onUnassign: (task) =>
       setConfirm({
         titleKey: 'task.unassign.title',
         bodyKey: 'task.unassign.confirm',
         confirmKey: 'task.unassign.short',
-        run: () => actions.unassign(task),
+        run: () => actions.clearAssignees(task),
       }),
     onDelete: confirmDelete,
   };

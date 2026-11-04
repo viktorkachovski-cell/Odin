@@ -4,7 +4,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
 import {
   dueIssueKey,
+  mergeAssigneeEdit,
   resolveDueInput,
+  taskAssigneeIds,
   taskDraft,
   validateNotes,
   validateTaskTitle,
@@ -31,6 +33,8 @@ import { Sheet } from './Sheet.tsx';
 interface TaskEditorProps {
   readonly task: TaskDto | null;
   readonly members: readonly MemberDto[];
+  /** The signed-in member, for Assign to me and Remove me. */
+  readonly currentUserId: string | null;
   readonly t: Translator;
   readonly pending: boolean;
   /** A CONFLICT keeps the draft and offers `onReviewConflict` instead of an error. */
@@ -46,7 +50,8 @@ interface TaskEditorProps {
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
-    readonly assigneeId: string | null;
+    /** The complete assignment set the member chose; empty means unassigned. */
+    readonly assigneeIds: readonly string[];
     readonly dueAt: string | null;
   }) => void;
 }
@@ -54,6 +59,7 @@ interface TaskEditorProps {
 export function TaskEditor({
   task,
   members,
+  currentUserId,
   t,
   pending,
   error,
@@ -66,6 +72,21 @@ export function TaskEditor({
 }: TaskEditorProps): ReactNode {
   const theme = useTheme();
   const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
+  // The assignment the editor opened with, and the version it came from. When
+  // the task is replaced by a newer one (after a conflict review), the member's
+  // own assignee changes are carried onto it instead of overwriting it.
+  const [origin, setOrigin] = useState<{
+    readonly version: number;
+    readonly ids: readonly string[];
+  }>(() => ({ version: task?.version ?? 0, ids: draft.assigneeIds }));
+  if (task !== null && task.version !== origin.version) {
+    const latest = taskAssigneeIds(task);
+    setOrigin({ version: task.version, ids: [...latest].sort() });
+    setDraft((current) => ({
+      ...current,
+      assigneeIds: mergeAssigneeEdit(origin.ids, current.assigneeIds, latest),
+    }));
+  }
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
@@ -84,7 +105,7 @@ export function TaskEditor({
     onSubmit({
       title: draft.title.trim(),
       notes: draft.notes.trim(),
-      assigneeId: textOnly ? null : draft.assigneeId,
+      assigneeIds: textOnly ? [] : draft.assigneeIds,
       dueAt: textOnly ? null : due.dueAt,
     });
   };
@@ -100,7 +121,7 @@ export function TaskEditor({
         setDraft({
           title: template.title,
           notes: template.notes ?? '',
-          assigneeId: null,
+          assigneeIds: [],
           dueDate: '',
           dueTime: '',
         })
@@ -182,9 +203,10 @@ export function TaskEditor({
         {!textOnly && (
           <>
             <AssigneePicker
+              currentUserId={currentUserId}
               members={members}
-              onSelect={(assigneeId) => setDraft((current) => ({ ...current, assigneeId }))}
-              selected={draft.assigneeId}
+              onChange={(assigneeIds) => setDraft((current) => ({ ...current, assigneeIds }))}
+              selected={draft.assigneeIds}
               t={t}
             />
             <DueField

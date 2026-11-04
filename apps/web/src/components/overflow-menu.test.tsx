@@ -26,6 +26,7 @@ function makeTask(overrides: Partial<TaskRowModel> = {}): TaskRowModel {
     list_id: 'l1',
     title: 'Empty the bins',
     completed: false,
+    assignee_ids: [],
     assignee_id: null,
     due_at: null,
     version: 1,
@@ -150,7 +151,7 @@ describe('TaskRow actions', () => {
           onToggleCompleted={vi.fn()}
           onUnassign={vi.fn()}
           t={t}
-          task={makeTask({ assignee_id: 'u1' })}
+          task={makeTask({ assignee_ids: ['u1'], assignee_id: 'u1' })}
         />
       </ul>,
     );
@@ -158,7 +159,7 @@ describe('TaskRow actions', () => {
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Actions for Empty the bins' }));
     const entries = screen.getAllByRole('menuitem').map((item) => item.textContent);
-    expect(entries).toEqual(['Mark blocked', 'Unassign', 'Delete']);
+    expect(entries).toEqual(['Mark blocked', 'Clear assignees', 'Delete']);
     await user.click(screen.getByRole('menuitem', { name: 'Mark blocked' }));
     expect(onSetState).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 'blocked');
 
@@ -230,7 +231,7 @@ describe('TaskRow actions', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Actions for Empty the bins' }));
-    expect(screen.queryByRole('menuitem', { name: 'Unassign' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Clear assignees' })).not.toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
   });
 

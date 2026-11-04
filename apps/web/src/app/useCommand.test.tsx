@@ -169,6 +169,7 @@ describe('useTaskRowActions', () => {
     id: 'task-1',
     title: 'Water the plants',
     completed: false,
+    assignee_ids: [],
     assignee_id: null,
     due_at: null,
     version: 4,
@@ -184,7 +185,10 @@ describe('useTaskRowActions', () => {
       })
       .mockRejectedValueOnce(new TypeError('Failed to fetch'));
     const client = { rpc } as unknown as OdinSupabaseClient;
-    const { result } = renderHook(() => useTaskRowActions(client, 'list-1'), { wrapper });
+    const { result } = renderHook(
+      () => useTaskRowActions(client, { userId: 'me', listId: 'list-1' }),
+      { wrapper },
+    );
 
     act(() => result.current.setState(row, 'blocked'));
     await waitFor(() => expect(result.current.errors[1]?.error?.code).toBe('CONFLICT'));
@@ -198,5 +202,53 @@ describe('useTaskRowActions', () => {
     await waitFor(() => expect(result.current.errors[2]?.error?.code).toBe('NETWORK'));
     expect(result.current.errors[2]?.retry).toBeInstanceOf(Function);
     expect(result.current.busy).toBe(false);
+  });
+
+  it('assigns the member without a version, and removes only the member', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { ok: false, error: { code: 'CONFLICT', message_key: 'error.conflict' } },
+      error: null,
+    });
+    const client = { rpc } as unknown as OdinSupabaseClient;
+    const { result } = renderHook(
+      () => useTaskRowActions(client, { userId: 'me', listId: 'list-1' }),
+      { wrapper },
+    );
+
+    act(() => result.current.assignMe(row));
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenNthCalledWith(1, 'add_task_assignee', {
+      request_id: expect.any(String) as string,
+      task_id: 'task-1',
+      user_id: 'me',
+    });
+
+    act(() => result.current.removeMe(row));
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
+    expect(rpc.mock.calls[1]?.[0]).toBe('remove_task_assignee');
+    expect(rpc.mock.calls[1]?.[1]).toMatchObject({ task_id: 'task-1', user_id: 'me' });
+    expect(rpc.mock.calls[1]?.[1]).not.toHaveProperty('expected_version');
+  });
+
+  it('clears everyone under the row version, replacing only the set', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const client = { rpc } as unknown as OdinSupabaseClient;
+    const { result } = renderHook(() => useTaskRowActions(client, { userId: 'me' }), { wrapper });
+    act(() => result.current.clearAssignees(row));
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenNthCalledWith(1, 'set_task_assignees', {
+      request_id: expect.any(String) as string,
+      task_id: 'task-1',
+      expected_version: 4,
+      assignee_ids: [],
+    });
+  });
+
+  it('does nothing for Assign to me without a signed-in member', () => {
+    const rpc = vi.fn();
+    const client = { rpc } as unknown as OdinSupabaseClient;
+    const { result } = renderHook(() => useTaskRowActions(client, { userId: null }), { wrapper });
+    act(() => result.current.assignMe(row));
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

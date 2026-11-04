@@ -18,6 +18,7 @@ const day = (offset: number, hour = 23, minute = 59): string =>
   new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, hour, minute).toISOString();
 
 function task(id: string, overrides: Partial<HouseholdTaskDto> = {}): HouseholdTaskDto {
+  const assignee = overrides.assignee_id ?? null;
   return {
     id,
     household_id: 'h1',
@@ -28,6 +29,7 @@ function task(id: string, overrides: Partial<HouseholdTaskDto> = {}): HouseholdT
     sort_order: 1,
     completed: false,
     blocked: false,
+    assignee_ids: assignee === null ? [] : [assignee],
     assignee_id: null,
     due_at: null,
     created_at: '',
@@ -104,7 +106,7 @@ function renderAt(path: string): void {
 function rowTitles(): string[] {
   return screen
     .queryAllByRole('listitem')
-    .map((row) => within(row).queryByRole('button', { name: /^(?!Mark|Claim|Actions)/ }))
+    .map((row) => within(row).queryByRole('button', { name: /^(?!Mark|Assign|Actions)/ }))
     .flatMap((button) => (button === null ? [] : [button.textContent ?? '']));
 }
 
@@ -159,7 +161,9 @@ describe('Today', () => {
     );
     expect(screen.getByRole('link', { name: 'Unassigned: 1' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Blocked: 1' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Claim Take out recycling' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Assign Take out recycling to me' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Book lessons')).not.toBeInTheDocument();
   });
 });

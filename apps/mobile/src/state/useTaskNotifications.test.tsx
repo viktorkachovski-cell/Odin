@@ -18,13 +18,19 @@ interface NotificationDouble {
 const native = jest.requireMock<NotificationDouble>('expo-notifications');
 
 const mockState = {
+  userId: 'me' as string | null,
   foreground: false,
   locale: 'en' as 'en' | 'bg',
   myTasks: [] as readonly HouseholdTaskDto[],
   unassigned: [] as readonly HouseholdTaskDto[],
 };
 
-jest.mock('./OdinContext.ts', () => ({ useOdin: () => ({ locale: mockState.locale }) }));
+jest.mock('./OdinContext.ts', () => ({
+  useOdin: () => ({
+    locale: mockState.locale,
+    user: mockState.userId === null ? null : { id: mockState.userId },
+  }),
+}));
 jest.mock('./useAppForeground.ts', () => ({ useAppForeground: () => mockState.foreground }));
 jest.mock('./queries.ts', () => ({
   useMyTasksQuery: () => ({ data: { items: mockState.myTasks } }),
@@ -47,7 +53,8 @@ function task(overrides: Partial<HouseholdTaskDto> = {}): HouseholdTaskDto {
     sort_order: 0,
     completed: false,
     blocked: false,
-    assignee_id: 'u1',
+    assignee_ids: ['me'],
+    assignee_id: 'me',
     due_at: null,
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
@@ -63,6 +70,7 @@ function titles(): (string | null | undefined)[] {
 beforeEach(() => {
   native.__reset();
   native.scheduleNotificationAsync.mockClear();
+  mockState.userId = 'me';
   mockState.foreground = false;
   mockState.locale = 'en';
   mockState.myTasks = [];
@@ -142,20 +150,31 @@ describe('announcing changes', () => {
 describe('deadline reminders', () => {
   const dueAt = new Date(NOW + THREE_DAYS).toISOString();
 
-  it('schedules one reminder per stage, keyed by task, stage and language', async () => {
+  it('schedules one reminder per stage, keyed by task, stage, language and moment', async () => {
     mockState.myTasks = [task({ due_at: dueAt })];
     await renderHook(() => useTaskNotifications(true));
 
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
-    expect([...native.__scheduled.keys()].sort()).toEqual([
-      'odin-due:en:t1:day',
-      'odin-due:en:t1:hours',
-      'odin-due:en:t1:imminent',
-    ]);
+    const due = Date.parse(dueAt);
+    expect([...native.__scheduled.keys()].sort()).toEqual(
+      [
+        `odin-due:en:t1:day:${String(due - 24 * 60 * 60 * 1000)}`,
+        `odin-due:en:t1:hours:${String(due - 4 * 60 * 60 * 1000)}`,
+        `odin-due:en:t1:imminent:${String(due - 60 * 60 * 1000)}`,
+      ].sort(),
+    );
   });
 
   it('covers unassigned tasks as well as your own', async () => {
-    mockState.unassigned = [task({ id: 'u1', title: 'Book the plumber', due_at: dueAt })];
+    mockState.unassigned = [
+      task({
+        id: 'u1',
+        title: 'Book the plumber',
+        due_at: dueAt,
+        assignee_ids: [],
+        assignee_id: null,
+      }),
+    ];
     await renderHook(() => useTaskNotifications(true));
 
     await waitFor(() => expect(native.__scheduled.size).toBe(3));
@@ -207,13 +226,11 @@ describe('deadline reminders', () => {
     mockState.locale = 'bg';
     await rerender(undefined);
 
-    await waitFor(() =>
-      expect([...native.__scheduled.keys()].sort()).toEqual([
-        'odin-due:bg:t1:day',
-        'odin-due:bg:t1:hours',
-        'odin-due:bg:t1:imminent',
-      ]),
-    );
+    await waitFor(() => {
+      const keys = [...native.__scheduled.keys()];
+      expect(keys).toHaveLength(3);
+      expect(keys.every((key) => key.startsWith('odin-due:bg:t1:'))).toBe(true);
+    });
   });
 
   it('holds no reminders while notifications are off', async () => {
@@ -226,5 +243,145 @@ describe('deadline reminders', () => {
     await rerenderOff(undefined);
 
     await waitFor(() => expect(native.__scheduled.size).toBe(0));
+  });
+});
+
+describe('shared tasks', () => {
+  const dueAt = new Date(NOW + THREE_DAYS).toISOString();
+  const shared = (overrides: Partial<HouseholdTaskDto> = {}) =>
+    task({ assignee_ids: ['me', 'other'], assignee_id: 'me', ...overrides });
+
+  // Each assignee's phone runs this hook for its own member, so the one shared
+  // task produces one announcement on every phone.
+  it.each(['me', 'other'])('tells assignee %s about the one shared task', async (member) => {
+    mockState.userId = member;
+    mockState.myTasks = [];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    mockState.myTasks = [shared({ assignee_id: member })];
+    await rerender(undefined);
+    await waitFor(() => expect(titles()).toEqual(['A task is now yours']));
+    expect(native.__presented).toHaveLength(1);
+  });
+
+  it('announces being added to a task as news, once', async () => {
+    mockState.myTasks = [];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    mockState.myTasks = [shared({ version: 2 })];
+    await rerender(undefined);
+    await waitFor(() => expect(titles()).toEqual(['A task is now yours']));
+
+    // The same reading again says nothing more.
+    mockState.myTasks = [shared({ version: 2 })];
+    await rerender(undefined);
+    expect(titles()).toEqual(['A task is now yours']);
+  });
+
+  it('counts someone else joining a task of mine as a change to it', async () => {
+    mockState.myTasks = [task({ assignee_ids: ['me'] })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    mockState.myTasks = [shared({ version: 2 })];
+    await rerender(undefined);
+    await waitFor(() => expect(titles()).toEqual(['One of your tasks changed']));
+  });
+
+  it('does not announce a listed task that no longer names me', async () => {
+    mockState.myTasks = [];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    mockState.myTasks = [task({ assignee_ids: ['other'], assignee_id: 'other', version: 2 })];
+    await rerender(undefined);
+    await waitFor(() => expect(native.__presented).toEqual([]));
+  });
+
+  it('keeps exactly one reminder per stage for a task shared with me', async () => {
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+  });
+
+  it('holds one set of reminders for a task both reads list while it moves between them', async () => {
+    const moving = shared({ due_at: dueAt });
+    mockState.myTasks = [moving];
+    mockState.unassigned = [{ ...moving, assignee_ids: [], assignee_id: null }];
+    await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+  });
+
+  it('follows a task from Mine to Unassigned and back without duplicating reminders', async () => {
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+    native.scheduleNotificationAsync.mockClear();
+
+    // Everyone cleared: nobody has it, so the deadline still matters to me.
+    mockState.myTasks = [];
+    mockState.unassigned = [
+      shared({ due_at: dueAt, assignee_ids: [], assignee_id: null, version: 2 }),
+    ];
+    await rerender(undefined);
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+    expect(native.scheduleNotificationAsync).not.toHaveBeenCalled();
+
+    // Assigned to me again: announced as news, but no reminder is scheduled twice.
+    mockState.unassigned = [];
+    mockState.myTasks = [shared({ due_at: dueAt, assignee_ids: ['me'], version: 3 })];
+    await rerender(undefined);
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+    const scheduledReminders = native.scheduleNotificationAsync.mock.calls.filter(
+      ([request]: [{ readonly trigger: unknown }]) => request.trigger !== null,
+    );
+    expect(scheduledReminders).toEqual([]);
+  });
+
+  it('drops the reminders when I am removed but others remain', async () => {
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+
+    mockState.myTasks = [];
+    mockState.unassigned = [];
+    await rerender(undefined);
+    await waitFor(() => expect(native.__scheduled.size).toBe(0));
+  });
+
+  it('drops the reminders when the shared task is completed by anyone', async () => {
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+
+    mockState.myTasks = [shared({ due_at: dueAt, completed: true, version: 2 })];
+    await rerender(undefined);
+    await waitFor(() => expect(native.__scheduled.size).toBe(0));
+  });
+
+  it('reschedules a shared task when its deadline moves', async () => {
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    const { rerender } = await renderHook(() => useTaskNotifications(true));
+    await waitFor(() => expect(native.__scheduled.size).toBe(3));
+    const before = [...native.__scheduled.values()].map((entry) => entry.fireAtMs).sort();
+
+    mockState.myTasks = [
+      shared({ due_at: new Date(NOW + 2 * THREE_DAYS).toISOString(), version: 2 }),
+    ];
+    await rerender(undefined);
+    await waitFor(() => {
+      const after = [...native.__scheduled.values()].map((entry) => entry.fireAtMs).sort();
+      expect(after).not.toEqual(before);
+      expect(after).toHaveLength(3);
+    });
+  });
+
+  it('stays silent and holds no reminders when I am not signed in', async () => {
+    mockState.userId = null;
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    await renderHook(() => useTaskNotifications(true));
+    expect(native.__presented).toEqual([]);
+    expect(native.__scheduled.size).toBe(0);
+  });
+
+  it('keeps the permission and mute gate over shared tasks too', async () => {
+    mockState.myTasks = [shared({ due_at: dueAt })];
+    await renderHook(() => useTaskNotifications(false));
+    expect(native.__presented).toEqual([]);
+    expect(native.__scheduled.size).toBe(0);
   });
 });

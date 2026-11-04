@@ -19,7 +19,9 @@ import { TaskDetailsFlow } from './TaskDetailsFlow.tsx';
 export interface TaskRowHandlers {
   readonly onToggleCompleted: TaskRowActions['toggleCompleted'];
   readonly onSetState: TaskRowActions['setState'];
-  readonly onClaim: TaskRowActions['claim'];
+  readonly currentUserId: string | null;
+  readonly onAssignMe: TaskRowActions['assignMe'];
+  readonly onRemoveMe: TaskRowActions['removeMe'];
   readonly onPress: (task: TaskRowModel) => void;
   readonly onUnassign: (task: TaskRowModel) => void;
   readonly onDelete: (task: TaskRowModel) => void;
@@ -40,8 +42,9 @@ export function useTaskWiring({
   readonly errors: ReactNode;
   readonly overlays: ReactNode;
 } {
-  const { t, client } = useOdin();
-  const actions = useTaskRowActions(client, listId);
+  const { t, client, user } = useOdin();
+  const userId = user?.id ?? null;
+  const actions = useTaskRowActions(client, { userId, listId });
   const [detailsId, setDetailsId] = useState<string | null>(null);
 
   const confirmDelete = useEvent((task: TaskRowModel) =>
@@ -57,13 +60,15 @@ export function useTaskWiring({
   const confirmUnassign = useEvent((task: TaskRowModel) =>
     Alert.alert(t('task.unassign.title'), t('task.unassign.confirm'), [
       { text: t('action.cancel'), style: 'cancel' },
-      { text: t('task.unassign.short'), onPress: () => actions.unassign(task) },
+      { text: t('task.unassign.short'), onPress: () => actions.clearAssignees(task) },
     ]),
   );
   const handlers: TaskRowHandlers = {
     onToggleCompleted: useEvent(actions.toggleCompleted),
     onSetState: useEvent(actions.setState),
-    onClaim: useEvent(actions.claim),
+    currentUserId: userId,
+    onAssignMe: useEvent(actions.assignMe),
+    onRemoveMe: useEvent(actions.removeMe),
     onPress: useEvent((task: TaskRowModel) => setDetailsId(task.id)),
     onUnassign: confirmUnassign,
     onDelete: confirmDelete,

@@ -1809,3 +1809,113 @@ a.list-row__name:hover .list-row__title {
     width: calc(100% - 2 * var(--space-lg));
   }
 }
+
+/* ---------- Assignee picker ---------- */
+
+.assignees {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  border: 0;
+}
+
+.assignees > legend {
+  padding: 0;
+  margin-bottom: var(--space-xs);
+}
+
+/* The selected names are shown in full: long names wrap, never truncate. */
+.assignees__summary {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.assignees__shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.assignees__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.assignee-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--size-control-min);
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.assignee-option:hover {
+  border-color: var(--color-text-muted);
+}
+
+.assignee-option:has(input:checked) {
+  border-color: var(--color-accent);
+  background: var(--color-surface-muted);
+}
+
+.assignee-option:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.assignee-option input {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.assignee-option__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Several assignees in a row cell stack rather than squeeze. */
+.task-row__assignees {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  min-width: 0;
+}
+
+.task-row__assignees .avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}
+
+.task-row__assignee-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.task-row__more {
+  color: var(--color-text-muted);
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

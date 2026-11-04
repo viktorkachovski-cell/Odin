@@ -269,7 +269,7 @@ export function Today(): ReactNode {
         <div className="today-grid__side">
           <UpForGrabs
             busy={wiring.actions.busy}
-            onClaim={(task) => wiring.actions.claim(taskRowFromHouseholdTask(task))}
+            onClaim={(task) => wiring.actions.assignMe(taskRowFromHouseholdTask(task))}
             t={t}
             tasks={unassigned}
           />
