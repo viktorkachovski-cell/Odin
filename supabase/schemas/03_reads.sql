@@ -239,7 +239,10 @@ begin
     limit private.collection_limit() + 1
   )
   select count(*)::integer, (count(*) filter (where lt.completed))::integer,
-    coalesce(jsonb_agg(to_jsonb(lt) order by lt.completed, lt.sort_order, lt.id), '[]'::jsonb)
+    coalesce(
+      jsonb_agg(private.task_json(to_jsonb(lt), auth.uid()) order by lt.completed, lt.sort_order, lt.id),
+      '[]'::jsonb
+    )
   into v_count, v_done, v_tasks
   from list_tasks lt;
 
@@ -260,7 +263,10 @@ create or replace function public.get_list_v2(p_list_id uuid)
 returns jsonb language sql stable security invoker set search_path = ''
 as $$ select private.get_list_v2(p_list_id); $$;
 
-create or replace function public.get_list(
+-- Legacy paged reader for installed clients. Its body moved behind a private
+-- definer function because task payloads now carry assignment sets, which
+-- clients cannot read from the table themselves.
+create or replace function private.get_list_v1(
   p_list_id uuid,
   p_cursor text default null,
   p_limit integer default 50
@@ -268,7 +274,7 @@ create or replace function public.get_list(
 returns jsonb
 language plpgsql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -313,7 +319,10 @@ begin
   ), visible as (
     select * from page order by completed, sort_order, id limit v_limit
   )
-  select coalesce(jsonb_agg(to_jsonb(visible) order by completed, sort_order, id), '[]'::jsonb)
+  select coalesce(
+    jsonb_agg(private.task_json(to_jsonb(visible), auth.uid()) order by completed, sort_order, id),
+    '[]'::jsonb
+  )
   into v_items from visible;
 
   select completed, sort_order, id into v_last
@@ -340,6 +349,14 @@ begin
   ));
 end;
 $$;
+
+create or replace function public.get_list(
+  p_list_id uuid,
+  p_cursor text default null,
+  p_limit integer default 50
+)
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_list_v1(p_list_id, p_cursor, p_limit); $$;
 
 create or replace function private.get_cross_list_tasks(
   mode text,
@@ -388,8 +405,10 @@ begin
     join public.lists l on l.id = t.list_id and l.household_id = t.household_id
     where t.household_id = v_household and not t.completed
       and l.kind = 'active' and l.status = 'open'
-      and ((mode = 'mine' and t.assignee_id = v_actor)
-        or (mode = 'unassigned' and t.assignee_id is null))
+      and ((mode = 'mine' and exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id and ta.user_id = v_actor))
+        or (mode = 'unassigned' and not exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id)))
   ), page as (
     select * from candidates c
     where v_cursor is null or
@@ -410,8 +429,10 @@ begin
     join public.lists l on l.id = t.list_id and l.household_id = t.household_id
     where t.household_id = v_household and not t.completed
       and l.kind = 'active' and l.status = 'open'
-      and ((mode = 'mine' and t.assignee_id = v_actor)
-        or (mode = 'unassigned' and t.assignee_id is null))
+      and ((mode = 'mine' and exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id and ta.user_id = v_actor))
+        or (mode = 'unassigned' and not exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id)))
   )
   select * into v_last from candidates c
   where v_cursor is null or
@@ -426,8 +447,10 @@ begin
     join public.lists l on l.id = t.list_id and l.household_id = t.household_id
     where t.household_id = v_household and not t.completed
       and l.kind = 'active' and l.status = 'open'
-      and ((mode = 'mine' and t.assignee_id = v_actor)
-        or (mode = 'unassigned' and t.assignee_id is null))
+      and ((mode = 'mine' and exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id and ta.user_id = v_actor))
+        or (mode = 'unassigned' and not exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id)))
   )
   select exists (
     select 1 from candidates c
@@ -497,8 +520,10 @@ begin
     join public.lists l on l.id = t.list_id and l.household_id = t.household_id
     where t.household_id = v_household and l.kind = 'active' and l.status = 'open'
       and (p_scope = 'all'
-        or (p_scope = 'mine' and t.assignee_id = v_actor)
-        or (p_scope = 'unassigned' and t.assignee_id is null))
+        or (p_scope = 'mine' and exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id and ta.user_id = v_actor))
+        or (p_scope = 'unassigned' and not exists (
+          select 1 from public.task_assignees ta where ta.task_id = t.id)))
       and (not p_incomplete_only or not t.completed)
       and case
         when p_undated then t.due_at is null
@@ -511,7 +536,10 @@ begin
     limit private.collection_limit() + 1
   )
   select count(*)::integer,
-    coalesce(jsonb_agg(to_jsonb(m) order by m.due_at nulls last, m.created_at, m.id), '[]'::jsonb)
+    coalesce(
+      jsonb_agg(private.task_json(to_jsonb(m), v_actor) order by m.due_at nulls last, m.created_at, m.id),
+      '[]'::jsonb
+    )
   into v_count, v_items
   from matches m;
 
@@ -540,3 +568,36 @@ returns jsonb language sql stable security invoker set search_path = ''
 as $$
   select private.get_household_tasks('all', p_due_from, p_due_before, p_undated, p_incomplete_only);
 $$;
+
+-- One task for the task editor and detail view, with its assignment set. The
+-- parent list must be open; a missing, archived or other-household task is the
+-- same NOT_FOUND. Installed clients read tasks directly under RLS instead and
+-- see only the legacy assignee_id projection.
+create or replace function private.get_task_v2(p_task_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid := private.active_household_id();
+  v_task jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
+
+  select to_jsonb(t) into v_task
+  from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = v_household and l.status = 'open';
+  if v_task is null then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+
+  return private.ok_response(private.task_json(v_task, v_actor));
+end;
+$$;
+
+create or replace function public.get_task_v2(p_task_id uuid)
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_task_v2(p_task_id); $$;

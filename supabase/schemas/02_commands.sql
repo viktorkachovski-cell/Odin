@@ -513,7 +513,10 @@ begin
   insert into public.tasks (household_id, list_id, title, sort_order, assignee_id, due_at, notes)
   values (v_household, p_list_id, v_title, v_order, p_assignee_id, p_due_at, v_notes)
   returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  perform private.sync_task_assignees(
+    v_household, v_task.id, array_remove(array[p_assignee_id], null)
+  );
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(v_actor, p_request_id, v_household, 'create_task_v2', v_hash, v_response);
   return v_response;
 end;
@@ -543,6 +546,8 @@ declare
   v_task public.tasks%rowtype;
   v_response jsonb;
   v_kind text;
+  v_current uuid[];
+  v_next uuid[];
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
   if p_request_id is null or p_expected_version is null or p_expected_version < 1 then
@@ -582,10 +587,25 @@ begin
     return private.error_response('VALIDATION', 'error.assignee_invalid');
   end if;
 
+  -- A single-assignee editor cannot represent several assignees. It may keep
+  -- what it was shown, or change a task with at most one assignee; it can
+  -- never reduce a larger set to one, so that is refused instead.
+  v_current := private.assignee_ids(p_task_id);
+  if cardinality(v_current) > 1 then
+    if p_assignee_id is distinct from private.legacy_assignee_id(v_current, v_actor)
+      and p_assignee_id is distinct from v_current[1] then
+      return private.error_response('CONFLICT', 'error.task_multiple_assignees', v_task.version);
+    end if;
+    v_next := v_current;
+  else
+    v_next := array_remove(array[p_assignee_id], null);
+  end if;
+  perform private.sync_task_assignees(v_household, p_task_id, v_next);
+
   update public.tasks
-  set title = v_title, notes = v_notes, assignee_id = p_assignee_id, due_at = p_due_at
+  set title = v_title, notes = v_notes, assignee_id = v_next[1], due_at = p_due_at
   where id = p_task_id returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(v_actor, p_request_id, v_household, 'update_task_v2', v_hash, v_response);
   return v_response;
 end;
@@ -697,7 +717,10 @@ begin
   insert into public.tasks (household_id, list_id, title, sort_order, assignee_id, due_at)
   values (v_household, p_list_id, v_title, v_order, p_assignee_id, p_due_at)
   returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  perform private.sync_task_assignees(
+    v_household, v_task.id, array_remove(array[p_assignee_id], null)
+  );
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(v_actor, p_request_id, v_household, 'create_task', v_hash, v_response);
   return v_response;
 end;
@@ -725,6 +748,8 @@ declare
   v_task public.tasks%rowtype;
   v_response jsonb;
   v_kind text;
+  v_current uuid[];
+  v_next uuid[];
 begin
   if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
   if p_request_id is null or p_expected_version is null or p_expected_version < 1 then
@@ -765,9 +790,23 @@ begin
     return private.error_response('VALIDATION', 'error.assignee_invalid');
   end if;
 
-  update public.tasks set title = v_title, assignee_id = p_assignee_id, due_at = p_due_at
+  -- See update_task_v2: never reduce several assignees to the one this
+  -- editor was shown.
+  v_current := private.assignee_ids(p_task_id);
+  if cardinality(v_current) > 1 then
+    if p_assignee_id is distinct from private.legacy_assignee_id(v_current, v_actor)
+      and p_assignee_id is distinct from v_current[1] then
+      return private.error_response('CONFLICT', 'error.task_multiple_assignees', v_task.version);
+    end if;
+    v_next := v_current;
+  else
+    v_next := array_remove(array[p_assignee_id], null);
+  end if;
+  perform private.sync_task_assignees(v_household, p_task_id, v_next);
+
+  update public.tasks set title = v_title, assignee_id = v_next[1], due_at = p_due_at
   where id = p_task_id returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(v_actor, p_request_id, v_household, 'update_task', v_hash, v_response);
   return v_response;
 end;
@@ -820,7 +859,7 @@ begin
 
   update public.tasks set completed = p_completed, blocked = false
   where id = p_task_id returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(
     v_actor, p_request_id, v_household, 'set_task_completed', v_hash, v_response
   );
@@ -878,7 +917,7 @@ begin
   update public.tasks
   set completed = (p_state = 'done'), blocked = (p_state = 'blocked')
   where id = p_task_id returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(v_actor, p_request_id, v_household, 'set_task_state', v_hash, v_response);
   return v_response;
 end;
@@ -929,13 +968,14 @@ begin
     return private.error_response('CONFLICT', 'error.conflict', v_task.version);
   end if;
   if v_task.completed then return private.error_response('CONFLICT', 'error.task_completed', v_task.version); end if;
-  if v_task.assignee_id is not null then
+  if exists (select 1 from public.task_assignees where task_id = p_task_id) then
     return private.error_response('ALREADY_ASSIGNED', 'error.already_assigned', v_task.version);
   end if;
 
+  perform private.sync_task_assignees(v_household, p_task_id, array[v_actor]);
   update public.tasks set assignee_id = v_actor
   where id = p_task_id returning * into v_task;
-  v_response := private.ok_response(to_jsonb(v_task));
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
   perform private.save_command(v_actor, p_request_id, v_household, 'claim_task', v_hash, v_response);
   return v_response;
 end;
@@ -1588,3 +1628,354 @@ REVOKE ALL ON FUNCTION public.delete_completed_tasks(uuid, uuid, uuid[], bigint[
 GRANT EXECUTE ON FUNCTION public.delete_list(uuid, uuid, bigint) TO authenticated, postgres;
 GRANT EXECUTE ON FUNCTION public.delete_task(uuid, uuid, bigint) TO authenticated, postgres;
 GRANT EXECUTE ON FUNCTION public.delete_completed_tasks(uuid, uuid, uuid[], bigint[]) TO authenticated, postgres;
+
+-- ---------------------------------------------------------------------------
+-- Multiple assignees (owner amendment 2026-11-04).
+--
+-- A task has zero or more distinct active members. Four operations change the
+-- set and they are deliberately different:
+--   create_task_v3 / update_task_v3   the editor: the complete set, replaced
+--   set_task_assignees                replace only the set (clear everyone)
+--   add_task_assignee / remove_task_assignee   one member, commutative, no version
+-- A replacement is checked against the version the editor was based on, so it
+-- cannot overwrite a change it never saw. Adding or removing one member is
+-- idempotent and order-independent, so concurrent additions all survive.
+-- Every change to the set advances the task version exactly once. Lock order is
+-- the existing one: command, member rows by user id, parent list, task row.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.create_task_v3(
+  p_request_id uuid,
+  p_list_id uuid,
+  p_title text,
+  p_assignee_ids uuid[] default '{}',
+  p_due_at timestamptz default null,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_title text := private.normalized_text(p_title);
+  v_notes text := private.normalized_text(p_notes);
+  v_ids uuid[] := private.canonical_assignee_ids(p_assignee_ids);
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_order integer;
+  v_kind text;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null then return private.error_response('VALIDATION', 'error.request_id_required'); end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  if v_title is null or char_length(v_title) > 500 or char_length(v_notes) > 5000 then
+    return private.error_response('VALIDATION', 'error.task_invalid');
+  end if;
+  if v_ids is null then return private.error_response('VALIDATION', 'error.assignee_invalid'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'list_id', p_list_id, 'title', v_title, 'notes', v_notes,
+    'assignee_ids', to_jsonb(v_ids), 'due_at', p_due_at
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'create_task_v3', v_hash);
+  if v_replay is not null then return v_replay; end if;
+
+  if not private.lock_active_members(v_household, v_ids || v_actor) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+  select kind into v_kind from public.lists
+  where id = p_list_id and household_id = v_household and status = 'open'
+  for update;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  if v_kind = 'template' and (cardinality(v_ids) > 0 or p_due_at is not null) then
+    return private.error_response('VALIDATION', 'error.template_task_runtime');
+  end if;
+  select coalesce(max(sort_order), -1) + 1 into v_order from public.tasks where list_id = p_list_id;
+
+  insert into public.tasks (household_id, list_id, title, sort_order, assignee_id, due_at, notes)
+  values (v_household, p_list_id, v_title, v_order, v_ids[1], p_due_at, v_notes)
+  returning * into v_task;
+  perform private.sync_task_assignees(v_household, v_task.id, v_ids);
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
+  perform private.save_command(v_actor, p_request_id, v_household, 'create_task_v3', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function private.update_task_v3(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_expected_version bigint,
+  p_title text,
+  p_assignee_ids uuid[] default '{}',
+  p_due_at timestamptz default null,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_title text := private.normalized_text(p_title);
+  v_notes text := private.normalized_text(p_notes);
+  v_ids uuid[] := private.canonical_assignee_ids(p_assignee_ids);
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_response jsonb;
+  v_kind text;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_task_id is null or p_expected_version is null or p_expected_version < 1 then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  if v_title is null or char_length(v_title) > 500 or char_length(v_notes) > 5000 then
+    return private.error_response('VALIDATION', 'error.task_invalid');
+  end if;
+  if v_ids is null then return private.error_response('VALIDATION', 'error.assignee_invalid'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'task_id', p_task_id, 'expected_version', p_expected_version,
+    'title', v_title, 'notes', v_notes,
+    'assignee_ids', to_jsonb(v_ids), 'due_at', p_due_at
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'update_task_v3', v_hash);
+  if v_replay is not null then return v_replay; end if;
+  if not private.lock_active_members(v_household, v_ids || v_actor) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+
+  select t.* into v_task from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = v_household and l.status = 'open'
+  for update of t;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  if v_task.version <> p_expected_version then
+    return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+  select kind into v_kind from public.lists where id = v_task.list_id;
+  if v_kind = 'template' and (cardinality(v_ids) > 0 or p_due_at is not null) then
+    return private.error_response('VALIDATION', 'error.template_task_runtime');
+  end if;
+
+  perform private.sync_task_assignees(v_household, p_task_id, v_ids);
+  update public.tasks
+  set title = v_title, notes = v_notes, assignee_id = v_ids[1], due_at = p_due_at
+  where id = p_task_id returning * into v_task;
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
+  perform private.save_command(v_actor, p_request_id, v_household, 'update_task_v3', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+-- Replaces only the assignment set: title, notes, deadline and state stay as
+-- they are. An empty set clears everyone. Unchanged sets do not advance the
+-- version, but a stale version is still a conflict.
+create or replace function private.set_task_assignees(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_expected_version bigint,
+  p_assignee_ids uuid[]
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_ids uuid[] := private.canonical_assignee_ids(p_assignee_ids);
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_response jsonb;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_task_id is null or p_expected_version is null or p_expected_version < 1 then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  if v_ids is null then return private.error_response('VALIDATION', 'error.assignee_invalid'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object(
+    'task_id', p_task_id, 'expected_version', p_expected_version, 'assignee_ids', to_jsonb(v_ids)
+  ));
+  v_replay := private.replay_command(v_actor, p_request_id, 'set_task_assignees', v_hash);
+  if v_replay is not null then return v_replay; end if;
+  if not private.lock_active_members(v_household, v_ids || v_actor) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+
+  select t.* into v_task from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = v_household
+    and l.kind = 'active' and l.status = 'open'
+  for update of t;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+  if v_task.version <> p_expected_version then
+    return private.error_response('CONFLICT', 'error.conflict', v_task.version);
+  end if;
+
+  if private.sync_task_assignees(v_household, p_task_id, v_ids) then
+    update public.tasks set assignee_id = v_ids[1]
+    where id = p_task_id returning * into v_task;
+  end if;
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
+  perform private.save_command(v_actor, p_request_id, v_household, 'set_task_assignees', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+-- Adds one member without touching the others, on whatever the current set
+-- is. Already assigned is a successful no-op that leaves the version alone.
+create or replace function private.add_task_assignee(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_user_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_response jsonb;
+  v_added integer;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_task_id is null or p_user_id is null then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object('task_id', p_task_id, 'user_id', p_user_id));
+  v_replay := private.replay_command(v_actor, p_request_id, 'add_task_assignee', v_hash);
+  if v_replay is not null then return v_replay; end if;
+  if not private.lock_active_members(v_household, array[v_actor, p_user_id]) then
+    return private.error_response('VALIDATION', 'error.assignee_invalid');
+  end if;
+
+  select t.* into v_task from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = v_household
+    and l.kind = 'active' and l.status = 'open'
+  for update of t;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+
+  insert into public.task_assignees (task_id, household_id, user_id)
+  values (p_task_id, v_household, p_user_id)
+  on conflict (task_id, user_id) do nothing;
+  get diagnostics v_added = row_count;
+  if v_added > 0 then
+    update public.tasks set assignee_id = (private.assignee_ids(p_task_id))[1]
+    where id = p_task_id returning * into v_task;
+  end if;
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
+  perform private.save_command(v_actor, p_request_id, v_household, 'add_task_assignee', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+-- Removes one member and leaves the rest. The member need not be active any
+-- more (a departed member's assignment must be removable); a member who is not
+-- assigned is a successful no-op, which also discloses nothing about users
+-- outside the household.
+create or replace function private.remove_task_assignee(
+  p_request_id uuid,
+  p_task_id uuid,
+  p_user_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_household uuid;
+  v_hash bytea;
+  v_replay jsonb;
+  v_task public.tasks%rowtype;
+  v_response jsonb;
+  v_removed integer;
+begin
+  if v_actor is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if p_request_id is null or p_task_id is null or p_user_id is null then
+    return private.error_response('VALIDATION', 'error.command_invalid');
+  end if;
+  v_household := private.active_household_id(v_actor);
+  if v_household is null then return private.error_response('FORBIDDEN', 'error.household_required'); end if;
+  perform private.lock_command(v_actor, p_request_id);
+  v_hash := private.command_hash(jsonb_build_object('task_id', p_task_id, 'user_id', p_user_id));
+  v_replay := private.replay_command(v_actor, p_request_id, 'remove_task_assignee', v_hash);
+  if v_replay is not null then return v_replay; end if;
+  if not private.lock_active_members(v_household, array[v_actor]) then
+    return private.error_response('FORBIDDEN', 'error.household_required');
+  end if;
+
+  select t.* into v_task from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = p_task_id and t.household_id = v_household
+    and l.kind = 'active' and l.status = 'open'
+  for update of t;
+  if not found then return private.error_response('NOT_FOUND', 'error.not_found'); end if;
+
+  delete from public.task_assignees
+  where task_id = p_task_id and household_id = v_household and user_id = p_user_id;
+  get diagnostics v_removed = row_count;
+  if v_removed > 0 then
+    update public.tasks set assignee_id = (private.assignee_ids(p_task_id))[1]
+    where id = p_task_id returning * into v_task;
+  end if;
+  v_response := private.ok_response(private.task_json(to_jsonb(v_task), v_actor));
+  perform private.save_command(v_actor, p_request_id, v_household, 'remove_task_assignee', v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+create or replace function public.create_task_v3(
+  request_id uuid, list_id uuid, title text, assignee_ids uuid[] default '{}',
+  due_at timestamptz default null, notes text default null
+)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.create_task_v3(request_id, list_id, title, assignee_ids, due_at, notes); $$;
+
+create or replace function public.update_task_v3(
+  request_id uuid, task_id uuid, expected_version bigint, title text,
+  assignee_ids uuid[] default '{}', due_at timestamptz default null, notes text default null
+)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.update_task_v3(request_id, task_id, expected_version, title, assignee_ids, due_at, notes); $$;
+
+create or replace function public.set_task_assignees(
+  request_id uuid, task_id uuid, expected_version bigint, assignee_ids uuid[]
+)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.set_task_assignees(request_id, task_id, expected_version, assignee_ids); $$;
+
+create or replace function public.add_task_assignee(request_id uuid, task_id uuid, user_id uuid)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.add_task_assignee(request_id, task_id, user_id); $$;
+
+create or replace function public.remove_task_assignee(request_id uuid, task_id uuid, user_id uuid)
+returns jsonb language sql security invoker set search_path = ''
+as $$ select private.remove_task_assignee(request_id, task_id, user_id); $$;

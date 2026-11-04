@@ -28,6 +28,10 @@ const deletableTemplateMigration = await readFile(
   'supabase/migrations/20260922140000_deletable_list_templates.sql',
   'utf8',
 );
+const assigneesMigration = await readFile(
+  'supabase/migrations/20261104190000_multiple_task_assignees.sql',
+  'utf8',
+);
 
 test('database schema preserves product boundaries', () => {
   const listTable = schema.match(/create table public\.lists \(([\s\S]*?)\n\);/i)?.[1];
@@ -39,7 +43,14 @@ test('database schema preserves product boundaries', () => {
 });
 
 test('every exposed table enables RLS and direct client writes stay revoked', () => {
-  for (const table of ['profiles', 'households', 'memberships', 'lists', 'tasks']) {
+  for (const table of [
+    'profiles',
+    'households',
+    'memberships',
+    'lists',
+    'tasks',
+    'task_assignees',
+  ]) {
     assert.match(
       schema,
       new RegExp(`alter table public\\.${table} enable row level security`, 'i'),
@@ -184,6 +195,89 @@ test('a template is deletable, and deleting any list still archives it', () => {
     assert.match(deleteList, /status = 'open'/i);
     assert.match(deleteList, /v_list\.version <> p_expected_version/i);
   }
+});
+
+test('task assignments are a normalized, household-bound, directly unreachable relation', () => {
+  const table = schema.match(/create table public\.task_assignees \(([\s\S]*?)\n\);/i)?.[1];
+  assert.ok(table, 'task_assignees declaration missing');
+  assert.match(table, /primary key \(task_id, user_id\)/i, 'one row per member per task');
+  assert.match(
+    table,
+    /foreign key \(household_id, task_id\)\s+references public\.tasks\(household_id, id\)/i,
+  );
+  assert.match(
+    table,
+    /foreign key \(household_id, user_id\)\s+references public\.memberships\(household_id, user_id\)/i,
+  );
+  assert.match(schema, /active household member/i, 'a trigger enforces active membership');
+  assert.match(schema, /for share/i, 'assignment serialises with membership revocation');
+  // No policy and no grant: assignments reach clients only inside task payloads.
+  assert.doesNotMatch(schema, /on public\.task_assignees\s+for\s+select/i);
+  assert.doesNotMatch(schema, /grant[^;]+on[^;]*public\.task_assignees[^;]*to authenticated/i);
+  assert.match(schema, /constraint trigger tasks_assignee_projection/i);
+  assert.match(schema, /constraint trigger task_assignees_projection/i);
+});
+
+test('the assignee migration copies every assignment before it constrains anything', () => {
+  const backfill = assigneesMigration.search(/insert into public\.task_assignees/i);
+  const firstTrigger = assigneesMigration.search(/create trigger task_assignees_validate/i);
+  const firstConstraintTrigger = assigneesMigration.search(/create constraint trigger/i);
+  assert.ok(backfill > 0, 'migration must backfill existing assignments');
+  assert.ok(backfill < firstTrigger, 'backfill must precede the validating trigger');
+  assert.ok(backfill < firstConstraintTrigger, 'backfill must precede the projection trigger');
+  assert.match(assigneesMigration, /where assignee_id is not null/i);
+  assert.match(
+    assigneesMigration,
+    /assignment backfill copied/i,
+    'migration verifies its own copy',
+  );
+  // The backfill must not touch tasks: versions and timestamps stay put.
+  const beforeTriggers = assigneesMigration.slice(0, firstTrigger);
+  assert.doesNotMatch(beforeTriggers, /update public\.tasks/i);
+  assert.doesNotMatch(assigneesMigration, /drop column|alter table public\.tasks\s+drop/i);
+});
+
+test('the assignee migration keeps new commands signed-in only', () => {
+  assert.match(
+    assigneesMigration,
+    /revoke all on public\.task_assignees from public, anon, authenticated/i,
+  );
+  for (const fn of [
+    'create_task_v3',
+    'update_task_v3',
+    'set_task_assignees',
+    'add_task_assignee',
+    'remove_task_assignee',
+    'get_task_v2',
+  ]) {
+    for (const scope of ['public', 'private']) {
+      assert.match(
+        assigneesMigration,
+        new RegExp(`revoke all on function ${scope}\\.${fn}\\([^)]*\\) from public, anon;`, 'i'),
+        `${scope}.${fn} must not be callable by anon or PUBLIC`,
+      );
+      assert.match(
+        assigneesMigration,
+        new RegExp(`grant execute on function ${scope}\\.${fn}\\([^)]*\\) to authenticated;`, 'i'),
+        `${scope}.${fn} must be granted to authenticated only`,
+      );
+    }
+  }
+  assert.doesNotMatch(assigneesMigration, /grant[^;]*\bto\s+(anon|public)\b/i);
+});
+
+test('assignment commands canonicalise sets and keep one receipt identity', () => {
+  for (const command of ['create_task_v3', 'update_task_v3', 'set_task_assignees']) {
+    const body = schema.match(
+      new RegExp(`create or replace function private\\.${command}\\([\\s\\S]*?\\n\\$\\$;`, 'i'),
+    )?.[0];
+    assert.ok(body, `${command} missing`);
+    assert.match(body, /canonical_assignee_ids\(p_assignee_ids\)/i, `${command} canonicalises`);
+    assert.match(body, /to_jsonb\(v_ids\)/i, `${command} hashes the canonical set`);
+    assert.match(body, new RegExp(`replay_command\\(v_actor, p_request_id, '${command}'`, 'i'));
+  }
+  const addRemove = schema.match(/function private\.add_task_assignee[\s\S]*?\n\$\$;/i)?.[0] ?? '';
+  assert.doesNotMatch(addRemove, /p_expected_version/i, 'adding one member carries no version');
 });
 
 test('every collected database test declares a pgTAP plan', async () => {
