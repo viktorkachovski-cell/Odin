@@ -106,6 +106,12 @@ export interface TaskTemplatePageDto {
   readonly next_cursor: string | null;
 }
 
+/**
+ * Most assignees one task may carry. The server refuses a larger set; the
+ * clients use the same number to stop offering more.
+ */
+export const MAX_TASK_ASSIGNEES = 50;
+
 export interface TaskDto {
   readonly blocked?: boolean;
   readonly notes: string | null;
@@ -115,6 +121,16 @@ export interface TaskDto {
   readonly title: string;
   readonly sort_order: number;
   readonly completed: boolean;
+  /**
+   * Every assigned member, distinct and in ascending user-id order. Empty means
+   * unassigned. This is the assignment; `assignee_id` is not.
+   */
+  readonly assignee_ids: readonly string[];
+  /**
+   * Legacy single-assignee projection kept for installed clients: the reading
+   * member when they are assigned, otherwise the lowest assigned user id, or
+   * null. New code reads `assignee_ids`.
+   */
   readonly assignee_id: string | null;
   readonly due_at: string | null;
   readonly created_at: string;
@@ -163,6 +179,8 @@ export interface TaskRowModel {
   readonly title: string;
   readonly notes?: string | null | undefined;
   readonly completed: boolean;
+  /** Absent only on a payload from before multiple assignees; see `taskAssigneeIds`. */
+  readonly assignee_ids?: readonly string[] | undefined;
   readonly assignee_id: string | null;
   readonly due_at: string | null;
   readonly version: number;
@@ -177,6 +195,7 @@ export function taskRowFromTask(task: TaskDto): TaskRowModel {
     title: task.title,
     notes: task.notes,
     completed: task.completed,
+    assignee_ids: task.assignee_ids,
     assignee_id: task.assignee_id,
     due_at: task.due_at,
     version: task.version,

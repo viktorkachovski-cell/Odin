@@ -40,6 +40,26 @@ describe('parseTask', () => {
     expect(parseTask(withoutAssignee).assignee_id).toBeNull();
   });
 
+  it('reads the whole assignment set, distinct and in canonical order', () => {
+    const parsed = parseTask({ ...task, assignee_id: 'b', assignee_ids: ['c', 'b', 'c', 'a'] });
+    expect(parsed.assignee_ids).toEqual(['a', 'b', 'c']);
+    expect(parsed.assignee_id).toBe('b');
+  });
+
+  it('treats an empty set as unassigned', () => {
+    expect(parseTask({ ...task, assignee_ids: [] }).assignee_ids).toEqual([]);
+  });
+
+  it('derives the set from the legacy single assignee on an older payload', () => {
+    expect(parseTask({ ...task, assignee_id: 'u1' }).assignee_ids).toEqual(['u1']);
+    expect(parseTask(task).assignee_ids).toEqual([]);
+  });
+
+  it('rejects an assignment set that is not a list of ids', () => {
+    expect(() => parseTask({ ...task, assignee_ids: 'u1' })).toThrow(/assignee_ids/);
+    expect(() => parseTask({ ...task, assignee_ids: [1] })).toThrow(/assignee_ids\[0\]/);
+  });
+
   it('rejects a wrong primitive type instead of coercing it', () => {
     expect(() => parseTask({ ...task, version: '1' })).toThrow(ShapeError);
     expect(() => parseTask({ ...task, completed: 'false' })).toThrow(ShapeError);

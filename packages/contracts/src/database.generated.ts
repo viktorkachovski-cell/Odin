@@ -148,6 +148,42 @@ export type Database = {
         }
         Relationships: []
       }
+      task_assignees: {
+        Row: {
+          created_at: string
+          household_id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignees_membership_fk"
+            columns: ["household_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["household_id", "user_id"]
+          },
+          {
+            foreignKeyName: "task_assignees_task_fk"
+            columns: ["household_id", "task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["household_id", "id"]
+          },
+        ]
+      }
       task_templates: {
         Row: {
           created_at: string
@@ -251,6 +287,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_task_assignee: {
+        Args: { request_id: string; task_id: string; user_id: string }
+        Returns: Json
+      }
       claim_task: {
         Args: { expected_version: number; request_id: string; task_id: string }
         Returns: Json
@@ -290,6 +330,17 @@ export type Database = {
       create_task_v2: {
         Args: {
           assignee_id?: string
+          due_at?: string
+          list_id: string
+          notes?: string
+          request_id: string
+          title: string
+        }
+        Returns: Json
+      }
+      create_task_v3: {
+        Args: {
+          assignee_ids?: string[]
           due_at?: string
           list_id: string
           notes?: string
@@ -339,6 +390,7 @@ export type Database = {
       }
       get_my_tasks_v2: { Args: never; Returns: Json }
       get_task_templates: { Args: never; Returns: Json }
+      get_task_v2: { Args: { p_task_id: string }; Returns: Json }
       get_unassigned: {
         Args: { p_cursor?: string; p_limit?: number }
         Returns: Json
@@ -366,6 +418,10 @@ export type Database = {
         Args: { request_id: string; token: string }
         Returns: Json
       }
+      remove_task_assignee: {
+        Args: { request_id: string; task_id: string; user_id: string }
+        Returns: Json
+      }
       revoke_invitation: {
         Args: { invitation_id: string; request_id: string }
         Returns: Json
@@ -376,6 +432,15 @@ export type Database = {
       }
       save_task_template: {
         Args: { notes?: string; request_id: string; title: string }
+        Returns: Json
+      }
+      set_task_assignees: {
+        Args: {
+          assignee_ids: string[]
+          expected_version: number
+          request_id: string
+          task_id: string
+        }
         Returns: Json
       }
       set_task_completed: {
@@ -440,6 +505,18 @@ export type Database = {
       update_task_v2: {
         Args: {
           assignee_id?: string
+          due_at?: string
+          expected_version: number
+          notes?: string
+          request_id: string
+          task_id: string
+          title: string
+        }
+        Returns: Json
+      }
+      update_task_v3: {
+        Args: {
+          assignee_ids?: string[]
           due_at?: string
           expected_version: number
           notes?: string

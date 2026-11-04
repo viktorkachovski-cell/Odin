@@ -38,7 +38,6 @@ export {
 } from './repositories.ts';
 
 export {
-  claimTask,
   copyTemplate,
   createHousehold,
   createInvitation,
@@ -81,6 +80,7 @@ export { useCommand } from './use-command.ts';
 
 export { getTaskTemplates, saveTaskTemplate } from './task-templates.ts';
 export { getTask } from './task-detail.ts';
+export { addTaskAssignee, removeTaskAssignee, setTaskAssignees } from './task-assignment.ts';
 export { moveList, moveTask, setTaskState } from './task-workflow.ts';
 export type { TaskRowActions, TaskRowCommandError } from './use-task-actions.ts';
 export { useTaskRowActions } from './use-task-actions.ts';

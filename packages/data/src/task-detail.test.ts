@@ -11,6 +11,7 @@ const task = {
   notes: 'Complete notes',
   sort_order: 51,
   completed: false,
+  assignee_ids: [],
   assignee_id: null,
   due_at: null,
   created_at: '2026-09-27T00:00:00Z',
@@ -18,39 +19,45 @@ const task = {
   version: 1,
 };
 
-function fixture(data: unknown, error: unknown = null) {
-  const maybeSingle = vi.fn().mockResolvedValue({ data, error });
-  const eq = vi.fn();
-  eq.mockReturnValue({ eq, maybeSingle });
-  const select = vi.fn().mockReturnValue({ eq });
-  const from = vi.fn().mockReturnValue({ select });
-  return { client: { from } as unknown as OdinSupabaseClient, from, select, eq };
+function fixture(response: unknown) {
+  const rpc = vi.fn().mockResolvedValue(response);
+  return { client: { rpc } as unknown as OdinSupabaseClient, rpc };
 }
 
 describe('task detail read', () => {
-  it('loads the complete task directly, restricted to an open parent', async () => {
-    const fake = fixture({ ...task, lists: { status: 'open' } });
-    expect(await getTask(fake.client, task.id)).toEqual({ ...task, blocked: false });
-    expect(fake.from).toHaveBeenCalledWith('tasks');
-    expect(fake.select).toHaveBeenCalledWith('*, lists!inner(status)');
-    expect(fake.eq.mock.calls).toEqual([
-      ['id', task.id],
-      ['lists.status', 'open'],
-    ]);
+  it('loads the complete task, assignment set included, through the server read', async () => {
+    const fake = fixture({
+      data: { ok: true, data: { ...task, assignee_id: 'a', assignee_ids: ['a', 'b'] } },
+      error: null,
+    });
+    expect(await getTask(fake.client, task.id)).toEqual({
+      ...task,
+      blocked: false,
+      assignee_id: 'a',
+      assignee_ids: ['a', 'b'],
+    });
+    expect(fake.rpc).toHaveBeenCalledWith('get_task_v2', { p_task_id: task.id });
   });
 
   it('uses the same non-disclosing error for absent and inaccessible tasks', async () => {
-    await expect(getTask(fixture(null).client, 'absent')).rejects.toMatchObject({
+    const fake = fixture({
+      data: { ok: false, error: { code: 'NOT_FOUND', message_key: 'error.not_found' } },
+      error: null,
+    });
+    await expect(getTask(fake.client, 'absent')).rejects.toMatchObject({
       info: { code: 'NOT_FOUND' },
     });
   });
 
   it('sanitizes transport errors and rejects malformed rows', async () => {
     await expect(
-      getTask(fixture(null, { code: '42501', message: 'private SQL' }).client, 'x'),
+      getTask(
+        fixture({ data: null, error: { code: '42501', message: 'private SQL' } }).client,
+        'x',
+      ),
     ).rejects.toMatchObject({ info: { code: 'FORBIDDEN', message_key: 'error.forbidden' } });
-    await expect(getTask(fixture({ id: 'x' }).client, 'x')).rejects.toMatchObject({
-      info: { code: 'UNKNOWN' },
-    });
+    await expect(
+      getTask(fixture({ data: { ok: true, data: { id: 'x' } }, error: null }).client, 'x'),
+    ).rejects.toMatchObject({ info: { code: 'UNKNOWN' } });
   });
 });

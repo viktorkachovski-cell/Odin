@@ -9,8 +9,9 @@ import {
 } from '@odin/contracts';
 
 import type { OdinSupabaseClient } from './client.ts';
-import { claimTask, deleteTask, setTaskCompleted, updateTask } from './commands.ts';
+import { deleteTask, setTaskCompleted } from './commands.ts';
 import { keysAffectedByTaskChange } from './query-keys.ts';
+import { addTaskAssignee, removeTaskAssignee, setTaskAssignees } from './task-assignment.ts';
 import { moveTask, setTaskState } from './task-workflow.ts';
 import { useCommand, type UseCommandResult } from './use-command.ts';
 
@@ -27,9 +28,12 @@ export interface TaskRowActions {
   readonly toggleCompleted: (task: TaskRowModel, completed: boolean) => void;
   readonly setState: (task: TaskRowModel, state: TaskState) => void;
   readonly move: (task: TaskRowModel, direction: MoveDirection) => void;
-  readonly claim: (task: TaskRowModel) => void;
-  /** Keeps title, notes and deadline; sends only `assignee_id: null` under the row version. */
-  readonly unassign: (task: TaskRowModel) => void;
+  /** Adds the signed-in member to the task, keeping everyone already on it. */
+  readonly assignMe: (task: TaskRowModel) => void;
+  /** Removes only the signed-in member. */
+  readonly removeMe: (task: TaskRowModel) => void;
+  /** Clears every assignee under the row's version; title, notes and deadline are untouched. */
+  readonly clearAssignees: (task: TaskRowModel) => void;
   /** Permanent. Callers confirm with the member before calling it. */
   readonly remove: (task: TaskRowModel) => void;
 }
@@ -53,7 +57,15 @@ function rowCommandError<TInput, TData>(
  * Pass the list id on list detail so its own read is refreshed rather than
  * every open list's.
  */
-export function useTaskRowActions(client: OdinSupabaseClient, listId?: string): TaskRowActions {
+export function useTaskRowActions(
+  client: OdinSupabaseClient,
+  options: {
+    /** The member the row actions act for. */
+    readonly userId: string | null;
+    readonly listId?: string | undefined;
+  },
+): TaskRowActions {
+  const { userId, listId } = options;
   const invalidate = useMemo(() => keysAffectedByTaskChange(listId), [listId]);
   const complete = useCommand(
     (requestId, input: VersionedTask & { readonly completed: boolean }) =>
@@ -71,26 +83,26 @@ export function useTaskRowActions(client: OdinSupabaseClient, listId?: string): 
     { invalidate },
   );
 
-  const claim = useCommand(
-    (requestId, input: VersionedTask) => claimTask(client, requestId, input),
+  const assign = useCommand(
+    (requestId, input: { readonly taskId: string; readonly userId: string }) =>
+      addTaskAssignee(client, requestId, input),
     { invalidate },
   );
-  const unassign = useCommand(
-    (requestId, input: VersionedTask & { readonly title: string; readonly dueAt: string | null }) =>
-      updateTask(client, requestId, {
-        taskId: input.taskId,
-        expectedVersion: input.expectedVersion,
-        title: input.title,
-        assigneeId: null,
-        dueAt: input.dueAt,
-      }),
+  const leave = useCommand(
+    (requestId, input: { readonly taskId: string; readonly userId: string }) =>
+      removeTaskAssignee(client, requestId, input),
+    { invalidate },
+  );
+  const clear = useCommand(
+    (requestId, input: VersionedTask) =>
+      setTaskAssignees(client, requestId, { ...input, assigneeIds: [] }),
     { invalidate },
   );
   const remove = useCommand(
     (requestId, input: VersionedTask) => deleteTask(client, requestId, input),
     { invalidate },
   );
-  const pending = [complete, state, move, claim, unassign, remove].map(
+  const pending = [complete, state, move, assign, leave, clear, remove].map(
     (entry) => entry.state.pending,
   );
 
@@ -100,8 +112,9 @@ export function useTaskRowActions(client: OdinSupabaseClient, listId?: string): 
       rowCommandError(complete),
       rowCommandError(state),
       rowCommandError(move),
-      rowCommandError(claim),
-      rowCommandError(unassign),
+      rowCommandError(assign),
+      rowCommandError(leave),
+      rowCommandError(clear),
       rowCommandError(remove),
     ],
     toggleCompleted: (task, completed) =>
@@ -110,14 +123,13 @@ export function useTaskRowActions(client: OdinSupabaseClient, listId?: string): 
       void state.run({ taskId: task.id, expectedVersion: task.version, state: next }),
     move: (task, direction) =>
       void move.run({ taskId: task.id, expectedVersion: task.version, direction }),
-    claim: (task) => void claim.run({ taskId: task.id, expectedVersion: task.version }),
-    unassign: (task) =>
-      void unassign.run({
-        taskId: task.id,
-        expectedVersion: task.version,
-        title: task.title,
-        dueAt: task.due_at,
-      }),
+    assignMe: (task) => {
+      if (userId !== null) void assign.run({ taskId: task.id, userId });
+    },
+    removeMe: (task) => {
+      if (userId !== null) void leave.run({ taskId: task.id, userId });
+    },
+    clearAssignees: (task) => void clear.run({ taskId: task.id, expectedVersion: task.version }),
     remove: (task) => void remove.run({ taskId: task.id, expectedVersion: task.version }),
   };
 }

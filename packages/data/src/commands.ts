@@ -25,6 +25,7 @@ import {
   parseProfile,
   parseTask,
 } from '@odin/contracts';
+import { canonicalAssigneeIds } from '@odin/domain';
 
 import type { OdinSupabaseClient } from './client.ts';
 import { asCommandResult, mapPostgrestError, toOdinError } from './error-mapping.ts';
@@ -190,32 +191,42 @@ export function copyTemplate(
   );
 }
 
+/**
+ * Creates a task with its complete assignment set (empty, one or several
+ * distinct active members). The server canonicalises the set, so a retry under
+ * the same request ID may list ids in any order.
+ */
 export function createTask(
   client: OdinSupabaseClient,
   requestId: string,
   input: {
     readonly listId: string;
     readonly title: string;
-    readonly assigneeId?: string | null;
+    readonly assigneeIds?: readonly string[];
     readonly dueAt?: string | null;
     readonly notes?: string | null;
   },
 ): Promise<CommandResult<TaskDto>> {
   return command(
     client,
-    input.notes === undefined ? 'create_task' : 'create_task_v2',
+    'create_task_v3',
     {
       request_id: requestId,
       list_id: input.listId,
       title: input.title,
-      assignee_id: input.assigneeId ?? null,
+      assignee_ids: canonicalAssigneeIds(input.assigneeIds ?? []),
       due_at: input.dueAt ?? null,
-      ...(input.notes === undefined ? {} : { notes: input.notes }),
+      notes: input.notes ?? null,
     },
     (data) => parseTask(data),
   );
 }
 
+/**
+ * The editor's save: every editable field, including the complete assignment
+ * set, under the version the editor was based on. Notes are required so a
+ * caller can never erase them by leaving them out.
+ */
 export function updateTask(
   client: OdinSupabaseClient,
   requestId: string,
@@ -223,22 +234,22 @@ export function updateTask(
     readonly taskId: string;
     readonly expectedVersion: number;
     readonly title: string;
-    readonly assigneeId?: string | null;
-    readonly dueAt?: string | null;
-    readonly notes?: string | null;
+    readonly notes: string | null;
+    readonly assigneeIds: readonly string[];
+    readonly dueAt: string | null;
   },
 ): Promise<CommandResult<TaskDto>> {
   return command(
     client,
-    input.notes === undefined ? 'update_task' : 'update_task_v2',
+    'update_task_v3',
     {
       request_id: requestId,
       task_id: input.taskId,
       expected_version: input.expectedVersion,
       title: input.title,
-      assignee_id: input.assigneeId ?? null,
-      due_at: input.dueAt ?? null,
-      ...(input.notes === undefined ? {} : { notes: input.notes }),
+      assignee_ids: canonicalAssigneeIds(input.assigneeIds),
+      due_at: input.dueAt,
+      notes: input.notes,
     },
     (data) => parseTask(data),
   );
@@ -301,23 +312,6 @@ export function setTaskCompleted(
       task_id: input.taskId,
       expected_version: input.expectedVersion,
       completed: input.completed,
-    },
-    (data) => parseTask(data),
-  );
-}
-
-export function claimTask(
-  client: OdinSupabaseClient,
-  requestId: string,
-  input: { readonly taskId: string; readonly expectedVersion: number },
-): Promise<CommandResult<TaskDto>> {
-  return command(
-    client,
-    'claim_task',
-    {
-      request_id: requestId,
-      task_id: input.taskId,
-      expected_version: input.expectedVersion,
     },
     (data) => parseTask(data),
   );

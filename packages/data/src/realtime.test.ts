@@ -162,4 +162,26 @@ describe('keysAffectedByChanges', () => {
   it('affects nothing for an empty batch', () => {
     expect(keysAffectedByChanges([])).toEqual([]);
   });
+
+  it('refetches every read an assignment change can move a task between', () => {
+    // Each assignment command updates the task row, so the hint is an ordinary
+    // `task` one. It must reach Mine and Unassigned (a member leaves or joins
+    // them), Everyone, the household summary, every open list and the task
+    // detail an editor may have open.
+    const keys = ids(keysAffectedByChanges(['task']));
+    for (const read of ['my-tasks', 'unassigned', 'all-tasks', 'home', 'list', 'task']) {
+      expect(keys).toContain(read);
+    }
+  });
+
+  it('delivers a hint for a task row change to the subscriber', async () => {
+    vi.useFakeTimers();
+    const fake = fakeClient();
+    const seen = recorder();
+    subscribeToHousehold(fake.client, 'household-1', seen.handlers);
+    fake.row('tasks');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(seen.batches).toEqual([['task']]);
+    vi.useRealTimers();
+  });
 });

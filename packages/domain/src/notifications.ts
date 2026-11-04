@@ -9,6 +9,8 @@
  * deadline approaches.
  */
 
+import { isAssignedTo, isUnassigned, type AssignedSubject } from './assignees.ts';
+
 export const DUE_REMINDER_STAGES = ['day', 'hours', 'imminent'] as const;
 
 export type DueReminderStage = (typeof DUE_REMINDER_STAGES)[number];
@@ -122,4 +124,39 @@ export function diffAssignedTasks(
   }
 
   return { assigned, updated };
+}
+
+export interface NotifiableTask extends AssignedSubject {
+  readonly id: string;
+  readonly completed: boolean;
+}
+
+/**
+ * Whether a task is the member's, for announcements: open and assigned to
+ * them. Membership of the assignment set decides it -- not whether anyone else
+ * is on the task too, and not the legacy single `assignee_id`.
+ */
+export function isMyOpenTask(task: NotifiableTask, userId: string | null): boolean {
+  return !task.completed && isAssignedTo(task, userId);
+}
+
+/**
+ * The tasks the member gets deadline reminders for: open tasks that are theirs
+ * or that nobody has taken, once each. Two reads taken a moment apart can both
+ * list a task whose assignment changed in between; it still yields one
+ * reminder per stage, and a task that is now someone else's yields none.
+ */
+export function reminderTasks<T extends NotifiableTask>(
+  tasks: readonly T[],
+  userId: string | null,
+): T[] {
+  const seen = new Set<string>();
+  const wanted: T[] = [];
+  for (const task of tasks) {
+    if (task.completed || seen.has(task.id)) continue;
+    if (!isUnassigned(task) && !isAssignedTo(task, userId)) continue;
+    seen.add(task.id);
+    wanted.push(task);
+  }
+  return wanted;
 }

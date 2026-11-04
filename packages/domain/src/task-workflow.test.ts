@@ -121,7 +121,7 @@ describe('task editor drafts', () => {
     expect(taskDraft(null)).toEqual({
       title: '',
       notes: '',
-      assigneeId: null,
+      assigneeIds: [],
       dueDate: '',
       dueTime: '',
     });
@@ -133,13 +133,19 @@ describe('task editor drafts', () => {
       notes: null,
       sort_order: 1,
       completed: false,
+      assignee_ids: ['u2', 'u1'],
       assignee_id: 'u1',
       due_at: null,
       created_at: '2030-01-01T00:00:00Z',
       updated_at: '2030-01-01T00:00:00Z',
       version: 1,
     });
-    expect(draft).toMatchObject({ title: 'Pantry', notes: '', assigneeId: 'u1', dueDate: '' });
+    expect(draft).toMatchObject({
+      title: 'Pantry',
+      notes: '',
+      assigneeIds: ['u1', 'u2'],
+      dueDate: '',
+    });
   });
 
   it('names the message for each deadline problem', () => {
@@ -149,9 +155,9 @@ describe('task editor drafts', () => {
 });
 
 describe('task row actions', () => {
-  const all = { state: true, unassign: true, remove: true };
+  const all = { state: true, assignMe: true, removeMe: true, unassign: true, remove: true };
 
-  it('offers block or unblock only on open tasks, and unassign only when assigned', () => {
+  it('offers block or unblock only on open tasks, and clearing only when assigned', () => {
     expect(taskRowActions({ completed: false, assignee_id: 'member' }, all)).toEqual([
       'block',
       'unassign',
@@ -167,8 +173,48 @@ describe('task row actions', () => {
     ]);
   });
 
+  it('offers Assign to me on a task someone else has, never on one the member has', () => {
+    const others = { completed: false, assignee_id: 'a', assignee_ids: ['a', 'b'] };
+    expect(taskRowActions(others, all, 'me')).toEqual(['block', 'assign_me', 'unassign', 'delete']);
+    const mine = { completed: false, assignee_id: 'me', assignee_ids: ['a', 'me'] };
+    expect(taskRowActions(mine, all, 'me')).toEqual(['block', 'remove_me', 'unassign', 'delete']);
+  });
+
+  it('leaves an unassigned task to the row button and a done task unclaimed', () => {
+    expect(
+      taskRowActions({ completed: false, assignee_id: null, assignee_ids: [] }, all, 'me'),
+    ).toEqual(['block', 'delete']);
+    expect(
+      taskRowActions({ completed: true, assignee_id: 'a', assignee_ids: ['a'] }, all, 'me'),
+    ).toEqual(['unassign', 'delete']);
+  });
+
+  it('still lets a member leave a finished task they were on', () => {
+    expect(
+      taskRowActions({ completed: true, assignee_id: 'me', assignee_ids: ['me'] }, all, 'me'),
+    ).toEqual(['remove_me', 'unassign', 'delete']);
+  });
+
   it('offers nothing the screen did not wire', () => {
-    const none = { state: false, unassign: false, remove: false };
-    expect(taskRowActions({ completed: false, assignee_id: 'member' }, none)).toEqual([]);
+    const none = { state: false, assignMe: false, removeMe: false, unassign: false, remove: false };
+    expect(taskRowActions({ completed: false, assignee_id: 'member' }, none, 'member')).toEqual([]);
+  });
+});
+
+describe('status with several assignees', () => {
+  it('is To-do while anyone is assigned and Unassigned only with nobody', () => {
+    expect(taskStatus({ completed: false, assignee_id: 'a', assignee_ids: ['a', 'b'] })).toBe(
+      'todo',
+    );
+    expect(taskStatus({ completed: false, assignee_id: null, assignee_ids: [] })).toBe(
+      'unassigned',
+    );
+  });
+
+  it('keeps Blocked and Done whatever the assignment', () => {
+    expect(
+      taskStatus({ completed: false, blocked: true, assignee_id: 'a', assignee_ids: ['a', 'b'] }),
+    ).toBe('blocked');
+    expect(taskStatus({ completed: true, assignee_id: null, assignee_ids: [] })).toBe('done');
   });
 });
