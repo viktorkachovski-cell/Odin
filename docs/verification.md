@@ -26,8 +26,9 @@ limitation, not a project finding; CI reports 21/21.
 
 Branch `vikc/peaceful-newton-y14ldu`. **Automated evidence only, from a
 sandbox with no Docker image access, no device and no browser session. Nothing
-here is real-device acceptance, and the migration has not touched the hosted
-project.**
+here is real-device acceptance.** The hosted apply of 2026-11-05 and its
+checks are in `deployment-log.md`; they are database checks, not client
+acceptance.
 
 Environment: Linux, Node 22.23.4, npm 10.9.9. The Supabase images could not be
 pulled (`supabase start` failed with HTTP 403 from the registry proxy), so the

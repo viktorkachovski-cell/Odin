@@ -38,11 +38,13 @@ a read-only list call does not prove a mutating one will succeed.
 Hosted and local migration histories already diverge. Match applied names and
 contents rather than pushing the full local history.
 
-### Releasing multiple assignees (2026-11-04) — not yet applied
+### Releasing multiple assignees (2026-11-04) — applied 2026-11-05
 
 `20261104190000_multiple_task_assignees.sql` is additive, but it is applied to
 live household data and cannot be rolled back after clients use it, so rehearse
-first and apply in this order only on the owner's explicit say-so:
+first and apply in this order only on the owner's explicit say-so. This is the
+procedure as designed; the hosted apply on 2026-11-05 skipped step 1 at the
+owner's request (`deployment-log.md` records what stood in for it):
 
 1. **Rehearse on a restored copy** (never reset production). Run
    `psql "$COPY_URL" -v ON_ERROR_STOP=1 -v phase=before -f supabase/smoke/multiple-assignees-migration-check.sql`,

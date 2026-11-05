@@ -271,8 +271,9 @@ Two costs of keeping the change additive (`docs/contract.md`):
   unused by the current readers.
 
 Not yet proven on a real phone: the assignment editor, the row actions and the
-shared-task announcements (device gap in the accepted section and R9). The hosted
-database has not had the migration applied.
+shared-task announcements (device gap in the accepted section and R9). The
+migration has been on the hosted database since 2026-11-05; the APK that makes
+this cost go away has not shipped yet.
 
 ## Accepted, not tracked
 
