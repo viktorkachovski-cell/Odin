@@ -3,6 +3,7 @@
  * Android and web never disagree about which task is overdue or where it sits.
  */
 
+import { isAssignedTo, isUnassigned, type AssignedSubject } from './assignees.ts';
 import { isOverdue } from './dates.ts';
 import { sortTasksByDue, type DueOrdered } from './sorting.ts';
 import { resolveTaskDeadlineFilter, type TaskDeadlineFilter } from './task-workflow.ts';
@@ -18,12 +19,11 @@ export function isTaskView(value: string | null | undefined): value is TaskView 
 export const DEADLINE_GROUPS = ['overdue', 'today', 'upcoming', 'undated', 'done'] as const;
 export type DeadlineGroup = (typeof DEADLINE_GROUPS)[number];
 
-export interface ViewTask extends DueOrdered {
+export interface ViewTask extends DueOrdered, AssignedSubject {
   readonly title: string;
   readonly notes?: string | null | undefined;
   readonly completed: boolean;
   readonly blocked?: boolean | undefined;
-  readonly assignee_id: string | null;
   readonly list_title?: string | undefined;
 }
 
@@ -86,8 +86,8 @@ export interface TaskViewFilter {
 }
 
 function matchesView(task: ViewTask, view: TaskView, userId: string | null): boolean {
-  if (view === 'mine') return !task.completed && userId !== null && task.assignee_id === userId;
-  if (view === 'unassigned') return !task.completed && task.assignee_id === null;
+  if (view === 'mine') return !task.completed && isAssignedTo(task, userId);
+  if (view === 'unassigned') return !task.completed && isUnassigned(task);
   return true;
 }
 
@@ -159,9 +159,9 @@ export function summarizeTasks(
     const group = deadlineGroup(task, now);
     if (group === 'overdue') overdue += 1;
     if (group === 'today') dueToday += 1;
-    if (task.assignee_id === null) unassigned += 1;
+    if (isUnassigned(task)) unassigned += 1;
     if (task.blocked === true) blocked += 1;
-    if (userId !== null && task.assignee_id === userId) mine += 1;
+    if (isAssignedTo(task, userId)) mine += 1;
   }
   return { overdue, dueToday, unassigned, blocked, mine, everyone };
 }

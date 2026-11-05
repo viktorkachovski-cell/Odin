@@ -25,6 +25,7 @@ function task(overrides: Partial<TaskDto> & Pick<TaskDto, 'id'>): TaskDto {
     title: 'Task',
     sort_order: 1,
     completed: false,
+    assignee_ids: [],
     assignee_id: null,
     due_at: null,
     created_at: '2026-01-01T00:00:00.000Z',

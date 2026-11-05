@@ -38,6 +38,33 @@ a read-only list call does not prove a mutating one will succeed.
 Hosted and local migration histories already diverge. Match applied names and
 contents rather than pushing the full local history.
 
+### Releasing multiple assignees (2026-11-04) — not yet applied
+
+`20261104190000_multiple_task_assignees.sql` is additive, but it is applied to
+live household data and cannot be rolled back after clients use it, so rehearse
+first and apply in this order only on the owner's explicit say-so:
+
+1. **Rehearse on a restored copy** (never reset production). Run
+   `psql "$COPY_URL" -v ON_ERROR_STOP=1 -v phase=before -f supabase/smoke/multiple-assignees-migration-check.sql`,
+   apply the migration in one transaction, then the same script with
+   `-v phase=after`. The two printed fingerprints must be identical (the
+   backfill changes no task row, version or timestamp) and the `after` run must
+   report every assignment migrated with none missing or extra.
+2. Apply it to the hosted project, then run
+   `supabase/smoke/multiple-assignees-smoke.sql` against it (it rolls back) and
+   the privilege check in step 4 above for all six new functions and the new
+   table: `anon` must be unable to execute any of them and `authenticated` must
+   have no privilege on `task_assignees`.
+3. Deploy the web client. Before the migration it fails every assignment edit.
+4. Build and distribute an APK. Installed builds keep working meanwhile
+   (`contract.md`, "Multiple-assignee compatibility").
+5. Regenerate `packages/contracts/src/database.generated.ts` with the pinned CLI
+   against the migrated local stack. The committed copy of this change was
+   written by hand to the generator's format because no Docker daemon could
+   pull the Supabase images where it was authored; treat any diff the
+   generator produces as authoritative.
+6. Append the entry to `deployment-log.md` only once it has actually happened.
+
 Because there is no hosted staging project, test unmerged database changes on
 a disposable local database, and never treat a preview build against an
 unmigrated production API as functional verification. A backfill that updates

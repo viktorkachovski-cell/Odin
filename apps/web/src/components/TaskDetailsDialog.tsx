@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { MemberDto } from '@odin/contracts';
-import { taskStatus } from '@odin/domain';
+import { assigneeEntries, taskAssigneeIds, taskStatus } from '@odin/domain';
 import { formatDueAt, type Locale, type Translator } from '@odin/i18n';
 
 import { useTaskQuery } from '../app/queries.ts';
@@ -24,7 +24,7 @@ export function TaskDetailsDialog({
 }): ReactNode {
   const query = useTaskQuery(taskId);
   const task = query.isError ? undefined : query.data;
-  const assignee = members.find((member) => member.user_id === task?.assignee_id);
+  const assignees = task === undefined ? [] : assigneeEntries(taskAssigneeIds(task), members, null);
   const dueAt = task?.due_at;
   const dueText =
     dueAt === null || dueAt === undefined ? t('task.due.none') : formatDueAt(dueAt, locale);
@@ -58,17 +58,23 @@ export function TaskDetailsDialog({
           <div>
             <dt>{t('task.assignee.label')}</dt>
             <dd>
-              {assignee === undefined ? (
+              {assignees.length === 0 ? (
                 t('task.assignee.unassigned')
               ) : (
-                <span className="chip">
-                  <Avatar
-                    displayName={assignee.display_name}
-                    members={members}
-                    userId={assignee.user_id}
-                  />
-                  {assignee.display_name}
-                </span>
+                <ul className="chip-list">
+                  {assignees.map((assignee) => (
+                    <li className="chip" key={assignee.userId}>
+                      {!assignee.former && (
+                        <Avatar
+                          displayName={assignee.name}
+                          members={members}
+                          userId={assignee.userId}
+                        />
+                      )}
+                      {assignee.former ? t('task.assignee.former') : assignee.name}
+                    </li>
+                  ))}
+                </ul>
               )}
             </dd>
           </div>

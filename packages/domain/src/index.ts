@@ -1,3 +1,4 @@
+export * from './assignees.ts';
 export * from './avatar.ts';
 export * from './dates.ts';
 export * from './progress.ts';

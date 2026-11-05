@@ -3,7 +3,9 @@ import { useEffect, useRef } from 'react';
 import type { HouseholdTaskDto } from '@odin/contracts';
 import {
   diffAssignedTasks,
+  isMyOpenTask,
   planDueReminders,
+  reminderTasks,
   type AssignedTaskState,
   type DueReminderCandidate,
   type DueReminderStage,
@@ -29,6 +31,12 @@ import { useMyTasksQuery, useUnassignedQuery } from './queries.ts';
  * deadline is near. "Assigned" and "updated" compare two readings of My Tasks
  * by version, and are only announced while the app is not in the foreground,
  * which is also what keeps your own edits silent (docs/android.md).
+ *
+ * A task is yours when you are a member of its assignment set, however many
+ * others share it, so each assignee is told once about the one shared task and
+ * holds one reminder per stage for it. A task that stops being yours -- you
+ * were removed, it was completed, or it moved to someone else -- loses its
+ * reminders at the next reconciliation.
  */
 
 /** At this many changes in one sync, one summary replaces the individual ones. */
@@ -64,8 +72,9 @@ function reminderText(locale: Locale, plan: PlannedDueReminder): NotificationTex
  * Brings the system's scheduled reminders in line with the deadlines currently
  * on screen. The set already scheduled is read back from Android rather than
  * remembered here, so this stays correct across a restart, and identifiers are
- * stable per task, stage and language -- rescheduling replaces, never
- * duplicates, and a language change retires the old wording.
+ * stable per task, stage, language and fire time -- reconciling again replaces
+ * nothing and duplicates nothing, a moved deadline retires the reminders for
+ * the old time, and a language change retires the old wording.
  */
 async function reconcileReminders(
   candidates: readonly DueReminderCandidate[],
@@ -73,7 +82,10 @@ async function reconcileReminders(
   nowMs: number,
 ): Promise<void> {
   const wanted = new Map(
-    planDueReminders(candidates, nowMs).map((plan) => [reminderIdentifier(locale, plan.key), plan]),
+    planDueReminders(candidates, nowMs).map((plan) => [
+      reminderIdentifier(locale, plan.key, plan.fireAtMs),
+      plan,
+    ]),
   );
   const existing = await scheduledReminderIds();
 
@@ -135,7 +147,8 @@ function bestEffort(work: Promise<unknown>): void {
 }
 
 export function useTaskNotifications(allowed: boolean): void {
-  const { locale } = useOdin();
+  const { locale, user } = useOdin();
+  const userId = user?.id ?? null;
   const foreground = useAppForeground();
   // Live app-wide while notifications are on, because a change has to be
   // noticed whichever section is open and while none is. Switched off, they
@@ -153,17 +166,21 @@ export function useTaskNotifications(allowed: boolean): void {
   const baseline = useRef<readonly AssignedTaskState[] | null>(null);
 
   useEffect(() => {
-    if (myItems === undefined) return;
+    if (myItems === undefined || userId === null) return;
 
+    // Membership of the assignment set decides what is mine, not the read it
+    // arrived in: a task the server still lists but that no longer names me is
+    // not announced, and a completed one never is.
+    const owned = myItems.filter((task) => isMyOpenTask(task, userId));
     const previous = baseline.current;
-    baseline.current = myItems.map(toAssignedState);
+    baseline.current = owned.map(toAssignedState);
 
     // The baseline is always advanced, even while silent, so re-enabling
     // notifications cannot replay a backlog of changes already seen.
     if (!allowed || foreground) return;
 
     const changes = diffAssignedTasks(previous, baseline.current);
-    const byId = new Map(myItems.map((task) => [task.id, task]));
+    const byId = new Map(owned.map((task) => [task.id, task]));
     const texts = [
       ...announce(locale, changes.assigned, byId, {
         one: 'notification.assigned.title',
@@ -178,7 +195,7 @@ export function useTaskNotifications(allowed: boolean): void {
     ];
 
     for (const text of texts) bestEffort(presentNow(text));
-  }, [myItems, allowed, foreground, locale]);
+  }, [myItems, allowed, foreground, locale, userId]);
 
   /**
    * Deadline reminders are held by Android's alarm service, so unlike the
@@ -189,9 +206,11 @@ export function useTaskNotifications(allowed: boolean): void {
       bestEffort(cancelAllReminders());
       return;
     }
-    if (myItems === undefined || unassignedItems === undefined) return;
+    if (myItems === undefined || unassignedItems === undefined || userId === null) return;
 
-    const candidates = [...myItems, ...unassignedItems].map(toCandidate);
+    // Mine and Unassigned are two reads taken a moment apart. A task can be in
+    // both while it moves between them, and is still one reminder per stage.
+    const candidates = reminderTasks([...myItems, ...unassignedItems], userId).map(toCandidate);
     bestEffort(reconcileReminders(candidates, locale, Date.now()));
-  }, [myItems, unassignedItems, allowed, locale]);
+  }, [myItems, unassignedItems, allowed, locale, userId]);
 }

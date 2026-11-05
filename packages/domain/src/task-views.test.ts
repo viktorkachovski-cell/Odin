@@ -188,3 +188,59 @@ describe('summary', () => {
     expect(isTaskDeadlinePreset(undefined)).toBe(false);
   });
 });
+
+describe('views with several assignees', () => {
+  const shared = task('shared', { assignee_id: 'a', assignee_ids: ['a', 'b'], due_at: at(11, 18) });
+  const solo = task('solo', { assignee_id: 'a', assignee_ids: ['a'] });
+  const nobody = task('nobody', { assignee_id: null, assignee_ids: [] });
+  const done = task('done', { assignee_id: 'a', assignee_ids: ['a', 'b'], completed: true });
+  const tasks = [shared, solo, nobody, done];
+
+  it('shows a shared task in the Mine view of every assignee, once', () => {
+    for (const member of ['a', 'b']) {
+      const mine = filterTasks(tasks, { view: 'mine', userId: member }, NOW);
+      expect(mine.filter((entry) => entry.id === 'shared')).toHaveLength(1);
+    }
+    expect(filterTasks(tasks, { view: 'mine', userId: 'b' }, NOW).map((t) => t.id)).toEqual([
+      'shared',
+    ]);
+    expect(filterTasks(tasks, { view: 'mine', userId: 'c' }, NOW)).toEqual([]);
+  });
+
+  it('judges Mine by membership of the set, not by the legacy single assignee', () => {
+    const second = task('second', { assignee_id: 'a', assignee_ids: ['a', 'me'] });
+    expect(filterTasks([second], { view: 'mine', userId: 'me' }, NOW)).toEqual([second]);
+  });
+
+  it('lists only tasks with nobody on them as Unassigned', () => {
+    expect(filterTasks(tasks, { view: 'unassigned', userId: 'a' }, NOW).map((t) => t.id)).toEqual([
+      'nobody',
+    ]);
+  });
+
+  it('keeps one task in Everyone however many people are on it', () => {
+    expect(filterTasks(tasks, { view: 'everyone', userId: 'a' }, NOW).map((t) => t.id)).toEqual([
+      'shared',
+      'solo',
+      'nobody',
+    ]);
+  });
+
+  it('counts a shared task once overall and once for each member', () => {
+    const forA = summarizeTasks(tasks, 'a', NOW);
+    const forB = summarizeTasks(tasks, 'b', NOW);
+    expect(forA).toMatchObject({ everyone: 3, mine: 2, unassigned: 1 });
+    expect(forB).toMatchObject({ everyone: 3, mine: 1, unassigned: 1 });
+  });
+
+  it('moves a task to Unassigned when everyone is removed, and out of Mine', () => {
+    const cleared = { ...shared, assignee_id: null, assignee_ids: [] };
+    expect(summarizeTasks([cleared], 'a', NOW)).toMatchObject({ mine: 0, unassigned: 1 });
+  });
+
+  it("builds Today from the member's own open tasks across a shared task", () => {
+    const today = groupMyTasksForToday(tasks, 'b', NOW);
+    expect(today.total).toBe(1);
+    expect(today.groups.flatMap((group) => group.tasks.map((t) => t.id))).toEqual(['shared']);
+  });
+});

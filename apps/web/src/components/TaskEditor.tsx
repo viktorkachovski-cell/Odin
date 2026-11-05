@@ -3,7 +3,9 @@ import { useState, type ReactNode } from 'react';
 import type { CommandError, MemberDto, TaskDto } from '@odin/contracts';
 import {
   dueIssueKey,
+  mergeAssigneeEdit,
   resolveDueInput,
+  taskAssigneeIds,
   taskDraft,
   validateNotes,
   validateTaskTitle,
@@ -11,6 +13,7 @@ import {
 } from '@odin/domain';
 import { issueText, type Translator } from '@odin/i18n';
 
+import { AssigneePicker } from './AssigneePicker.tsx';
 import { ErrorBanner } from './Banner.tsx';
 import { Dialog } from './Dialog.tsx';
 import { Field } from './Field.tsx';
@@ -26,6 +29,8 @@ import { TaskTemplates } from './TaskTemplates.tsx';
 interface TaskEditorProps {
   readonly task: TaskDto | null;
   readonly members: readonly MemberDto[];
+  /** The signed-in member, for Assign to me and Remove me. */
+  readonly currentUserId: string | null;
   readonly t: Translator;
   readonly pending: boolean;
   /** A CONFLICT keeps the draft and offers `onReviewConflict` instead of a banner. */
@@ -41,7 +46,8 @@ interface TaskEditorProps {
   readonly onSubmit: (input: {
     readonly title: string;
     readonly notes: string;
-    readonly assigneeId: string | null;
+    /** The complete assignment set the member chose; empty means unassigned. */
+    readonly assigneeIds: readonly string[];
     readonly dueAt: string | null;
   }) => void;
 }
@@ -49,6 +55,7 @@ interface TaskEditorProps {
 export function TaskEditor({
   task,
   members,
+  currentUserId,
   t,
   pending,
   error,
@@ -60,6 +67,21 @@ export function TaskEditor({
   textOnly = false,
 }: TaskEditorProps): ReactNode {
   const [draft, setDraft] = useState<TaskDraft>(() => taskDraft(task));
+  // The assignment the editor opened with, and the version it came from. When
+  // the task is replaced by a newer one (after a conflict review), the member's
+  // own assignee changes are carried onto it instead of overwriting it.
+  const [origin, setOrigin] = useState<{
+    readonly version: number;
+    readonly ids: readonly string[];
+  }>(() => ({ version: task?.version ?? 0, ids: draft.assigneeIds }));
+  if (task !== null && task.version !== origin.version) {
+    const latest = taskAssigneeIds(task);
+    setOrigin({ version: task.version, ids: [...latest].sort() });
+    setDraft((current) => ({
+      ...current,
+      assigneeIds: mergeAssigneeEdit(origin.ids, current.assigneeIds, latest),
+    }));
+  }
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
   const [dueIssue, setDueIssue] = useState<string | undefined>(undefined);
@@ -76,7 +98,7 @@ export function TaskEditor({
     onSubmit({
       title: draft.title.trim(),
       notes: draft.notes.trim(),
-      assigneeId: textOnly ? null : draft.assigneeId,
+      assigneeIds: textOnly ? [] : draft.assigneeIds,
       dueAt: textOnly ? null : due.dueAt,
     });
   };
@@ -92,7 +114,7 @@ export function TaskEditor({
         setDraft({
           title: template.title,
           notes: template.notes ?? '',
-          assigneeId: null,
+          assigneeIds: [],
           dueDate: '',
           dueTime: '',
         })
@@ -171,27 +193,13 @@ export function TaskEditor({
       </Field>
       {!textOnly && (
         <>
-          <Field label={t('task.assignee.label')}>
-            {(props) => (
-              <select
-                {...props}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    assigneeId: event.target.value === '' ? null : event.target.value,
-                  }))
-                }
-                value={draft.assigneeId ?? ''}
-              >
-                <option value="">{t('task.assignee.none')}</option>
-                {members.map((member) => (
-                  <option key={member.user_id} value={member.user_id}>
-                    {member.display_name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
+          <AssigneePicker
+            currentUserId={currentUserId}
+            members={members}
+            onChange={(assigneeIds) => setDraft((current) => ({ ...current, assigneeIds }))}
+            selected={draft.assigneeIds}
+            t={t}
+          />
 
           <div className="field__row">
             <Field error={dueIssue} label={t('task.due.date')}>

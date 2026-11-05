@@ -163,6 +163,22 @@ export function parseHome(value: unknown): HomeDto {
   };
 }
 
+/**
+ * The assignment set of a task payload. A payload from before multiple
+ * assignees has only the single `assignee_id`, which is then the whole set.
+ * Duplicates are collapsed and the order made canonical, so a client never
+ * has to trust the server's ordering to compare two sets.
+ */
+function parseAssigneeIds(raw: Rec, field: string): string[] {
+  const legacy = nullableStr(raw['assignee_id'], `${field}.assignee_id`);
+  const listed = raw['assignee_ids'];
+  if (listed === undefined || listed === null) return legacy === null ? [] : [legacy];
+  const ids = arr(listed, `${field}.assignee_ids`).map((entry, index) =>
+    str(entry, `${field}.assignee_ids[${index}]`),
+  );
+  return [...new Set(ids)].sort();
+}
+
 export function parseTask(value: unknown, field = 'task'): TaskDto {
   const raw = obj(value, field);
   return {
@@ -174,6 +190,7 @@ export function parseTask(value: unknown, field = 'task'): TaskDto {
     title: str(raw['title'], `${field}.title`),
     sort_order: num(raw['sort_order'], `${field}.sort_order`),
     completed: bool(raw['completed'], `${field}.completed`),
+    assignee_ids: parseAssigneeIds(raw, field),
     assignee_id: nullableStr(raw['assignee_id'], `${field}.assignee_id`),
     due_at: nullableStr(raw['due_at'], `${field}.due_at`),
     created_at: str(raw['created_at'], `${field}.created_at`),

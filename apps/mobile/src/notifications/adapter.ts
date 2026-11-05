@@ -79,8 +79,15 @@ export async function presentNow(text: NotificationText): Promise<void> {
   });
 }
 
-export function reminderIdentifier(locale: string, key: string): string {
-  return `${REMINDER_PREFIX}${locale}:${key}`;
+/**
+ * One scheduled reminder's identity: language, task and stage, plus the moment
+ * it fires. Including the moment is what makes a moved deadline replace the
+ * reminder: the old identifier is no longer wanted and is cancelled, where an
+ * identifier of task and stage alone would be "already scheduled" and keep
+ * firing at the old time.
+ */
+export function reminderIdentifier(locale: string, key: string, fireAtMs: number): string {
+  return `${REMINDER_PREFIX}${locale}:${key}:${String(fireAtMs)}`;
 }
 
 /**

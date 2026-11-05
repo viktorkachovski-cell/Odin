@@ -1,5 +1,12 @@
 import { TASK_STATES, type TaskDto, type TaskState } from '@odin/contracts';
 
+import {
+  canonicalAssigneeIds,
+  isAssignedTo,
+  isUnassigned,
+  taskAssigneeIds,
+  type AssignedSubject,
+} from './assignees.ts';
 import { dueDraftFromIso, type TaskDueDraft } from './dates.ts';
 
 /**
@@ -9,10 +16,9 @@ import { dueDraftFromIso, type TaskDueDraft } from './dates.ts';
 export const TASK_STATUSES = ['unassigned', 'todo', 'blocked', 'done'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-interface StatusSubject {
+interface StatusSubject extends AssignedSubject {
   readonly completed: boolean;
   readonly blocked?: boolean;
-  readonly assignee_id: string | null;
 }
 
 export function taskState(task: StatusSubject): TaskState {
@@ -23,7 +29,7 @@ export function taskState(task: StatusSubject): TaskState {
 export function taskStatus(task: StatusSubject): TaskStatus {
   const state = taskState(task);
   if (state !== 'open') return state;
-  return task.assignee_id === null ? 'unassigned' : 'todo';
+  return isUnassigned(task) ? 'unassigned' : 'todo';
 }
 
 export interface TaskStatusOption {
@@ -39,16 +45,35 @@ export function taskStatusOptions(task: StatusSubject): readonly TaskStatusOptio
   }));
 }
 
-export type TaskRowAction = 'block' | 'unblock' | 'unassign' | 'delete';
+export type TaskRowAction = 'block' | 'unblock' | 'assign_me' | 'remove_me' | 'unassign' | 'delete';
 
-/** A task row's menu: the actions the task allows among those the screen wires. */
+/**
+ * A task row's menu: the actions the task allows among those the screen wires.
+ *
+ * Assign to me is offered on an incomplete task someone else has -- a task
+ * nobody has gets the row's own button instead. Remove me is offered whenever
+ * the member is assigned. Clear assignees removes everyone.
+ */
 export function taskRowActions(
   task: StatusSubject,
-  wired: { readonly state: boolean; readonly unassign: boolean; readonly remove: boolean },
+  wired: {
+    readonly state: boolean;
+    readonly assignMe: boolean;
+    readonly removeMe: boolean;
+    readonly unassign: boolean;
+    readonly remove: boolean;
+  },
+  userId: string | null = null,
 ): TaskRowAction[] {
   const actions: TaskRowAction[] = [];
+  const assigned = taskAssigneeIds(task).length > 0;
+  const mine = isAssignedTo(task, userId);
   if (wired.state && !task.completed) actions.push(task.blocked === true ? 'unblock' : 'block');
-  if (wired.unassign && task.assignee_id !== null) actions.push('unassign');
+  if (wired.assignMe && userId !== null && !task.completed && assigned && !mine) {
+    actions.push('assign_me');
+  }
+  if (wired.removeMe && mine) actions.push('remove_me');
+  if (wired.unassign && assigned) actions.push('unassign');
   if (wired.remove) actions.push('delete');
   return actions;
 }
@@ -168,14 +193,15 @@ export function resolveTaskDeadlineFilter(
 export interface TaskDraft extends TaskDueDraft {
   readonly title: string;
   readonly notes: string;
-  readonly assigneeId: string | null;
+  /** The complete assignment set the editor will save, distinct and ordered. */
+  readonly assigneeIds: readonly string[];
 }
 
 export function taskDraft(task: TaskDto | null): TaskDraft {
   return {
     title: task?.title ?? '',
     notes: task?.notes ?? '',
-    assigneeId: task?.assignee_id ?? null,
+    assigneeIds: task === null ? [] : canonicalAssigneeIds(taskAssigneeIds(task)),
     ...dueDraftFromIso(task?.due_at),
   };
 }

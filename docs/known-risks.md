@@ -43,19 +43,22 @@ than before, with no retention story.
 A restore view, or a `restore_list` command plus a purge policy, would close
 it. Neither exists.
 
-### R3 — Three contract races are untested
+### R3 — Two contract races are untested
 
 **Severity: medium.**
 
-`npm run db:test:concurrency` runs in CI against a real local stack, but three
+`npm run db:test:concurrency` runs in CI against a real local stack, but two
 races named in `docs/contract.md` have no coverage:
 
-1. An assignment racing the assignee's membership revocation.
-2. Two concurrent `create_household` calls for one account.
-3. Two accounts redeeming one invitation simultaneously.
+1. Two concurrent `create_household` calls for one account.
+2. Two accounts redeeming one invitation simultaneously.
 
 Each is a correctness claim the contract makes and the suite does not check. A
 regression in any of them would ship silently.
+
+The third race this entry once listed, an assignment racing the assignee's
+membership revocation, has been covered since 2026-11-04 in both orders (against
+a stand-in revocation, since no product operation exists — R7).
 
 Recorded in `docs/database.md`.
 
@@ -78,7 +81,9 @@ be aimed at the hosted project.
 
 `create_list`, `update_list`, `create_task` and `update_task` are kept callable
 and note-preserving so installed Android builds keep working, with `*_v2`
-carrying the note-aware behaviour. Nothing records when they can be removed, or
+carrying the note-aware behaviour. Since 2026-11-04 the `*_v2` task commands are
+themselves the single-assignee legacy pair, with `*_v3` carrying the assignment
+set, and `claim_task` is legacy too. Nothing records when they can be removed, or
 how to find out whether any install still calls them.
 
 Every future field on a list or task faces the same fork, so the surface grows
@@ -111,8 +116,8 @@ Recorded in `supabase/README.md`.
 
 `docs/decisions.md` item 3 is unresolved, so no UI exposes removal and no
 policy exists for a member leaving or an account being deleted. The schema
-handles an inactive membership, but nothing exercises what happens to that
-member's assigned tasks, and equal permissions mean no member has authority to
+handles an inactive membership, but no product operation exercises what happens to that
+member's assigned tasks (the concurrency suite does, against a stand-in that clears them), and equal permissions mean no member has authority to
 expel another anyway.
 
 ### R8 — Web bundle is one ~611 kB chunk
@@ -244,6 +249,30 @@ Editable templates (`features.md`) reach the web on deploy but reach Android
 only with a new APK. Until then an installed build cannot open a template at
 all, which is how the gap was reported. Nothing is lost; the web client edits
 the same template once deployed. Building and installing APK build 5 closes it.
+
+### R15 — Installed Android builds cannot reassign a shared task, and `assignee_id` is now a projection
+
+**Severity: low. Opened 2026-11-04 with multiple assignees.**
+
+Two costs of keeping the change additive (`docs/contract.md`):
+
+- An installed single-assignee build can edit everything on a task that has
+  several assignees but cannot change who it is assigned to; asking to answers
+  `CONFLICT`, which that build words as "Someone else changed this first". It
+  loses nothing, but the member has no way forward on that build until a new APK
+  is installed. The installed task-details screen also reads the stored column
+  directly, which is the lowest assigned user ID rather than the reading member,
+  so a second assignee may see someone else's name there while the row (read
+  through an RPC) names them.
+- `tasks.assignee_id` is now a stored projection of `task_assignees`, kept equal
+  by a deferred trigger. Two representations of one fact is a standing cost, and
+  it cannot be dropped until no installed build reads it — which, as with R5,
+  nothing in the database can show. The partial indexes on that column are now
+  unused by the current readers.
+
+Not yet proven on a real phone: the assignment editor, the row actions and the
+shared-task announcements (device gap in the accepted section and R9). The hosted
+database has not had the migration applied.
 
 ## Accepted, not tracked
 

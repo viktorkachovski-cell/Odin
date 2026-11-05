@@ -16,7 +16,7 @@ tasks, command receipts, invitation lifecycle, RLS, client grants, Realtime
 publication, safe read projections and transactional mutation RPCs.
 
 The confirmed product invariants are enforced **in SQL**, not only in clients:
-one nullable assignee, deadlines only on tasks, copy-reset semantics, household
+a set of assignees per task (`task_assignees`; the single nullable `tasks.assignee_id` survives only as a legacy projection), deadlines only on tasks, copy-reset semantics, household
 isolation, equal member task permissions and explicit completion state. Writes
 carry actor-scoped request IDs and expected versions. Assignment and claim use
 deterministic locks, and clients cannot bypass them with direct table writes.
@@ -89,6 +89,15 @@ mode, callable roles, authorization checks and tests.
 - Simultaneous claims produce one assignee. Stale editors and repeated
   completion are safe, and an explicit desired completion is never inverted by
   a retry.
+- An assignment set has no duplicate and no member of another household, an
+  inactive member cannot be added (even by a privileged writer, and even when an
+  assignment races that member's revocation), a template task cannot have one,
+  rows are never edited in place, and `tasks.assignee_id` always equals the
+  lowest assigned user ID or null — a deferred constraint trigger fails any
+  transaction that breaks it. Every change to a set advances the task version
+  exactly once; a no-op does not. Concurrent additions and removals all survive,
+  a stale whole-set replacement conflicts, and retries that re-order or repeat
+  ids are the same request.
 - Invitation expiry is server-clock based, redemption is single-use and atomic,
   and concurrent different-household joins cannot bypass the one-household
   limit. Create and redeem are rate limited in a server-controlled store.
@@ -96,8 +105,12 @@ mode, callable roles, authorization checks and tests.
 ## Index baseline
 
 Memberships by active user; lists by household, kind and status; tasks by
-household, list, completed, sort order and id; partial incomplete-task indexes
-for `(household_id, assignee_id, due_at, id)`. Receipt identity and token hashes
+household, list, completed, sort order and id; assignments by `(task_id,
+user_id)` (primary key) and `(household_id, user_id, task_id)` for Mine; partial
+incomplete-task indexes on `tasks` for `(household_id, assignee_id, due_at, id)`
+and its unassigned variant, which since 2026-11-04 serve only the legacy
+projection column — Mine and Unassigned now test `task_assignees` — so they are
+candidates for removal once `EXPLAIN` on real data confirms nothing uses them. Receipt identity and token hashes
 are uniquely indexed. Inspect `EXPLAIN (ANALYZE, BUFFERS)` on representative
 synthetic data before adding overlapping indexes. Progress is never stored.
 
@@ -116,15 +129,23 @@ synthetic data before adding overlapping indexes. Progress is never stored.
 - `supabase/tests/concurrency.mjs` — genuine parallel transactions proving
   duplicate creates produce one entity and receipt, competing claims produce
   one winner, simultaneous appends receive distinct consecutive positions,
-  a move racing neighbour deletion remains valid, and simultaneous adjacent
-  moves resolve with one winner and a version conflict.
+  a move racing neighbour deletion remains valid, simultaneous adjacent
+  moves resolve with one winner and a version conflict, simultaneous assignee
+  additions and an addition with a removal all survive, duplicate assignment
+  submissions change a task once, two editors replacing the set from one
+  version produce one winner and one conflict, a stale clear cannot erase a
+  member added meanwhile, and an assignment racing a membership revocation is
+  rejected or cleared in both orders.
+- `supabase/tests/database/004_editable_templates.sql` — editable list templates and template task rules.
+- `supabase/tests/database/005_multiple_assignees.sql` — zero/one/several assignees, one task once in each Mine and in Everyone, add/remove/replace/clear, Blocked and Done preserved, atomic rejection of inactive, unknown and cross-household members, anonymous and revoked-member denial, idempotency and canonical sets, editor conflicts, installed-client reads and writes, template and copy reset, and the database constraints themselves.
+- `supabase/smoke/multiple-assignees-migration-check.sql` — read-only before/after fingerprint of `tasks` and an assignment backfill audit, for rehearsing the migration against a restored copy.
 - `tooling/tests/database-static.test.mjs` — SQL boundary regressions that run
   without Docker, including that saving a list never writes a task template and
   that `delete_list` archives rather than drops.
 
 The `Database` GitHub workflow replays committed migrations into a disposable
 Supabase stack, runs `supabase db lint` with warnings failing the job, then
-pgTAP and the parallel-transaction tests. Three contract races remain uncovered
+pgTAP and the parallel-transaction tests. Two contract races remain uncovered
 — risk R3 in `known-risks.md`.
 
 A pgTAP file that emits no plan fails the whole workflow with "No plan found in

@@ -237,12 +237,107 @@ as $$
   for update of l;
 $$;
 
+-- Assignment helpers. Invoker functions: they only run inside the privileged
+-- command and read helpers, and are granted to nobody.
+
+create or replace function private.max_task_assignees()
+returns integer
+language sql
+immutable
+set search_path = ''
+as $$ select 50; $$;
+
+-- The one canonical form of an assignment set: distinct ids in ascending
+-- order. Returns null for input no honest client sends (a null array or
+-- element, a multidimensional array, or more than the limit), so callers
+-- answer VALIDATION. Hashing the canonical form makes a retry that re-orders
+-- or repeats ids the same request.
+create or replace function private.canonical_assignee_ids(p_ids uuid[])
+returns uuid[]
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if p_ids is null
+    or coalesce(array_ndims(p_ids), 1) <> 1
+    or array_position(p_ids, null) is not null
+    or cardinality(p_ids) > private.max_task_assignees() then
+    return null;
+  end if;
+  return array(select distinct u from unnest(p_ids) as ids(u) order by u);
+end;
+$$;
+
+-- What a single-assignee client is told: the viewer when the viewer is
+-- assigned, otherwise the lowest assignee id, otherwise null. Showing every
+-- assignee their own task keeps "assignee_id = me" correct in installed
+-- clients' Mine view, badge and notifications.
+create or replace function private.legacy_assignee_id(p_ids uuid[], p_viewer uuid)
+returns uuid
+language sql
+immutable
+set search_path = ''
+as $$
+  select case when p_viewer is not null and p_viewer = any(p_ids) then p_viewer else p_ids[1] end;
+$$;
+
+-- Every task payload: the stored row plus its assignment set and the
+-- viewer's legacy projection of it. One row per task, never per assignee.
+create or replace function private.task_json(p_task jsonb, p_viewer uuid default null)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $$
+  select p_task || jsonb_build_object(
+    'assignee_ids', to_jsonb(a.ids),
+    'assignee_id', private.legacy_assignee_id(a.ids, p_viewer)
+  )
+  from (select private.assignee_ids((p_task ->> 'id')::uuid) as ids) a;
+$$;
+
+-- Makes the stored set equal p_user_ids and reports whether it changed.
+-- Retained members keep their row; callers hold the task and member locks and
+-- follow a change with one UPDATE of tasks, which advances the version once.
+create or replace function private.sync_task_assignees(
+  p_household_id uuid,
+  p_task_id uuid,
+  p_user_ids uuid[]
+)
+returns boolean
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_removed integer;
+  v_added integer;
+begin
+  delete from public.task_assignees
+  where task_id = p_task_id and household_id = p_household_id
+    and not (user_id = any(p_user_ids));
+  get diagnostics v_removed = row_count;
+
+  insert into public.task_assignees (task_id, household_id, user_id)
+  select p_task_id, p_household_id, u from unnest(p_user_ids) as ids(u)
+  order by u
+  on conflict (task_id, user_id) do nothing;
+  get diagnostics v_added = row_count;
+
+  return v_removed + v_added > 0;
+end;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.households enable row level security;
 alter table public.memberships enable row level security;
 alter table public.lists enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_templates enable row level security;
+-- No policy and no grant: clients never read or write assignments directly.
+-- They arrive inside task payloads (private.task_json) and change only through
+-- the assignment commands.
+alter table public.task_assignees enable row level security;
 
 create policy profiles_select_self
 on public.profiles for select to authenticated

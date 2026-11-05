@@ -2,21 +2,13 @@ import type { TaskDto } from '@odin/contracts';
 import { parseTask } from '@odin/contracts';
 
 import type { OdinSupabaseClient } from './client.ts';
-import { mapPostgrestError, OdinError, toOdinError } from './error-mapping.ts';
+import { readRpc } from './repositories.ts';
 
-/** RLS protects both rows; the inner join also excludes archived parents. */
-export async function getTask(client: OdinSupabaseClient, taskId: string): Promise<TaskDto> {
-  try {
-    const { data, error } = await client
-      .from('tasks')
-      .select('*, lists!inner(status)')
-      .eq('id', taskId)
-      .eq('lists.status', 'open')
-      .maybeSingle();
-    if (error !== null) throw new OdinError(mapPostgrestError(error));
-    if (data === null) throw new OdinError({ code: 'NOT_FOUND', message_key: 'error.not_found' });
-    return parseTask(data);
-  } catch (cause) {
-    throw toOdinError(cause);
-  }
+/**
+ * One full task, assignment set included. Missing, archived and inaccessible
+ * tasks are the same `NOT_FOUND`; the server checks the open parent and the
+ * caller's household.
+ */
+export function getTask(client: OdinSupabaseClient, taskId: string): Promise<TaskDto> {
+  return readRpc(client, 'get_task_v2', (data) => parseTask(data), { p_task_id: taskId });
 }

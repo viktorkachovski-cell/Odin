@@ -25,7 +25,9 @@ interface ListRowHandlers {
   readonly onPress: (task: TaskRowModel) => void;
   readonly onToggleCompleted?: (task: TaskRowModel, completed: boolean) => void;
   readonly onSetState?: (task: TaskRowModel, state: TaskState) => void;
-  readonly onClaim?: (task: TaskRowModel) => void;
+  readonly currentUserId?: string | null;
+  readonly onAssignMe?: (task: TaskRowModel) => void;
+  readonly onRemoveMe?: (task: TaskRowModel) => void;
   readonly onUnassign?: (task: TaskRowModel) => void;
   readonly onDelete?: (task: TaskRowModel) => void;
 }

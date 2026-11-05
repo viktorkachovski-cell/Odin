@@ -85,6 +85,8 @@ export function formatDueAt(
 export const TASK_ACTION_KEYS = {
   block: 'task.block',
   unblock: 'task.unblock',
+  assign_me: 'task.action.assign_me',
+  remove_me: 'task.action.remove_me',
   unassign: 'task.unassign.short',
   delete: 'task.delete.short',
 } as const satisfies Record<string, TranslationKey>;

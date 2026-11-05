@@ -130,8 +130,12 @@ create table public.tasks (
   constraint tasks_completed_blocked_exclusive check (not (completed and blocked)),
   constraint tasks_list_fk foreign key (household_id, list_id)
     references public.lists(household_id, id) on delete cascade,
+  -- Legacy projection of the assignment set (see public.task_assignees): the
+  -- lowest assignee user id, or null. Commands write it together with the set
+  -- and a deferred trigger proves they agree. Installed clients read it.
   constraint tasks_assignee_membership_fk foreign key (household_id, assignee_id)
     references public.memberships(household_id, user_id),
+  constraint tasks_household_id_id_key unique (household_id, id),
   constraint tasks_list_id_sort_order_key
     unique (list_id, sort_order) deferrable initially immediate
 );
@@ -352,3 +356,134 @@ $$;
 create trigger tasks_validate_parent_and_assignee
 before insert or update on public.tasks
 for each row execute function private.validate_task_parent_and_assignee();
+
+-- A task has zero or more distinct assignees. This relation is the source of
+-- truth; tasks.assignee_id is only the legacy single-assignee projection of it.
+-- Membership rows are never deleted by the application, so the composite key
+-- also keeps an assignee inside the task's own household.
+create table public.task_assignees (
+  task_id uuid not null,
+  household_id uuid not null,
+  user_id uuid not null,
+  created_at timestamptz not null default clock_timestamp(),
+  primary key (task_id, user_id),
+  constraint task_assignees_task_fk foreign key (household_id, task_id)
+    references public.tasks(household_id, id) on delete cascade,
+  -- Cascade so deleting a household removes its assignments whichever order
+  -- the household's own cascades run in.
+  constraint task_assignees_membership_fk foreign key (household_id, user_id)
+    references public.memberships(household_id, user_id) on delete cascade
+);
+
+create index task_assignees_member_task_idx
+on public.task_assignees (household_id, user_id, task_id);
+
+create or replace function private.validate_task_assignee()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  parent_kind text;
+  parent_status text;
+begin
+  select l.kind, l.status into parent_kind, parent_status
+  from public.tasks t
+  join public.lists l on l.id = t.list_id and l.household_id = t.household_id
+  where t.id = new.task_id and t.household_id = new.household_id;
+
+  if parent_kind is null then
+    raise exception 'assigned task not found' using errcode = '23503';
+  end if;
+  if parent_kind = 'template' then
+    raise exception 'template tasks cannot carry runtime state' using errcode = '23514';
+  end if;
+  if parent_status <> 'open' then
+    raise exception 'archived lists cannot be changed' using errcode = '23514';
+  end if;
+
+  -- The share lock makes an assignment and a concurrent revocation of the same
+  -- membership serialise: whichever commits second sees the other's outcome.
+  perform 1 from public.memberships
+  where household_id = new.household_id and user_id = new.user_id and status = 'active'
+  for share;
+  if not found then
+    raise exception 'assignee must be an active household member' using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger task_assignees_validate
+before insert on public.task_assignees
+for each row execute function private.validate_task_assignee();
+
+create or replace function private.reject_task_assignee_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'task assignments are added and removed, never edited' using errcode = '23514';
+end;
+$$;
+
+create trigger task_assignees_immutable
+before update on public.task_assignees
+for each row execute function private.reject_task_assignee_update();
+
+-- The set is ordered by user id everywhere (wire order, legacy projection).
+create or replace function private.assignee_ids(p_task_id uuid)
+returns uuid[]
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(
+    array(select user_id from public.task_assignees where task_id = p_task_id order by user_id),
+    '{}'::uuid[]
+  );
+$$;
+
+create or replace function private.verify_assignee_projection()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_task_id uuid;
+  v_actual uuid;
+  v_found boolean;
+begin
+  if tg_table_name = 'tasks' then
+    v_task_id := new.id;
+  elsif tg_op = 'DELETE' then
+    v_task_id := old.task_id;
+  else
+    v_task_id := new.task_id;
+  end if;
+
+  select assignee_id, true into v_actual, v_found from public.tasks where id = v_task_id;
+  -- The task itself was deleted in this transaction; its assignments went with it.
+  if not coalesce(v_found, false) then return null; end if;
+
+  if v_actual is distinct from (private.assignee_ids(v_task_id))[1] then
+    raise exception 'tasks.assignee_id must be the lowest task_assignees user id'
+      using errcode = '23514';
+  end if;
+  return null;
+end;
+$$;
+
+create constraint trigger tasks_assignee_projection
+after insert or update of assignee_id on public.tasks
+deferrable initially deferred
+for each row execute function private.verify_assignee_projection();
+
+create constraint trigger task_assignees_projection
+after insert or delete on public.task_assignees
+deferrable initially deferred
+for each row execute function private.verify_assignee_projection();

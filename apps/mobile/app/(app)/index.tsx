@@ -112,12 +112,12 @@ function UpForGrabs({
   tasks,
   t,
   busy,
-  onClaim,
+  onAssignMe,
 }: {
   readonly tasks: readonly HouseholdTaskDto[];
   readonly t: Translator;
   readonly busy: boolean;
-  readonly onClaim: (task: HouseholdTaskDto) => void;
+  readonly onAssignMe: (task: HouseholdTaskDto) => void;
 }): ReactNode {
   const theme = useTheme();
   const { locale } = useOdin();
@@ -153,7 +153,7 @@ function UpForGrabs({
               accessibilityLabel={t('task.claim', { title: task.title })}
               disabled={busy}
               label={t('task.claim.short')}
-              onPress={() => onClaim(task)}
+              onPress={() => onAssignMe(task)}
             />
           </View>
         ))
@@ -292,7 +292,7 @@ export default function TodayScreen(): ReactNode {
 
         <UpForGrabs
           busy={wiring.actions.busy}
-          onClaim={(task) => wiring.handlers.onClaim(rowFromHouseholdTask(task))}
+          onAssignMe={(task) => wiring.handlers.onAssignMe(rowFromHouseholdTask(task))}
           t={t}
           tasks={unassigned}
         />

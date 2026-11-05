@@ -4,7 +4,9 @@ import {
   diffAssignedTasks,
   DUE_REMINDER_LEAD_MS,
   dueReminderKey,
+  isMyOpenTask,
   planDueReminders,
+  reminderTasks,
   type DueReminderCandidate,
 } from './notifications.ts';
 
@@ -132,5 +134,45 @@ describe('diffAssignedTasks', () => {
       assigned: [],
       updated: [],
     });
+  });
+});
+
+describe('who a task belongs to for notifications', () => {
+  const open = (id: string, ids: readonly string[]) => ({
+    id,
+    completed: false,
+    assignee_id: ids[0] ?? null,
+    assignee_ids: ids,
+  });
+
+  it('treats membership of the assignment set as ownership', () => {
+    expect(isMyOpenTask(open('t', ['a', 'me']), 'me')).toBe(true);
+    expect(isMyOpenTask(open('t', ['a', 'b']), 'me')).toBe(false);
+    expect(isMyOpenTask({ ...open('t', ['me']), completed: true }, 'me')).toBe(false);
+    expect(isMyOpenTask(open('t', ['me']), null)).toBe(false);
+  });
+
+  it("reminds about my tasks and unassigned ones, not other people's", () => {
+    const tasks = [
+      open('mine', ['me']),
+      open('shared-with-me', ['a', 'me']),
+      open('theirs', ['a', 'b']),
+      open('nobody', []),
+      { ...open('finished', ['me']), completed: true },
+    ];
+    expect(reminderTasks(tasks, 'me').map((entry) => entry.id)).toEqual([
+      'mine',
+      'shared-with-me',
+      'nobody',
+    ]);
+  });
+
+  it('yields one task once when two reads both list it', () => {
+    const task = open('t', ['me']);
+    expect(reminderTasks([task, { ...task }, open('t', [])], 'me')).toHaveLength(1);
+  });
+
+  it('drops a task that stopped being mine when others remain assigned', () => {
+    expect(reminderTasks([open('t', ['a', 'b'])], 'me')).toEqual([]);
   });
 });

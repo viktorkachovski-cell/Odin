@@ -18,13 +18,17 @@ const task: TaskDto = {
   notes: 'Use the small watering can',
   sort_order: 1,
   completed: false,
+  assignee_ids: ['member-1'],
   assignee_id: 'member-1',
   due_at: '2030-04-05T15:30:00.000Z',
   created_at: '2030-04-01T10:00:00.000Z',
   updated_at: '2030-04-01T10:00:00.000Z',
   version: 2,
 };
-const members: MemberDto[] = [{ user_id: 'member-1', display_name: 'Ana', avatar_ref: null }];
+const members: MemberDto[] = [
+  { user_id: 'member-1', display_name: 'Ana', avatar_ref: null },
+  { user_id: 'member-2', display_name: 'Ana', avatar_ref: null },
+];
 
 describe('TaskDetailsDialog', () => {
   beforeEach(() => {
@@ -46,5 +50,34 @@ describe('TaskDetailsDialog', () => {
     expect(dialog).toHaveTextContent('Ana');
     expect(dialog).toHaveTextContent(/5 Apr 2030/);
     expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Close']);
+  });
+
+  it('lists every assignee, telling two members with one name apart', () => {
+    useTaskQuery.mockReturnValue({
+      data: { ...task, assignee_ids: ['member-1', 'member-2'], assignee_id: 'member-1' },
+      isError: false,
+      isPending: false,
+      refetch: vi.fn(),
+    });
+    render(
+      <TaskDetailsDialog locale="en" members={members} onClose={vi.fn()} t={t} taskId={task.id} />,
+    );
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent(/Ana$/);
+    expect(items[1]).toHaveTextContent('Ana (2)');
+  });
+
+  it('says Unassigned when nobody is assigned', () => {
+    useTaskQuery.mockReturnValue({
+      data: { ...task, assignee_ids: [], assignee_id: null },
+      isError: false,
+      isPending: false,
+      refetch: vi.fn(),
+    });
+    render(
+      <TaskDetailsDialog locale="en" members={members} onClose={vi.fn()} t={t} taskId={task.id} />,
+    );
+    expect(screen.getByRole('dialog')).toHaveTextContent('Unassigned');
   });
 });

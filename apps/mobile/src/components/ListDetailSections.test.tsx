@@ -27,7 +27,8 @@ jest.mock('./ActionMenu.tsx', () => ({
 
 const t = createTranslator('en');
 const handlers = {
-  onClaim: jest.fn(),
+  onAssignMe: jest.fn(),
+  onRemoveMe: jest.fn(),
   onDelete: jest.fn(),
   onPress: jest.fn(),
   onSetState: jest.fn(),
@@ -45,6 +46,7 @@ function task(id: string, sortOrder: number): TaskDto {
     notes: null,
     sort_order: sortOrder,
     completed: false,
+    assignee_ids: [],
     assignee_id: null,
     due_at: '2030-10-25T12:00:00Z',
     created_at: '2030-01-01T00:00:00Z',
@@ -80,11 +82,11 @@ it('renders again only the row whose task changed', async () => {
   expect(mockMenus).toEqual(['Actions for Task b, renamed']);
 });
 
-it('gives a template task no completion, claim or state, only delete', async () => {
+it('gives a template task no completion, assignment or state, only delete', async () => {
   await render(view([{ ...task('a', 1), due_at: null }], true));
 
   expect(rendered.queryByRole('checkbox')).toBeNull();
-  expect(rendered.queryByText('Claim')).toBeNull();
+  expect(rendered.queryByText('Assign to me')).toBeNull();
   expect(rendered.queryByText('Unassigned')).toBeNull();
   expect(mockLastActions).toEqual(['Delete']);
 });

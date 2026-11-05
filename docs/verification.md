@@ -22,6 +22,57 @@ Two Expo Doctor checks — the config schema and the React Native Directory
 lookup — fail in a sandbox without outbound network. That is an environment
 limitation, not a project finding; CI reports 21/21.
 
+## Multiple-assignee evidence — 2026-11-04
+
+Branch `vikc/peaceful-newton-y14ldu`. **Automated evidence only, from a
+sandbox with no Docker image access, no device and no browser session. Nothing
+here is real-device acceptance, and the migration has not touched the hosted
+project.**
+
+Environment: Linux, Node 22.23.4, npm 10.9.9. The Supabase images could not be
+pulled (`supabase start` failed with HTTP 403 from the registry proxy), so the
+database gates ran on a **disposable PostgreSQL 16.15 with a small Supabase
+shim** (`anon`/`authenticated` roles, `auth.users`, `auth.uid()`, the
+`extensions` schema, a `supabase_realtime` publication) and pgTAP 1.3.2 from
+apt. The project pins PostgreSQL 17 (`config.toml`), and the shim is not
+GoTrue or PostgREST, so it proves SQL behaviour and not the exposed API.
+
+| Check                                                                                                       | Result                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci --ignore-scripts`                                                                                   | passed                                                                                                                                                                                                                                                                                                                                               |
+| `npm run check` (lint with zero warnings, Prettier, every workspace typecheck, tooling tests, Vitest, Jest) | exit 0: 16 tooling tests, 32 Vitest files with 315 tests, 22 Jest suites with 176 tests                                                                                                                                                                                                                                                              |
+| `npm run build` (web, placeholder Supabase values)                                                          | passed, 619.61 kB JavaScript (175.73 kB gzip), the existing chunk-size warning (R8)                                                                                                                                                                                                                                                                  |
+| `npx expo-doctor` in `apps/mobile`                                                                          | 19/21. The config-schema and React Native Directory checks need the network and fail here as they do in any offline sandbox (see above); CI reports 21/21                                                                                                                                                                                            |
+| `npm run build:check` in `apps/mobile` (Android export)                                                     | passed, one Android Hermes bundle                                                                                                                                                                                                                                                                                                                    |
+| Replay of all 13 migrations into an empty database                                                          | passed. The existing `MAINTAIN` grants (PostgreSQL 17 syntax) were stripped for the 16 server only                                                                                                                                                                                                                                                   |
+| Replay of the declarative schemas into an empty database                                                    | passed. `pg_dump -s` of it against the migration-built one differs only in the column order of three columns added by earlier `ALTER TABLE`s and in shim-only `service_role` grants, i.e. no drift from this change                                                                                                                                  |
+| pgTAP `001`–`005`                                                                                           | 32, 47, 50, 36 and 103 assertions (268), all passing on both the migrated and the declarative database. `005_multiple_assignees.sql` is new                                                                                                                                                                                                          |
+| `node supabase/tests/concurrency.mjs`                                                                       | passed on every run (nine across the work, three on the final schema) against the migrated database; 12 scenarios, 7 of them new (concurrent additions, duplicate assignment, add with remove, editor replacement race, stale clear, assignment racing revocation in both orders)                                                                    |
+| `supabase/smoke/*.sql` (all seven plus the new `multiple-assignees-smoke.sql`)                              | each reports `passed` on the migrated and the declarative database                                                                                                                                                                                                                                                                                   |
+| Migration rehearsal on legacy data (`multiple-assignees-migration-check.sql`)                               | a database at the previous migration seeded with assigned, unassigned, done, blocked, template, archived-list and departed-member tasks: the `tasks` fingerprint was identical before and after (no version or timestamp moved), and all 5 assignments, including the archived-list and departed-member ones, were copied with none missing or extra |
+
+**Not run, and why.** `supabase start`, `supabase db lint --fail-on warning`,
+`supabase test db` and `supabase gen types` need the Supabase containers, so
+CI's `Database` workflow is the first place they will run. The
+generated-types file `packages/contracts/src/database.generated.ts` was
+therefore **edited by hand** to the generator's format (one table, six
+functions); regenerate it before release and treat any diff as authoritative
+(`operations.md`). The two Realtime-over-the-network and PostgREST behaviours —
+a second client receiving the hint, a composite-key embed — were not exercised;
+the new task read deliberately avoids an embed (`get_task_v2` is an RPC) for that
+reason. Browser rendering, two-client synchronisation, keyboard and screen-reader
+use of the pickers, large text and Bulgarian layout were checked only by
+component tests (`AssigneePicker`, `TaskRow`, `TaskEditor`,
+`TaskDetailsFlow`), and Android notification delivery only against the in-memory
+`expo-notifications` double (R9).
+
+A pre-existing observation, not changed here: the original
+`concurrency.mjs` fails its final `cleanFixtures` (deleting a household that
+holds an assigned task) on a **declaratively built** database, because the
+cascade reaches `memberships` before `tasks` and `tasks_assignee_membership_fk`
+is `NO ACTION`. CI builds from migrations, where the order happens to work, and
+the new `task_assignees` foreign key cascades so it adds no new instance.
+
 ## Task-workflow evidence — 2026-09-27
 
 Review-fix commit `69197cc` passed GitHub [Quality](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210138)
@@ -35,24 +86,24 @@ phone/tablet visual fit, on a device or in a browser.
 
 ## Requirements traceability
 
-| Source IDs                        | Implementation owner     | Acceptance evidence required                                                                                                                                                    |
-| --------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FR 01                             | Database + both clients  | Household A cannot read/write/subscribe to B through any exposed table/view/RPC; identity and counts isolated                                                                   |
-| FR 02                             | Shared + clients         | Display name and fallback avatar visible only to own household                                                                                                                  |
-| FR 03–04 (amended 2026-10-11)     | Both clients             | Lists has separate Active and Templates tabs; a template is visibly a template and used through Use template                                                                    |
-| FR 05                             | Database + clients       | Valid create succeeds once; blank rejected; cancel leaves nothing                                                                                                               |
-| FR 06–08                          | Database + clients       | Atomic copy, unchanged source, fields/order copied, assignee/due/completion reset, same request twice yields one list                                                           |
-| FR 09                             | Both clients             | List row and direct link open correct authorized detail                                                                                                                         |
-| FR 10–13                          | Database + clients       | Create/edit/single assign/reassign; inactive/foreign assignee rejected; peers have equal permissions                                                                            |
-| FR 14                             | Database + clients       | One-action self-claim; simultaneous claims have exactly one winner                                                                                                              |
-| FR 15                             | All                      | Optional task date/time works; no list deadline in UI, API or schema                                                                                                            |
-| FR 16–18                          | All                      | Complete/reopen, 0% empty, correct rounding/count, incomplete group first and stable order                                                                                      |
-| FR 19–20                          | All                      | Cross-list filters correct after claim, reassignment, completion and removal of assignee; dated order/null-last                                                                 |
-| FR 21–22 (amended 2026-10-11)     | Both clients             | Today/Tasks/Lists/Settings navigation without mutation; down hides/up reveals bottom bar; desktop adaptation reviewed                                                           |
-| FR 23–24                          | All                      | Two actual sessions update within normal 5 seconds; stale edit is surfaced, drafts retained, reconnect recovers                                                                 |
-| FR 25–26                          | Both clients             | Every data screen has empty/loading/offline/retry/save-failure states, no silent draft loss                                                                                     |
-| FR 27 (superseded 2026-10-14)     | All                      | Templates open and edit with a separate copy action; `004_editable_templates.sql` pins the server rules, client tests the text-only editor and row targets                      |
-| Notification amendment 2026-09-22 | Android + `@odin/domain` | Assignment, update and 24h/4h/1h deadline notifications fire under both gates and only then; scheduled set matches current deadlines; **delivery itself is unproven — risk R9** |
+| Source IDs                        | Implementation owner     | Acceptance evidence required                                                                                                                                                                  |
+| --------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR 01                             | Database + both clients  | Household A cannot read/write/subscribe to B through any exposed table/view/RPC; identity and counts isolated                                                                                 |
+| FR 02                             | Shared + clients         | Display name and fallback avatar visible only to own household                                                                                                                                |
+| FR 03–04 (amended 2026-10-11)     | Both clients             | Lists has separate Active and Templates tabs; a template is visibly a template and used through Use template                                                                                  |
+| FR 05                             | Database + clients       | Valid create succeeds once; blank rejected; cancel leaves nothing                                                                                                                             |
+| FR 06–08                          | Database + clients       | Atomic copy, unchanged source, fields/order copied, assignee/due/completion reset, same request twice yields one list                                                                         |
+| FR 09                             | Both clients             | List row and direct link open correct authorized detail                                                                                                                                       |
+| FR 10–13 (amended 2026-11-04)     | Database + clients       | Create/edit with zero, one or several assignees; add/remove/replace/clear; inactive/unknown/foreign assignee rejected atomically; peers have equal permissions (`005_multiple_assignees.sql`) |
+| FR 14 (amended 2026-11-04)        | Database + clients       | One-action Assign to me that keeps existing assignees; legacy claim has exactly one winner; concurrent additions all survive                                                                  |
+| FR 15                             | All                      | Optional task date/time works; no list deadline in UI, API or schema                                                                                                                          |
+| FR 16–18                          | All                      | Complete/reopen, 0% empty, correct rounding/count, incomplete group first and stable order                                                                                                    |
+| FR 19–20 (amended 2026-11-04)     | All                      | Cross-list filters correct after adding, removing and clearing assignees, completion and reopening; a shared task is once in each assignee's Mine and once in Everyone; dated order/null-last |
+| FR 21–22 (amended 2026-10-11)     | Both clients             | Today/Tasks/Lists/Settings navigation without mutation; down hides/up reveals bottom bar; desktop adaptation reviewed                                                                         |
+| FR 23–24                          | All                      | Two actual sessions update within normal 5 seconds; stale edit is surfaced, drafts retained, reconnect recovers                                                                               |
+| FR 25–26                          | Both clients             | Every data screen has empty/loading/offline/retry/save-failure states, no silent draft loss                                                                                                   |
+| FR 27 (superseded 2026-10-14)     | All                      | Templates open and edit with a separate copy action; `004_editable_templates.sql` pins the server rules, client tests the text-only editor and row targets                                    |
+| Notification amendment 2026-09-22 | Android + `@odin/domain` | Assignment, update and 24h/4h/1h deadline notifications fire under both gates and only then; scheduled set matches current deadlines; **delivery itself is unproven — risk R9**               |
 
 BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/10 to full-list aggregates and completion tests; BR 06/07/09 to cross-list filters; BR 08 to incomplete-only overdue display. Task deletion and list archival are implemented; restoration and purge remain open under R2.
 
@@ -62,7 +113,7 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
 - [ ] Direct table writes fail even if a user bypasses the UI; public/private command grants are tested.
 - [ ] Reused request ID with altered payload fails; same ID after timeout/restart succeeds only once; receipt replay after membership loss reveals nothing.
 - [ ] Copy failure halfway rolls back all rows and receipt; empty template works; duplicate legitimate copies with different IDs are allowed.
-- [ ] Claim race, edit race, create order race, assignment versus membership revocation and simultaneous invite redemption use independent database connections.
+- [ ] Claim race, edit race, create order race, assignment versus membership revocation and simultaneous invite redemption use independent database connections. (Claim, edit, create-order and assignment-versus-revocation, both orders, do; invite redemption still does not — R3.)
 - [ ] Stale fetch after successful mutation cannot restore older state; Realtime loss, reconnect and Android foreground resynchronize.
 - [ ] Completed tasks disappear from cross-list views, remain in detail/totals, and never show overdue.
 - [ ] Progress 0/0 = 0, 1/3 = 33, 2/3 = 67, 1/8 = 13 and all complete = 100.
@@ -78,7 +129,12 @@ BR 01–03 map to copy tests; BR 04 to active same-household assignment; BR 05/1
       summary, stage already past skipped, reminder reconciled on deadline
       change/removal/task leaving, re-worded on language change, nothing at all
       when either gate is off. Covered by 14 Vitest and 13 Jest cases against an
-      in-memory `expo-notifications` double.
+      in-memory `expo-notifications` double, plus (2026-11-04) shared-task cases:
+      each assignee's device announces the one task once, someone joining a task
+      of mine counts as a change, a listed task that no longer names me is
+      ignored, a task in both reads yields one set of reminders, reminders are
+      kept across Mine ⇄ Unassigned and dropped when I am removed or anyone
+      completes it, and a moved deadline reschedules them.
 - [ ] Notification **delivery** on a device: Android actually posting an
       announcement, an alarm surviving app kill and reboot, Doze delay measured
       against the 1-hour stage, the Android 13+ permission prompt, and

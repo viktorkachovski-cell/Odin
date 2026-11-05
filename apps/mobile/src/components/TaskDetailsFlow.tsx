@@ -28,7 +28,7 @@ export function TaskDetailsFlow({
   /** Hands the loaded task back for the caller to confirm and delete. */
   readonly onDelete?: ((task: TaskDto) => void) | undefined;
 }): ReactNode {
-  const { t, client } = useOdin();
+  const { t, client, user } = useOdin();
   const task = useTaskQuery(taskId);
   // The version the draft started from. Pinned on first load so a realtime
   // refetch mid-edit cannot quietly move the save onto a newer version; only an
@@ -44,7 +44,7 @@ export function TaskDetailsFlow({
         readonly expectedVersion: number;
         readonly title: string;
         readonly notes: string | null;
-        readonly assigneeId: string | null;
+        readonly assigneeIds: readonly string[];
         readonly dueAt: string | null;
       },
     ) => updateTask(client, requestId, input),
@@ -63,6 +63,7 @@ export function TaskDetailsFlow({
 
   return (
     <TaskEditor
+      currentUserId={user?.id ?? null}
       error={save.state.error}
       key={editing.id}
       members={members}

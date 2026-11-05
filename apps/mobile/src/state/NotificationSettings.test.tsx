@@ -66,7 +66,7 @@ describe('the notification gate', () => {
     const { result } = await renderHook(() => useNotificationSettings(), { wrapper });
     await waitFor(() => expect(result.current.permission).toBe('granted'));
 
-    const identifier = 'odin-due:en:t1:day';
+    const identifier = 'odin-due:en:t1:day:1793998759844';
     native.__scheduled.set(identifier, { identifier });
     await act(() => result.current.disable());
 

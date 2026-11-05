@@ -14,6 +14,7 @@ function row(overrides: Partial<TaskRowModel> = {}): TaskRowModel {
     id: 't1',
     title: 'Bathroom',
     completed: false,
+    assignee_ids: [],
     assignee_id: null,
     due_at: null,
     version: 3,
@@ -107,7 +108,7 @@ describe('TaskRow', () => {
         onPress={onPress}
         onSetState={onSetState}
         t={t}
-        task={row({ assignee_id: 'u1' })}
+        task={row({ assignee_ids: ['u1'], assignee_id: 'u1' })}
       />,
     );
 
@@ -127,11 +128,13 @@ describe('TaskRow', () => {
     expect(screen.getByText('Blocked')).toBeTruthy();
   });
 
-  it('offers Claim on an unclaimed task, named after the task', async () => {
-    const onClaim = jest.fn();
-    await render(<TaskRow locale="en" members={members} onClaim={onClaim} t={t} task={row()} />);
-    await fireEvent.press(screen.getByLabelText('Claim Bathroom'));
-    expect(onClaim).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+  it('offers Assign to me on a task nobody has, named after the task', async () => {
+    const onAssignMe = jest.fn();
+    await render(
+      <TaskRow locale="en" members={members} onAssignMe={onAssignMe} t={t} task={row()} />,
+    );
+    await fireEvent.press(screen.getByLabelText('Assign Bathroom to me'));
+    expect(onAssignMe).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
   });
 
   it('offers Unblock on a blocked task, which reopens it', async () => {
@@ -199,7 +202,14 @@ describe('TaskRow', () => {
   });
 
   it('names the assignee in text, never by avatar alone', async () => {
-    await render(<TaskRow locale="en" members={members} t={t} task={row({ assignee_id: 'u1' })} />);
+    await render(
+      <TaskRow
+        locale="en"
+        members={members}
+        t={t}
+        task={row({ assignee_ids: ['u1'], assignee_id: 'u1' })}
+      />,
+    );
 
     expect(screen.getByText('Ana')).toBeTruthy();
   });
@@ -226,14 +236,90 @@ describe('TaskRow', () => {
         members={members}
         onUnassign={onUnassign}
         t={t}
-        task={row({ assignee_id: 'u1' })}
+        task={row({ assignee_ids: ['u1'], assignee_id: 'u1' })}
       />,
     );
 
-    expect(screen.queryByText('Unassign')).toBeNull();
+    expect(screen.queryByText('Clear assignees')).toBeNull();
     await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
-    await fireEvent.press(screen.getByText('Unassign'));
+    await fireEvent.press(screen.getByText('Clear assignees'));
 
     expect(onUnassign).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }));
+  });
+
+  describe('several assignees', () => {
+    const many = [
+      { user_id: 'u1', display_name: 'Ana', avatar_ref: null },
+      { user_id: 'u2', display_name: 'Boris', avatar_ref: null },
+      { user_id: 'u3', display_name: 'Boris', avatar_ref: null },
+      { user_id: 'u4', display_name: 'Maria-Magdalena Konstantinopolitanska', avatar_ref: null },
+    ];
+
+    it('shows the first names with a count, and speaks every name', async () => {
+      await render(
+        <TaskRow
+          currentUserId="u1"
+          locale="en"
+          members={many}
+          t={t}
+          task={row({ assignee_ids: ['u1', 'u2', 'u3', 'u4'], assignee_id: 'u1' })}
+        />,
+      );
+      expect(screen.getByText('You, Boris +2 more')).toBeTruthy();
+      expect(
+        screen.getByLabelText(
+          'Bathroom, Assigned to You, Boris, Boris (2), Maria-Magdalena Konstantinopolitanska',
+        ),
+      ).toBeTruthy();
+    });
+
+    it('lists two assignees in full, naming the member You', async () => {
+      await render(
+        <TaskRow
+          currentUserId="u2"
+          locale="en"
+          members={many}
+          t={t}
+          task={row({ assignee_ids: ['u1', 'u2'], assignee_id: 'u2' })}
+        />,
+      );
+      expect(screen.getByText('You, Ana')).toBeTruthy();
+    });
+
+    it('offers Assign to me on a task someone else has, and Remove me on one the member has', async () => {
+      const onAssignMe = jest.fn();
+      const onRemoveMe = jest.fn();
+      const view = await render(
+        <TaskRow
+          currentUserId="u1"
+          locale="en"
+          members={many}
+          onAssignMe={onAssignMe}
+          onRemoveMe={onRemoveMe}
+          t={t}
+          task={row({ assignee_ids: ['u2', 'u3'], assignee_id: 'u2' })}
+        />,
+      );
+      await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
+      expect(screen.queryByText('Remove me')).toBeNull();
+      await fireEvent.press(screen.getByText('Assign to me'));
+      expect(onAssignMe).toHaveBeenCalledTimes(1);
+
+      await view.rerender(
+        <TaskRow
+          currentUserId="u1"
+          locale="en"
+          members={many}
+          onAssignMe={onAssignMe}
+          onRemoveMe={onRemoveMe}
+          t={t}
+          task={row({ assignee_ids: ['u1', 'u2'], assignee_id: 'u1' })}
+        />,
+      );
+      await fireEvent.press(screen.getByLabelText('Actions for Bathroom'));
+      expect(screen.queryByText('Assign to me')).toBeNull();
+      await fireEvent.press(screen.getByText('Remove me'));
+      expect(onRemoveMe).toHaveBeenCalledTimes(1);
+    });
   });
 });
