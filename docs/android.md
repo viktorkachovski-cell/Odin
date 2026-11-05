@@ -277,6 +277,24 @@ was built. The publishable key is public by design -- it ships inside every
 client bundle -- but it still belongs in the build environment, never in a
 committed file. `apps/mobile/.env.example` holds the names and placeholders only.
 
+### Development build on an Android emulator
+
+Start an Android Studio emulator, then run these commands from `apps/mobile`
+with the local environment configured as above:
+
+```sh
+npm run android
+```
+
+This compiles and installs Odin's development client and starts Metro. For later
+JavaScript-only changes, run `npm start` and press `a` to open the installed client.
+Rebuild the client after changing native dependencies or app configuration. If
+`android/` already exists, review any local native changes before regenerating it
+with `npx expo prebuild --clean --platform android`.
+
+Use the emulator for the development client. It shares the package ID of the
+signed release installed on your phone.
+
 ### EAS release rule
 
 Every build from `main` must use the `production` EAS profile. `apps/mobile/eas.json`
