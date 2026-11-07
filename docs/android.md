@@ -83,6 +83,14 @@ repositories and query keys.
   2026-10-13 mobile review. There is no scroll listener or navigation animation.
   Tabs, floating actions, list quick add and content spacers share a height
   calculation that accommodates system text size and bottom safe-area insets.
+- **The keyboard does not resize the window.** Android is edge-to-edge
+  (mandatory since Expo SDK 54), so `adjustResize` no longer shrinks the screen
+  and a bottom-pinned view stays behind the keyboard. List quick add follows
+  `useKeyboardHeight` (`src/components/layout.ts`) instead: while the keyboard
+  is open the bar sits on top of it, at the reported height (which React Native
+  measures above the system navigation bar) plus the bottom inset, and the list
+  gains the same overlap as scroll room. Sheets and form screens keep using
+  `KeyboardAvoidingView`. Not yet confirmed on a device.
 - **`src/state/`, not `src/app/`.** Expo Router treats a `src/app` directory as
   the routes root.
 

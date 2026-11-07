@@ -127,7 +127,8 @@ matching view, so links, bookmarks and notification taps still land.
   task-template actions sit in an expandable section, initially collapsed for
   new tasks and expanded for existing tasks. Collapsing never clears fields;
   validation expands hidden errors. A failed save or conflict retains the draft.
-- **List detail** has a quick add (title only; details from the editor), keeps
+- **List detail** has a quick add (title only; details from the editor; on
+  Android it rides on top of the keyboard while typing), keeps
   completed tasks collapsed behind a count, and puts Edit, Save as template,
   Reorder (Android) and Delete in one menu. An empty list reads "No tasks yet".
   **Delete done** removes the list's done tasks after a confirmation: on web

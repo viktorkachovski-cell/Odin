@@ -22,6 +22,7 @@ import { Progress } from '../../../src/components/Progress.tsx';
 import { EmptyState, LoadingState, Screen } from '../../../src/components/Screen.tsx';
 import { showToast } from '../../../src/components/toast.ts';
 import { useTaskWiring } from '../../../src/components/useTaskWiring.tsx';
+import { useKeyboardHeight, useNavBarHeight } from '../../../src/components/layout.ts';
 
 /**
  * List detail: progress, subtitle and the shared note, then the tasks, with a
@@ -39,6 +40,8 @@ export default function ListDetailScreen(): ReactNode {
   const wiring = useTaskWiring({ members, listId: id, textOnly: isTemplate });
   const [editingList, setEditingList] = useState(false);
   const [reorder, setReorder] = useState(false);
+  // The keyboard covers more than the tabs it hides; keep the last rows scrollable above it.
+  const keyboardOverlap = Math.max(0, useKeyboardHeight() - useNavBarHeight());
   const {
     update: saveList,
     saveTemplate,
@@ -148,7 +151,7 @@ export default function ListDetailScreen(): ReactNode {
         )}
 
         <NavSpacer />
-        <View style={styles.quickSpacer} />
+        <View style={[styles.quickSpacer, { marginBottom: keyboardOverlap }]} />
       </ScrollView>
 
       <QuickAddBar
