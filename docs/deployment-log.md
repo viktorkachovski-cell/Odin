@@ -409,3 +409,63 @@ template, and an active list behaves exactly as before. Rollback is a reviewed
 forward migration restoring the `kind = 'active'` checks in the seven
 functions; template tasks created meanwhile are ordinary template rows and can
 stay.
+
+## 2026-11-05 — Multiple assignees, database
+
+Owner-approved after merging
+[viktorkachovski-cell/Odin#23](https://github.com/viktorkachovski-cell/Odin/pull/23)
+(merge `f62aea6`). Applied to the hosted project as one `apply_migration` call,
+name `multiple_task_assignees`, hosted version `20261105064433`, with the body
+of `supabase/migrations/20261104190000_multiple_task_assignees.sql` copied
+unedited. The call runs in one transaction. No restored-copy rehearsal was done
+(the owner asked for the apply directly); the migration's own audit, the
+before/after counts below and the rollback-only smoke script stood in for it.
+
+- **Before** (read-only): history ended at `editable_list_templates_3_task_update`;
+  `task_assignees` and the six new functions absent; 262 tasks, 81 with an
+  assignee, none held by an inactive member.
+- **Backfill:** 81 assignment rows for the 81 assigned tasks, none missing,
+  none extra, `tasks.assignee_id` equal to the lowest assigned user ID on every
+  task (0 drift). The migration's own count check passed inside the transaction.
+- **The `tasks` fingerprint changed (`721f8408…` → `f8b9c998…`) and that is not
+  the migration.** The live app ran three `set_task_completed` commands between
+  the before-snapshot and the apply (receipts at 06:43:07, 06:43:24 and 06:44:12
+  UTC, the migration at 06:44:33). Exactly three tasks were updated in the
+  preceding three hours, each matching one receipt, and those receipts carry no
+  `assignee_ids`, i.e. they ran on the old function. No other task row, version
+  or timestamp moved. The fingerprint was not stable across a live system, so it
+  proved less here than in the local rehearsal (`verification.md`).
+- **Privileges:** `anon` and PUBLIC cannot execute any of the six new commands
+  or reads, the paged `private.get_list_v1`, or any of the nine helpers;
+  `authenticated` can execute the six commands (public wrapper and private
+  helper) and none of the helpers; `anon` cannot execute `public.get_list`.
+  `task_assignees` has RLS enabled, no policy, and no `select`/`insert` for
+  `anon` or `authenticated`.
+- **Smoke:** `supabase/smoke/multiple-assignees-smoke.sql` passed on the hosted
+  project and rolled back: a two-assignee create, add, remove, the task once in
+  an assignee's Mine, completion by an assignee keeping both, an installed
+  editor refused with `CONFLICT` rather than erasing assignees, clear-all, a
+  foreign-household assignee refused with `VALIDATION`, and another household
+  getting `NOT_FOUND`. Households, users, lists, tasks, assignments and receipts
+  counted 1 / 2 / 26 / 262 / 81 / 618 before and after.
+- **Advisors:** security adds `rls_enabled_no_policy` (INFO) for
+  `public.task_assignees` — intentional, the same posture as `task_templates`:
+  clients never read or write it directly. Performance adds
+  `unindexed_foreign_keys` (INFO) for `task_assignees_task_fk`
+  `(household_id, task_id)`: the primary key is `(task_id, user_id)` and the
+  Mine index is `(household_id, user_id, task_id)`, so neither covers it. It is
+  only consulted when a task is deleted (cascade) and the table has 81 rows, so
+  nothing was added; an index on `(household_id, task_id)` is the follow-up if
+  the table grows. Everything else is a standing finding.
+
+Compatible with every installed client (`contract.md`, "Multiple-assignee
+compatibility"): they keep their commands and reads, a shared task shows them
+one assignee, and they cannot reassign a task with several assignees until a new
+APK ships (R15). The web client's production build follows `main` automatically (earlier
+entries); this entry did not check that deployment. The owner is shipping the
+APK. Nothing client-visible was exercised on
+a device or in a browser against the hosted project.
+
+Rollback is a reviewed forward migration only: once clients write assignment
+sets, dropping `task_assignees` loses them. To stop new multi-assignee use while
+keeping data, revoke `authenticated` execute on the five assignment commands.

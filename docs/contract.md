@@ -1,6 +1,6 @@
 # Shared data and command contract
 
-This file is the integration authority for both clients and the database schema. Both clients consume the same generated types and runtime validation. The task-workflow API has been on the hosted database since 2026-09-27; the multiple-assignee API (2026-11-04) is **not yet applied to it** — see the compatibility notes below. Do not infer permissions from a client-supplied household ID.
+This file is the integration authority for both clients and the database schema. Both clients consume the same generated types and runtime validation. The task-workflow API has been on the hosted database since 2026-09-27; the multiple-assignee API (2026-11-04) has been on it since 2026-11-05 — see the compatibility notes below. Do not infer permissions from a client-supplied household ID.
 
 ## Stored model
 
