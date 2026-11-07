@@ -1,9 +1,16 @@
-import { render, screen as rendered } from '@testing-library/react-native';
+import { act, render, screen as rendered } from '@testing-library/react-native';
+import {
+  Keyboard,
+  StyleSheet,
+  type KeyboardEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import type { TaskDto } from '@odin/contracts';
 import { createTranslator } from '@odin/i18n';
 
-import { ListTasks } from './ListDetailSections.tsx';
+import { ListTasks, QuickAddBar } from './ListDetailSections.tsx';
 
 /**
  * Each task row renders one action menu, so the menu counts row renders; the
@@ -89,4 +96,59 @@ it('gives a template task no completion, assignment or state, only delete', asyn
   expect(rendered.queryByText('Assign to me')).toBeNull();
   expect(rendered.queryByText('Unassigned')).toBeNull();
   expect(mockLastActions).toEqual(['Delete']);
+});
+
+describe('quick add', () => {
+  type Listener = (event: KeyboardEvent) => void;
+  const listeners = new Map<string, Listener>();
+
+  beforeEach(() => {
+    listeners.clear();
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((name: string, listener: Listener) => {
+      listeners.set(name, listener);
+      // A previous test's unmount can land late; only drop the listener it added.
+      return { remove: () => listeners.get(name) === listener && listeners.delete(name) };
+    }) as unknown as typeof Keyboard.addListener);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  async function keyboard(name: 'keyboardDidShow' | 'keyboardDidHide', height = 0): Promise<void> {
+    await act(() => {
+      listeners.get(name)?.({
+        duration: 0,
+        easing: 'keyboard',
+        endCoordinates: { height, screenX: 0, screenY: 0, width: 400 },
+      });
+    });
+  }
+
+  function bottom(): ViewStyle['bottom'] {
+    const style = rendered.getByTestId('quick-add-bar').props.style as StyleProp<ViewStyle>;
+    return StyleSheet.flatten(style).bottom;
+  }
+
+  it('sits above the tabs, rides on the keyboard while typing, and returns when it closes', async () => {
+    // The safe-area mock reports no bottom inset, so the keyboard offset is its height alone.
+    await render(<QuickAddBar onAdd={jest.fn()} pending={false} t={t} />);
+    const resting = bottom();
+    expect(resting).toBeGreaterThanOrEqual(64);
+
+    await keyboard('keyboardDidShow', 300);
+    expect(bottom()).toBe(300);
+
+    // An emoji panel re-sends the show event with the new height.
+    await keyboard('keyboardDidShow', 360);
+    expect(bottom()).toBe(360);
+
+    await keyboard('keyboardDidHide');
+    expect(bottom()).toBe(resting);
+  });
+
+  it('stops listening once unmounted', async () => {
+    const screen = await render(<QuickAddBar onAdd={jest.fn()} pending={false} t={t} />);
+    expect(listeners.size).toBe(2);
+    await screen.unmount();
+    expect(listeners.size).toBe(0);
+  });
 });

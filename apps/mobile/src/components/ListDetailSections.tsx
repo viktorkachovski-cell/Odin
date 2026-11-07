@@ -17,7 +17,7 @@ import { useTheme } from '../theme.ts';
 import { ActionMenu } from './ActionMenu.tsx';
 import { ErrorBanner } from './Banner.tsx';
 import { GroupHeading } from './Blocks.tsx';
-import { useNavBarHeight } from './layout.ts';
+import { useKeyboardHeight, useNavBarHeight } from './layout.ts';
 import { rowFromTask, TaskRow } from './TaskRow.tsx';
 
 /** Row handlers a list screen passes; a template's rows only open and delete. */
@@ -216,6 +216,9 @@ export function QuickAddBar({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const navHeight = useNavBarHeight();
+  // Above the tabs normally; on top of the keyboard while typing, which covers the tabs.
+  const keyboardHeight = useKeyboardHeight();
+  const bottom = (keyboardHeight > 0 ? keyboardHeight : navHeight) + insets.bottom;
   const [title, setTitle] = useState('');
   const [issue, setIssue] = useState<string | undefined>(undefined);
   const submit = (): void => {
@@ -226,12 +229,13 @@ export function QuickAddBar({
   };
   return (
     <View
+      testID="quick-add-bar"
       style={[
         styles.quickAdd,
         {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
-          bottom: navHeight + insets.bottom,
+          bottom,
         },
       ]}
     >
