@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import type { ListSummaryDto } from '@odin/contracts';
 import { useListActions } from '@odin/data';
-import { adjacentMoves } from '@odin/domain';
+import { adjacentMoves, canReorderLists } from '@odin/domain';
 
 import { useOdin } from '../app/OdinContext.ts';
 import { useHomeQuery, useProjectsQuery } from '../app/queries.ts';
@@ -53,6 +53,11 @@ export function Lists(): ReactNode {
   const templates = home.data.items.filter((item) => item.kind === 'template');
   const active = home.data.items.filter((item) => item.kind === 'active');
   const shown = tab === 'templates' ? templates : active;
+  const canReorder = canReorderLists({
+    tab,
+    shownCount: shown.length,
+    projectsKnown: projectsQuery.isSuccess,
+  });
   const commands = [copy, saveTemplate, move, remove];
   const busy = projectUi.busy || commands.some((command) => command.state.pending);
   const errors = [
@@ -85,7 +90,7 @@ export function Lists(): ReactNode {
             tab === 'active' && projects.length > 0 ? () => projectUi.moveList(list) : undefined
           }
           onSaveTemplate={tab === 'active' ? () => void saveTemplate.run(list.id) : undefined}
-          reorder={reordering}
+          reorder={reordering && canReorder}
           t={t}
         />
       );
@@ -112,7 +117,7 @@ export function Lists(): ReactNode {
         onNewProject={projectUi.newProject}
         onTab={selectTab}
         onToggleReorder={() => setReordering((current) => !current)}
-        reorderable={shown.length > 1}
+        reorderable={canReorder}
         reordering={reordering}
         t={t}
         tab={tab}

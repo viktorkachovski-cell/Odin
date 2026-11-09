@@ -50,6 +50,9 @@ project, and a list copied from a template starts in none.
   take it out). Moving a list keeps its position in the household order.
 - **Reorder.** Reorder mode moves a list within its own project (or among the
   ungrouped lists), never across a heading.
+  On the Active tab, Reorder appears only once the projects have loaded: while
+  they load or after they fail, the lists show flat and Reorder is hidden, so
+  the arrows never point at a neighbour from another project.
 - **Delete.** A confirmation says the project is removed and its lists stay,
   moved out of any project. No list or task is deleted or archived, archived
   lists included.

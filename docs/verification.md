@@ -107,6 +107,13 @@ through `psql` rather than `pg_prove`.
 | `npm run build` (placeholder `VITE_*` values)                         | built                                                                                                                                                                                                                                                                                                         |
 | `npm run build:check --workspace @odin/mobile` (placeholder env)      | Android bundle exported                                                                                                                                                                                                                                                                                       |
 
+Review fix (reorder before projects load): Reorder on the Active tab now waits
+for the projects read (`canReorderLists` in `@odin/domain`, used by both
+clients). New screen tests `apps/web/src/routes/lists-reorder.test.tsx` and
+`apps/mobile/src/components/ListsScreen.test.tsx` (4 each) fail on the previous
+screens (2 of 4 each) and pass on the fix. After it: typecheck and lint clean,
+`npx vitest run` 36 files / 361 tests, mobile jest 24 suites / 197 tests.
+
 `prettier --check` was run on the changed files only: this Windows checkout has
 CRLF line endings on files the change does not touch, so `npm run format:check`
 reports unrelated files here and was not used as the gate.

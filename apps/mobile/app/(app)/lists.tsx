@@ -4,7 +4,7 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import { useListActions } from '@odin/data';
-import { adjacentMoves } from '@odin/domain';
+import { adjacentMoves, canReorderLists } from '@odin/domain';
 
 import { useOdin } from '../../src/state/OdinContext.ts';
 import { useHomeQuery, useProjectsQuery } from '../../src/state/queries.ts';
@@ -67,6 +67,11 @@ export default function ListsScreen(): ReactNode {
   const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
   const active = home.data?.items.filter((item) => item.kind === 'active') ?? [];
   const shown = tab === 'templates' ? templates : active;
+  const canReorder = canReorderLists({
+    tab,
+    shownCount: shown.length,
+    projectsKnown: projectsQuery.isSuccess,
+  });
   const commands = [copy, saveTemplate, remove, move];
   const busy = projectUi.busy || commands.some((command) => command.state.pending);
   const errors = [
@@ -95,7 +100,7 @@ export default function ListsScreen(): ReactNode {
                 tab === 'active' && projects.length > 0 ? projectUi.moveList : undefined
               }
               onSaveTemplate={saveAsTemplate}
-              reorder={reordering}
+              reorder={reordering && canReorder}
               saveTemplatePending={saveTemplate.state.pending}
               t={t}
             />
@@ -131,7 +136,7 @@ export default function ListsScreen(): ReactNode {
           busy={busy}
           onNewProject={projectUi.newProject}
           onToggleReorder={() => setReordering((current) => !current)}
-          reorderable={shown.length > 1}
+          reorderable={canReorder}
           reordering={reordering}
           t={t}
           tab={tab}

@@ -41,3 +41,17 @@ export function groupListsByProject<
     ungrouped,
   };
 }
+
+/**
+ * Whether the Lists screen may offer Reorder. Active lists move only within
+ * their project, so until the projects are known the screen would show grouped
+ * lists flat and the arrows would point at the wrong neighbours. Templates are
+ * never in a project and need not wait.
+ */
+export function canReorderLists(input: {
+  readonly tab: 'active' | 'templates';
+  readonly shownCount: number;
+  readonly projectsKnown: boolean;
+}): boolean {
+  return input.shownCount > 1 && (input.tab === 'templates' || input.projectsKnown);
+}
