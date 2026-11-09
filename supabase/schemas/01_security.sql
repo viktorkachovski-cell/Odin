@@ -331,6 +331,7 @@ $$;
 alter table public.profiles enable row level security;
 alter table public.households enable row level security;
 alter table public.memberships enable row level security;
+alter table public.projects enable row level security;
 alter table public.lists enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_templates enable row level security;
@@ -349,6 +350,10 @@ using ((select private.is_active_member(id)));
 
 create policy memberships_select_household
 on public.memberships for select to authenticated
+using ((select private.is_active_member(household_id)));
+
+create policy projects_select_household
+on public.projects for select to authenticated
 using ((select private.is_active_member(household_id)));
 
 create policy lists_select_household

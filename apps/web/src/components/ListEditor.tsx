@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 
-import type { CommandError, ListDto } from '@odin/contracts';
+import type { CommandError, ListDto, ProjectSummaryDto } from '@odin/contracts';
 import { normalizeText, validateNotes, validateSubtitle, validateTitle } from '@odin/domain';
 import { issueText, type Translator } from '@odin/i18n';
 
@@ -16,6 +16,13 @@ import { Field } from './Field.tsx';
 
 interface ListEditorProps {
   readonly list: ListDto | null;
+  /**
+   * The household's projects. When there are any, a new list can be created in
+   * one; an existing list changes project through Move to project instead.
+   */
+  readonly projects?: readonly ProjectSummaryDto[];
+  /** The project a new list starts in. */
+  readonly initialProjectId?: string | null;
   readonly t: Translator;
   readonly pending: boolean;
   readonly error: CommandError | null;
@@ -24,11 +31,15 @@ interface ListEditorProps {
     readonly title: string;
     readonly subtitle: string | null;
     readonly notes: string | null;
+    /** Present only when the editor offered projects: null means no project. */
+    readonly projectId?: string | null;
   }) => void;
 }
 
 export function ListEditor({
   list,
+  projects = [],
+  initialProjectId = null,
   t,
   pending,
   error,
@@ -38,6 +49,8 @@ export function ListEditor({
   const [title, setTitle] = useState(list?.title ?? '');
   const [subtitle, setSubtitle] = useState(list?.subtitle ?? '');
   const [notes, setNotes] = useState(list?.notes ?? '');
+  const [projectId, setProjectId] = useState(initialProjectId ?? '');
+  const offerProjects = list === null && projects.length > 0;
   const [titleIssue, setTitleIssue] = useState<string | undefined>(undefined);
   const [subtitleIssue, setSubtitleIssue] = useState<string | undefined>(undefined);
   const [notesIssue, setNotesIssue] = useState<string | undefined>(undefined);
@@ -54,6 +67,7 @@ export function ListEditor({
       title: title.trim(),
       subtitle: normalizeText(subtitle),
       notes: normalizeText(notes),
+      ...(offerProjects ? { projectId: projectId === '' ? null : projectId } : {}),
     });
   };
 
@@ -111,6 +125,25 @@ export function ListEditor({
           />
         )}
       </Field>
+
+      {offerProjects && (
+        <Field label={t('list.project.label')}>
+          {(props) => (
+            <select
+              {...props}
+              onChange={(event) => setProjectId(event.target.value)}
+              value={projectId}
+            >
+              <option value="">{t('project.none')}</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
     </Dialog>
   );
 }

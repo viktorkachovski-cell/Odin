@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   parseHome,
+  parseList,
   parseListDetail,
   parseMembers,
+  parseProject,
+  parseProjectId,
+  parseProjects,
   parseTask,
   parseTaskCollection,
   parseTaskId,
@@ -273,5 +277,71 @@ describe('error helpers', () => {
   it('marks only NETWORK as safe to retry under the same request id', () => {
     expect(isRetryableWithSameRequestId(commandError('NETWORK'))).toBe(true);
     expect(isRetryableWithSameRequestId(commandError('CONFLICT'))).toBe(false);
+  });
+});
+
+describe('projects', () => {
+  const project = {
+    id: 'p1',
+    household_id: 'h1',
+    name: 'Home renovation',
+    created_by: 'u1',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    version: 1,
+  };
+
+  it('parses a project row', () => {
+    expect(parseProject(project)).toEqual(project);
+  });
+
+  it('parses the project snapshot with each list count', () => {
+    expect(parseProjects({ items: [{ ...project, list_count: 2 }] }).items).toEqual([
+      { ...project, list_count: 2 },
+    ]);
+  });
+
+  it('rejects a snapshot entry without a list count, and a project without a name', () => {
+    expect(() => parseProjects({ items: [project] })).toThrow(ShapeError);
+    expect(() => parseProject({ ...project, name: undefined })).toThrow(ShapeError);
+  });
+
+  it('reads the id a delete returns', () => {
+    expect(parseProjectId({ project_id: 'p1' })).toBe('p1');
+    expect(() => parseProjectId({})).toThrow(ShapeError);
+  });
+
+  it('reads a list in a project, and a list from before projects as having none', () => {
+    const list = {
+      id: 'l1',
+      household_id: 'h1',
+      kind: 'active',
+      title: 'Kitchen',
+      subtitle: null,
+      status: 'open',
+      seed_key: null,
+      created_by: 'u1',
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+      version: 1,
+    };
+    expect(parseList({ ...list, project_id: 'p1' }).project_id).toBe('p1');
+    expect(parseList(list).project_id).toBeNull();
+    expect(parseList({ ...list, project_id: null }).project_id).toBeNull();
+  });
+
+  it('carries the project onto Home cards and tolerates its absence', () => {
+    const card = {
+      id: 'l1',
+      kind: 'active',
+      title: 'Kitchen',
+      subtitle: null,
+      status: 'open',
+      version: 1,
+      total_tasks: 0,
+      completed_tasks: 0,
+    };
+    const home = parseHome({ items: [{ ...card, project_id: 'p1' }, card] });
+    expect(home.items.map((item) => item.project_id)).toEqual(['p1', null]);
   });
 });

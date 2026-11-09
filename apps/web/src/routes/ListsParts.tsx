@@ -69,10 +69,21 @@ interface ListRowProps {
   readonly onDelete: () => void;
   readonly onSaveTemplate?: (() => void) | undefined;
   readonly onCopy?: (() => void) | undefined;
+  /** Offered only when the household has a project to move the list into. */
+  readonly onMoveToProject?: (() => void) | undefined;
 }
 
-function rowMenu({ list, t, onDelete, onSaveTemplate }: ListRowProps): OverflowItem[] {
+function rowMenu({
+  list,
+  t,
+  onDelete,
+  onSaveTemplate,
+  onMoveToProject,
+}: ListRowProps): OverflowItem[] {
   return [
+    ...(onMoveToProject === undefined
+      ? []
+      : [{ key: 'project', label: t('list.project.move'), onSelect: onMoveToProject }]),
     ...(onSaveTemplate === undefined
       ? []
       : [{ key: 'template', label: t('list.template.save'), onSelect: onSaveTemplate }]),

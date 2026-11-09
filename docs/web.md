@@ -63,6 +63,19 @@ glyphs.
   assignees shows two names and "+N more" and reads every name to assistive
   technology.
 
+### Projects on the Lists page
+
+- With at least one project, the Active tab renders one `<section>` per project
+  (labelled by the project's name, with its list count) and an **Other lists**
+  section, each a normal list table. A project's heading row holds a **New list
+  in <name>** button and a **Project actions: <name>** overflow menu (Rename,
+  Delete). The tabbed table, reorder mode and row menus are the same controls as
+  without projects.
+- **Move to project** is a row-menu item that opens a dialog with a native
+  select (No project first). New list's dialog shows the same select when the
+  household has a project. Dialogs trap focus and close with Escape like every
+  other dialog; deleting a project uses the shared confirmation.
+
 ## Authentication
 
 Email registration, confirmation link and password login, replacing the

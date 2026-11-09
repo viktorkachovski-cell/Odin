@@ -94,7 +94,9 @@ export function updateProfile(
 /**
  * Omitting `notes` keeps the legacy RPC, so an older installed client and this
  * one call the same function they always did. Supplying it -- even as null --
- * selects the additive note-aware RPC.
+ * selects the additive note-aware RPC. Supplying `projectId` -- even as null --
+ * selects `create_list_v3`, which creates the list inside that project in the
+ * same transaction.
  */
 export function createList(
   client: OdinSupabaseClient,
@@ -103,16 +105,19 @@ export function createList(
     readonly title: string;
     readonly subtitle?: string | null;
     readonly notes?: string | null;
+    readonly projectId?: string | null;
   },
 ): Promise<CommandResult<ListDto>> {
+  const grouped = input.projectId !== undefined;
   return command(
     client,
-    input.notes === undefined ? 'create_list' : 'create_list_v2',
+    grouped ? 'create_list_v3' : input.notes === undefined ? 'create_list' : 'create_list_v2',
     {
       request_id: requestId,
       title: input.title,
       subtitle: input.subtitle ?? null,
-      ...(input.notes === undefined ? {} : { notes: input.notes }),
+      ...(input.notes === undefined && !grouped ? {} : { notes: input.notes ?? null }),
+      ...(grouped ? { project_id: input.projectId } : {}),
     },
     (data) => parseList(data),
   );

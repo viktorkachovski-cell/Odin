@@ -2,6 +2,7 @@ export * from './assignees.ts';
 export * from './avatar.ts';
 export * from './dates.ts';
 export * from './progress.ts';
+export * from './projects.ts';
 export * from './sorting.ts';
 export * from './validation.ts';
 export * from './notifications.ts';

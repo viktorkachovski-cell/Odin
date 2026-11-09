@@ -22,6 +22,11 @@ interface ListText {
   readonly notes: string | null;
 }
 
+/** A new list, optionally created inside a project (null or absent: no project). */
+interface NewList extends ListText {
+  readonly projectId?: string | null;
+}
+
 interface VersionedList {
   readonly listId: string;
   readonly expectedVersion: number;
@@ -44,7 +49,7 @@ export function useListActions(
   } = {},
 ) {
   const invalidate = useMemo(() => keysAffectedByListChange(listId), [listId]);
-  const create = useCommand((requestId, input: ListText) => createList(client, requestId, input), {
+  const create = useCommand((requestId, input: NewList) => createList(client, requestId, input), {
     invalidate,
     onSuccess: (list) => on.opened?.(list.id),
   });

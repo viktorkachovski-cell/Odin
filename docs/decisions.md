@@ -154,6 +154,40 @@ single-assignee editor may keep a shared task's assignees but cannot reduce
 them. A set holds at most 50 members. The contract and its compatibility note
 are in `contract.md`.
 
+## Projects — requested 2026-11-09
+
+The owner asked for a project space that consolidates different lists: a
+project is a home group that holds lists, it has only a name, and several lists
+can live in one project. This is new product scope, implemented as a **draft for
+review**; the database migration is applied only after review
+(`contract.md` carries the release order). Equal permissions, household
+isolation, task-only deadlines and the template copy/reset rules are unchanged.
+
+The request left these points open, so the draft chose the narrowest reading.
+Each is reversible and is flagged in the pull request for the owner:
+
+- **A project is only a name** (1–160 code points). No notes, deadline, status,
+  colour or owner, and no order of its own: projects are shown alphabetically,
+  case-insensitively.
+- **A list is in at most one project** or in none. Projects do not nest.
+- **Only active lists can be in a project.** List templates never are, and a
+  list made from a template, or a template saved from a list, starts ungrouped.
+- **Any active member** creates, renames and deletes a project and moves lists
+  in and out, like every other household action.
+- **Deleting a project ungroups its lists.** The project goes; no list, task or
+  archived list is deleted or archived. The confirmation says so.
+- **No project hierarchy in the other views.** Today, Tasks and the task
+  badge are unchanged: they still read every task of every open active list.
+- **Placement is the Lists tab.** With at least one project, the Active tab
+  shows one section per project (empty ones too), then the lists in no project.
+  There is no separate project page; opening a list is unchanged.
+- **List order stays household-wide**, but moving a list up or down now swaps it
+  with its neighbour inside the same project (or among the ungrouped lists), so
+  a move is always visible where the member sees it.
+
+Not built, and not implied: renaming a project's lists in bulk, project-level
+progress, reordering projects, archiving a project, or sharing across households.
+
 ## Proposed implementation defaults
 
 These fill technical gaps without redefining confirmed task rules. Record deviations before implementation; do not silently treat proposed lifecycle policy as approved product scope.

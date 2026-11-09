@@ -275,6 +275,27 @@ shared-task announcements (device gap in the accepted section and R9). The
 migration has been on the hosted database since 2026-11-05; the APK that makes
 this cost go away has not shipped yet.
 
+### R16 — Installed Android builds show projects flat, and reordering there jumps
+
+**Severity: low. Opened 2026-11-09 with projects (migration applied to the hosted project 2026-11-09; see `deployment-log.md`).**
+
+Projects are additive (`docs/contract.md`), so an installed build keeps working,
+but it knows nothing about them:
+
+- Its Lists tab shows every list flat, with no project heading, so the grouping
+  the web client and the new APK show is invisible there.
+- `move_list` now swaps a list with its neighbour **inside the same project**.
+  In the installed build's flat view a list can therefore move past several
+  lists that belong to other projects in one tap, or appear not to move relative
+  to its neighbours. Nothing is lost or reordered wrongly in the data; the
+  display disagrees with the tap. A household that uses no project is unaffected.
+- A list created in the installed build is in no project; the member moves it
+  from the web client or a new APK.
+
+It goes away when a new APK ships. Not yet proven on a real phone (device gap in
+the accepted section); the new Lists screen, the project sheets and the grouped
+cards have only component tests.
+
 ## Accepted, not tracked
 
 These are real, known, and deliberately not being worked. They are here so

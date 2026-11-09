@@ -98,6 +98,11 @@ mode, callable roles, authorization checks and tests.
   exactly once; a no-op does not. Concurrent additions and removals all survive,
   a stale whole-set replacement conflicts, and retries that re-order or repeat
   ids are the same request.
+- A project belongs to one household and holds only active lists: a composite
+  foreign key ties `lists.project_id` to a project of the same household, a check
+  constraint refuses a template in a project, and deleting a project ungroups
+  its lists (every one, archived included) without deleting or archiving any.
+  Projects are written only by the project commands; clients can read them.
 - Invitation expiry is server-clock based, redemption is single-use and atomic,
   and concurrent different-household joins cannot bypass the one-household
   limit. Create and redeem are rate limited in a server-controlled store.
@@ -139,6 +144,7 @@ synthetic data before adding overlapping indexes. Progress is never stored.
 - `supabase/tests/database/004_editable_templates.sql` — editable list templates and template task rules.
 - `supabase/tests/database/005_multiple_assignees.sql` — zero/one/several assignees, one task once in each Mine and in Everyone, add/remove/replace/clear, Blocked and Done preserved, atomic rejection of inactive, unknown and cross-household members, anonymous and revoked-member denial, idempotency and canonical sets, editor conflicts, installed-client reads and writes, template and copy reset, and the database constraints themselves.
 - `supabase/smoke/multiple-assignees-migration-check.sql` — read-only before/after fingerprint of `tasks` and an assignment backfill audit, for rehearsing the migration against a restored copy.
+- `supabase/tests/database/006_projects.sql` — create (trimmed, bounded, idempotent, mismatch), rename and stale conflict, creation inside a project, move in and out and the unchanged no-op, other-household and unknown projects, templates never grouped, reorder confined to a project, alphabetical `get_projects` with list counts, archived lists leaving the count, delete ungrouping open and archived lists with one version bump, no list deleted, row-level read isolation, denied direct writes and anonymous calls, and the database check against a grouped template.
 - `tooling/tests/database-static.test.mjs` — SQL boundary regressions that run
   without Docker, including that saving a list never writes a task template and
   that `delete_list` archives rather than drops.

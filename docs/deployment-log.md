@@ -469,3 +469,38 @@ a device or in a browser against the hosted project.
 Rollback is a reviewed forward migration only: once clients write assignment
 sets, dropping `task_assignees` loses them. To stop new multi-assignee use while
 keeping data, revoke `authenticated` execute on the five assignment commands.
+
+## 2026-11-09 — Projects, database
+
+Applied `supabase/migrations/20261109120000_projects.sql` unchanged to the
+hosted project (Odin, eu-central-1) through the Supabase MCP `apply_migration`;
+it is recorded as `20261109155504 projects`. Applied from PR 26 head `8ff155d`,
+before the PR was merged and before the web deploy and APK, per the release
+order in `contract.md`. GitHub `Database` passed on that commit; `Quality`
+failed only on `expo-doctor` (a patch-version mismatch that also fails on
+`main`).
+
+- **Data:** households, lists and tasks counted 1 / 26 / 257 before and after;
+  no list is in a project and `projects` is empty.
+- **Shape:** `public.projects` exists with RLS on, `select` for `authenticated`
+  only, and is in the `supabase_realtime` publication. `lists_project_fk` and
+  `lists_project_active_only` are validated. The six new public RPCs and their
+  private helpers are executable by `authenticated` and not by `anon`.
+  `get_home_v2` returns `project_id` and `move_list` swaps within a project.
+- **Smoke (rolled back):** as an existing member, `create_project`,
+  `create_list_v3` into it, `get_projects` (count 1), `get_home_v2` showing the
+  `project_id`, `move_list` of the only list in its project (ok, no-op),
+  `set_list_project` to none, a stale version refused with `CONFLICT`, and
+  `delete_project` keeping the list. Counts were unchanged afterwards.
+- **Advisors:** security unchanged. Performance adds only `unused_index` (INFO)
+  for `lists_project_idx`, `projects_household_name_idx` and
+  `projects_created_by_idx`, expected on a new, empty table.
+
+Compatible with installed clients (`contract.md`): they ignore projects, and
+lists they create are ungrouped (R16). Next: merge PR 26 (the web build follows
+`main`), then the owner ships the APK. Nothing client-visible was exercised in a
+browser or on a device against the hosted project.
+
+Rollback is a reviewed forward migration only: once members group lists,
+dropping `projects` ungroups them. To stop new project use while keeping data,
+revoke `authenticated` execute on the six project RPCs.

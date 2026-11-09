@@ -198,7 +198,15 @@ it('invalidates each affected key once for a batch of changes', async () => {
   const keys = invalidate.mock.calls.map(([filters]) =>
     (filters as { queryKey: readonly string[] }).queryKey.join('/'),
   );
-  expect(keys.sort()).toEqual(['all-tasks', 'home', 'list', 'my-tasks', 'task', 'unassigned']);
+  expect(keys.sort()).toEqual([
+    'all-tasks',
+    'home',
+    'list',
+    'my-tasks',
+    'projects',
+    'task',
+    'unassigned',
+  ]);
 });
 
 it('starts at five seconds and caps at one minute', () => {

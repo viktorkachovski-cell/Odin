@@ -24,6 +24,7 @@ export const LIMITS = {
   subtitle: { min: 1, max: 300 },
   displayName: { min: 1, max: 80 },
   householdName: { min: 1, max: 160 },
+  projectName: { min: 1, max: 160 },
 } as const;
 
 /**
@@ -61,6 +62,11 @@ export interface HouseholdDto {
 
 export interface ListDto {
   readonly sort_order?: number;
+  /**
+   * The project this list belongs to, or null/absent for a list in no project.
+   * Absent only on a payload from before projects; read it as null.
+   */
+  readonly project_id?: string | null;
   readonly id: string;
   readonly household_id: string;
   readonly kind: ListKind;
@@ -83,6 +89,8 @@ export interface ListDto {
  */
 export interface ListSummaryDto {
   readonly sort_order?: number;
+  /** See `ListDto.project_id`. Templates are never in a project. */
+  readonly project_id?: string | null;
   readonly id: string;
   readonly kind: ListKind;
   readonly title: string;
@@ -92,6 +100,30 @@ export interface ListSummaryDto {
   readonly version: number;
   readonly total_tasks: number;
   readonly completed_tasks: number;
+}
+
+/**
+ * A project: a named group of a household's active lists. It has only a name
+ * (no deadline, status or order); the lists name it through `project_id`.
+ */
+export interface ProjectDto {
+  readonly id: string;
+  readonly household_id: string;
+  readonly name: string;
+  readonly created_by: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly version: number;
+}
+
+/** A project read with how many open active lists it holds. */
+export interface ProjectSummaryDto extends ProjectDto {
+  readonly list_count: number;
+}
+
+/** Every project of the household, alphabetical, read as one snapshot. */
+export interface ProjectsDto {
+  readonly items: readonly ProjectSummaryDto[];
 }
 
 /** A single saved task. Loading one never pulls in a list template. */

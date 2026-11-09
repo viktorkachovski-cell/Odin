@@ -68,3 +68,7 @@ export function validateTaskTitle(value: string | null | undefined): FieldIssue 
 export function validateNotes(value: string | null | undefined): FieldIssue | null {
   return checkText(value, 'notes', LIMITS.notes, false);
 }
+
+export function validateProjectName(value: string | null | undefined): FieldIssue | null {
+  return checkText(value, 'project_name', LIMITS.projectName, true);
+}
