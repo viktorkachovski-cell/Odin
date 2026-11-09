@@ -77,9 +77,9 @@ the new `task_assignees` foreign key cascades so it adds no new instance.
 ## Projects evidence — 2026-11-09
 
 Branch `VikC/odin-project-space-lists-2ef9a9`, a **draft for review**.
-**Automated evidence only: no device, no browser session, and nothing applied
-to the hosted project** (the migration waits for review; nothing is appended to
-`deployment-log.md`). Nothing here is real-device acceptance.
+**Automated evidence only: no device and no browser session.** The migration
+was applied to the hosted project after review on 2026-11-09; that evidence is
+in `deployment-log.md`. Nothing here is real-device acceptance.
 
 Environment: Windows 10, Node 22.23.3, npm 10.9.9, Docker 29.8.1. `supabase
 start` (CLI 2.120.0) pulled its images but failed twice at its own database

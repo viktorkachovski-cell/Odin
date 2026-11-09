@@ -277,7 +277,7 @@ this cost go away has not shipped yet.
 
 ### R16 — Installed Android builds show projects flat, and reordering there jumps
 
-**Severity: low. Opened 2026-11-09 with projects (draft; the migration is not applied yet).**
+**Severity: low. Opened 2026-11-09 with projects (migration applied to the hosted project 2026-11-09; see `deployment-log.md`).**
 
 Projects are additive (`docs/contract.md`), so an installed build keeps working,
 but it knows nothing about them:
