@@ -261,7 +261,7 @@ describe('ListsBody', () => {
   it('groups lists under their project, empty projects included, and the rest last', async () => {
     await renderBody([garden, moving]);
 
-    const headers = screen.getAllByRole('header').map((header) => header.props.children);
+    const headers = screen.getAllByRole('header').map((header) => String(header.props.children));
     expect(headers).toEqual(['Garden', 'Moving house', 'Other lists']);
     expect(screen.getByText('Lists · 2')).toBeTruthy();
     expect(screen.getByText('No lists in this project yet.')).toBeTruthy();
