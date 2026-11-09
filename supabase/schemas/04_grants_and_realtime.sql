@@ -17,7 +17,8 @@ grant execute on function private.update_task_v2(uuid, uuid, bigint, text, uuid,
 grant execute on function private.save_task_template(uuid, text, text) to authenticated;
 grant execute on function private.get_task_templates() to authenticated;
 grant usage on schema private to authenticated;
-grant select on public.profiles, public.households, public.memberships, public.lists, public.tasks
+grant select on public.profiles, public.households, public.memberships, public.projects,
+  public.lists, public.tasks
 to authenticated;
 
 grant execute on function private.is_active_member(uuid, uuid) to authenticated;
@@ -58,6 +59,12 @@ grant execute on function private.update_task_v3(uuid, uuid, bigint, text, uuid[
 grant execute on function private.set_task_assignees(uuid, uuid, bigint, uuid[]) to authenticated;
 grant execute on function private.add_task_assignee(uuid, uuid, uuid) to authenticated;
 grant execute on function private.remove_task_assignee(uuid, uuid, uuid) to authenticated;
+grant execute on function private.create_project(uuid, text) to authenticated;
+grant execute on function private.update_project(uuid, uuid, bigint, text) to authenticated;
+grant execute on function private.delete_project(uuid, uuid, bigint) to authenticated;
+grant execute on function private.create_list_v3(uuid, text, text, text, uuid) to authenticated;
+grant execute on function private.set_list_project(uuid, uuid, bigint, uuid) to authenticated;
+grant execute on function private.get_projects() to authenticated;
 
 grant execute on function public.update_profile(uuid, text, text, text) to authenticated;
 grant execute on function public.create_household(uuid, text, text) to authenticated;
@@ -87,6 +94,12 @@ grant execute on function public.update_task_v3(uuid, uuid, bigint, text, uuid[]
 grant execute on function public.set_task_assignees(uuid, uuid, bigint, uuid[]) to authenticated;
 grant execute on function public.add_task_assignee(uuid, uuid, uuid) to authenticated;
 grant execute on function public.remove_task_assignee(uuid, uuid, uuid) to authenticated;
+grant execute on function public.create_project(uuid, text) to authenticated;
+grant execute on function public.update_project(uuid, uuid, bigint, text) to authenticated;
+grant execute on function public.delete_project(uuid, uuid, bigint) to authenticated;
+grant execute on function public.create_list_v3(uuid, text, text, text, uuid) to authenticated;
+grant execute on function public.set_list_project(uuid, uuid, bigint, uuid) to authenticated;
+grant execute on function public.get_projects() to authenticated;
 grant execute on function public.get_members() to authenticated;
 grant execute on function public.get_task_templates() to authenticated;
 grant execute on function public.get_home(text, integer) to authenticated;
@@ -107,6 +120,12 @@ begin
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'lists'
     ) then
       alter publication supabase_realtime add table public.lists;
+    end if;
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'projects'
+    ) then
+      alter publication supabase_realtime add table public.projects;
     end if;
     if not exists (
       select 1 from pg_publication_tables

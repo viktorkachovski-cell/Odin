@@ -6,6 +6,7 @@ import type {
   ListDetailDto,
   MemberDto,
   ProfileDto,
+  ProjectsDto,
   TaskCollectionDto,
   TaskDto,
 } from '@odin/contracts';
@@ -16,6 +17,7 @@ import {
   getMembers,
   getMyHousehold,
   getMyProfile,
+  getProjects,
   getTask,
   queryKeys,
 } from '@odin/data';
@@ -54,6 +56,11 @@ export function useMembersQuery(): UseQueryResult<MemberDto[]> {
 export function useHomeQuery(): UseQueryResult<HomeDto> {
   const { client } = useOdin();
   return useQuery({ queryKey: queryKeys.home, queryFn: () => getHome(client) });
+}
+
+export function useProjectsQuery(): UseQueryResult<ProjectsDto> {
+  const { client } = useOdin();
+  return useQuery({ queryKey: queryKeys.projects, queryFn: () => getProjects(client) });
 }
 
 export function useListQuery(listId: string | undefined): UseQueryResult<ListDetailDto> {

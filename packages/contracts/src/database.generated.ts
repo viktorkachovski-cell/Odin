@@ -41,6 +41,7 @@ export type Database = {
           id: string
           kind: string
           notes: string | null
+          project_id: string | null
           seed_key: string | null
           sort_order: number
           status: string
@@ -56,6 +57,7 @@ export type Database = {
           id?: string
           kind: string
           notes?: string | null
+          project_id?: string | null
           seed_key?: string | null
           sort_order?: number
           status?: string
@@ -71,6 +73,7 @@ export type Database = {
           id?: string
           kind?: string
           notes?: string | null
+          project_id?: string | null
           seed_key?: string | null
           sort_order?: number
           status?: string
@@ -86,6 +89,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "households"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lists_project_fk"
+            columns: ["household_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["household_id", "id"]
           },
         ]
       }
@@ -147,6 +157,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          name: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          name: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_assignees: {
         Row: {
@@ -317,6 +365,20 @@ export type Database = {
         }
         Returns: Json
       }
+      create_list_v3: {
+        Args: {
+          notes?: string
+          project_id?: string
+          request_id: string
+          subtitle?: string
+          title: string
+        }
+        Returns: Json
+      }
+      create_project: {
+        Args: { name: string; request_id: string }
+        Returns: Json
+      }
       create_task: {
         Args: {
           assignee_id?: string
@@ -362,6 +424,14 @@ export type Database = {
         Args: { expected_version: number; list_id: string; request_id: string }
         Returns: Json
       }
+      delete_project: {
+        Args: {
+          expected_version: number
+          project_id: string
+          request_id: string
+        }
+        Returns: Json
+      }
       delete_task: {
         Args: { expected_version: number; request_id: string; task_id: string }
         Returns: Json
@@ -389,6 +459,7 @@ export type Database = {
         Returns: Json
       }
       get_my_tasks_v2: { Args: never; Returns: Json }
+      get_projects: { Args: never; Returns: Json }
       get_task_templates: { Args: never; Returns: Json }
       get_task_v2: { Args: { p_task_id: string }; Returns: Json }
       get_unassigned: {
@@ -432,6 +503,15 @@ export type Database = {
       }
       save_task_template: {
         Args: { notes?: string; request_id: string; title: string }
+        Returns: Json
+      }
+      set_list_project: {
+        Args: {
+          expected_version: number
+          list_id: string
+          project_id?: string
+          request_id: string
+        }
         Returns: Json
       }
       set_task_assignees: {
@@ -487,6 +567,15 @@ export type Database = {
           avatar_ref?: string
           display_name: string
           locale: string
+          request_id: string
+        }
+        Returns: Json
+      }
+      update_project: {
+        Args: {
+          expected_version: number
+          name: string
+          project_id: string
           request_id: string
         }
         Returns: Json

@@ -59,6 +59,30 @@ create index memberships_active_household_user_idx
 on public.memberships (household_id, user_id)
 where status = 'active';
 
+-- A project is a named group of a household's active lists. It carries no
+-- deadline, status or order of its own: lists point at it with
+-- lists.project_id, and the clients order projects by name.
+create table public.projects (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  name text not null,
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  version bigint not null default 1,
+  constraint projects_name_normalized check (
+    name = private.normalized_text(name)
+    and char_length(name) between 1 and 160
+  ),
+  constraint projects_version_positive check (version > 0),
+  unique (household_id, id)
+);
+
+create index projects_household_name_idx
+on public.projects (household_id, lower(name), id);
+
+create index projects_created_by_idx on public.projects (created_by);
+
 create table public.lists (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
@@ -69,6 +93,9 @@ create table public.lists (
   status text not null default 'open',
   sort_order integer not null default 0,
   seed_key text,
+  -- The project an active list belongs to, or null for a list in no project.
+  -- Deleting a project ungroups its lists rather than removing them.
+  project_id uuid,
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -92,6 +119,10 @@ create table public.lists (
     or (notes = private.normalized_text(notes) and char_length(notes) <= 5000)
   ),
   constraint lists_version_positive check (version > 0),
+  -- Templates are never grouped: a copy of one is an ordinary ungrouped list.
+  constraint lists_project_active_only check (project_id is null or kind = 'active'),
+  constraint lists_project_fk foreign key (household_id, project_id)
+    references public.projects (household_id, id) on delete set null (project_id),
   -- Templates seeded by create_household carry a seed_key; member-saved
   -- templates have none, so only the uniqueness of a seed_key is enforced.
   unique (household_id, id),
@@ -102,6 +133,10 @@ create table public.lists (
 
 create index lists_household_kind_status_id_idx
 on public.lists (household_id, kind, status, id);
+
+create index lists_project_idx
+on public.lists (household_id, project_id)
+where project_id is not null;
 
 create table public.tasks (
   id uuid primary key default gen_random_uuid(),
@@ -296,6 +331,10 @@ for each row execute function private.touch_versioned_row();
 
 create trigger tasks_touch_version
 before update on public.tasks
+for each row execute function private.touch_versioned_row();
+
+create trigger projects_touch_version
+before update on public.projects
 for each row execute function private.touch_versioned_row();
 
 create or replace function private.touch_membership()

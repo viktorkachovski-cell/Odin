@@ -10,7 +10,7 @@ import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
 import type { OdinSupabaseClient } from './client.ts';
 
-export type ChangeKind = 'list' | 'task' | 'membership';
+export type ChangeKind = 'list' | 'task' | 'membership' | 'project';
 
 export interface SubscriptionHandlers {
   /** Every kind of row that changed since the previous call. */
@@ -30,6 +30,7 @@ export interface Subscription {
 
 const TABLE_KINDS: Readonly<Record<string, ChangeKind>> = {
   lists: 'list',
+  projects: 'project',
   tasks: 'task',
   memberships: 'membership',
 };

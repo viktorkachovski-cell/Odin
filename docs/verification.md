@@ -74,6 +74,50 @@ cascade reaches `memberships` before `tasks` and `tasks_assignee_membership_fk`
 is `NO ACTION`. CI builds from migrations, where the order happens to work, and
 the new `task_assignees` foreign key cascades so it adds no new instance.
 
+## Projects evidence — 2026-11-09
+
+Branch `VikC/odin-project-space-lists-2ef9a9`, a **draft for review**.
+**Automated evidence only: no device, no browser session, and nothing applied
+to the hosted project** (the migration waits for review; nothing is appended to
+`deployment-log.md`). Nothing here is real-device acceptance.
+
+Environment: Windows 10, Node 22.23.3, npm 10.9.9, Docker 29.8.1. `supabase
+start` (CLI 2.120.0) pulled its images but failed twice at its own database
+connection step (`DbConnectError`: "Connection terminated unexpectedly", then
+"read ECONNRESET"), so the database gates ran against a disposable container of
+the project's own image, `public.ecr.aws/supabase/postgres:17.6.1.165`
+(PostgreSQL 17, matching `config.toml`), with one shim: the image's
+`auth.users` lacks GoTrue's later `email_confirmed_at` column, which the
+existing fixtures insert, so it was added. There was no GoTrue, PostgREST or
+Realtime, so this proves SQL behaviour and not the exposed API. Migrations were
+applied one file at a time with `psql -1 -v ON_ERROR_STOP=1`; pgTAP files ran
+through `psql` rather than `pg_prove`.
+
+| Check                                                                 | Result                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All 14 migrations replay in order, ending with `20261109120000`       | applied, no error                                                                                                                                                                                                                                                                                             |
+| pgTAP `001`–`006`                                                     | 32 + 47 + 50 + 36 + 103 + 59 = 327 assertions, all `ok` (`006_projects.sql` is new: 59)                                                                                                                                                                                                                       |
+| `node supabase/tests/concurrency.mjs`                                 | passed, including the two new cases: a project delete racing a move into it (12 rounds) and simultaneous moves in a project                                                                                                                                                                                   |
+| `supabase db lint --db-url … --level warning --fail-on warning`       | "No schema errors found"                                                                                                                                                                                                                                                                                      |
+| Declarative `schemas/` replayed into a second container vs migrations | 121 functions byte-identical after whitespace folding; tables, columns, indexes, constraints, triggers, policies and table grants identical. Only difference: `anon` execute grants on older functions (`claim_task`, `create_list`, …), a pre-existing artefact of the old migrations, unrelated to projects |
+| `npm run typecheck` (7 workspaces), `npm run lint`                    | clean, zero warnings                                                                                                                                                                                                                                                                                          |
+| `npx vitest run`                                                      | 35 files, 357 tests passed                                                                                                                                                                                                                                                                                    |
+| `npm run test:mobile`                                                 | 23 suites, 193 tests passed                                                                                                                                                                                                                                                                                   |
+| `npm run test:tooling`                                                | 18 passed                                                                                                                                                                                                                                                                                                     |
+| `npm run build` (placeholder `VITE_*` values)                         | built                                                                                                                                                                                                                                                                                                         |
+| `npm run build:check --workspace @odin/mobile` (placeholder env)      | Android bundle exported                                                                                                                                                                                                                                                                                       |
+
+`prettier --check` was run on the changed files only: this Windows checkout has
+CRLF line endings on files the change does not touch, so `npm run format:check`
+reports unrelated files here and was not used as the gate.
+
+Not done: `expo-doctor`, any run against the hosted project, any real-device or
+browser check of the grouped Lists screen, and `supabase gen types` — the
+installed CLI emits a differently shaped file than the committed one, so
+`database.generated.ts` was extended by hand for the new table, column and six
+functions in the committed style, and `tsc` accepts it. The release order and
+the installed-Android behaviour are in `contract.md` and risk R16.
+
 ## Task-workflow evidence — 2026-09-27
 
 Review-fix commit `69197cc` passed GitHub [Quality](https://github.com/viktorkachovski-cell/Odin/actions/runs/36332210138)

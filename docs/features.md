@@ -30,6 +30,37 @@ The note is one shared field, editable by any active household member. There is
 no author and no timestamp; it is not a discussion thread. Both clients render
 it under the subtitle and put its editor field under the subtitle field.
 
+### Projects
+
+A **project** groups a household's active lists. It has only a name (1–160 code
+points) and no deadline, status or colour. Several lists can live in one
+project; a list is in at most one, or in none. List templates are never in a
+project, and a list copied from a template starts in none.
+
+- **Lists tab, Active.** Once the household has a project, the tab shows a
+  section per project — empty ones included, with "No lists in this project
+  yet." — in alphabetical order, then **Other lists** for the lists in no
+  project. With no project the tab is the flat table it always was. Both
+  clients do this; Android draws cards, web draws the table.
+- **Create.** New project, on the Active tab. Any member can create, rename and
+  delete a project. Creation stops at 1,000 projects per household.
+- **Put lists in it.** New list opens with a Project field when the household has
+  a project; the + beside a project's name opens it pre-selected. An existing
+  list changes project from its menu (**Move to project**, with No project to
+  take it out). Moving a list keeps its position in the household order.
+- **Reorder.** Reorder mode moves a list within its own project (or among the
+  ungrouped lists), never across a heading.
+- **Delete.** A confirmation says the project is removed and its lists stay,
+  moved out of any project. No list or task is deleted or archived, archived
+  lists included.
+- **Conflicts.** Rename, delete and move check the version the member saw; a
+  stale one reports the usual "Someone else changed this first" and keeps what
+  was typed.
+- **Not changed.** List detail, Today, Tasks, notifications, task counts and
+  list progress ignore projects.
+
+Installed Android builds show every list flat and ignore projects (risk R16).
+
 ## Tasks
 
 A task has a title (1–500 code points), an optional shared note (up to 5,000),

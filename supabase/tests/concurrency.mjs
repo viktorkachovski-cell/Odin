@@ -556,6 +556,106 @@ async function testAssignmentBeforeRevocationIsCleared() {
   assert.equal(stranded, 0, 'no assignment may outlive the access of its member');
 }
 
+async function runAs(userId, build) {
+  return asAuthenticated(userId, async (sql) => {
+    const [row] = await build(sql);
+    return row.response;
+  });
+}
+
+// A project deleted at the same moment a list is moved into it: whichever
+// order the locks fall in, the project is gone, no list points at it, nothing
+// deadlocks, and the delete itself always succeeds.
+async function testProjectDeleteRacingMoveIn() {
+  for (let round = 0; round < 12; round += 1) {
+    const created = await runAs(
+      ids.userA,
+      (sql) =>
+        sql`select public.create_project(${requestId()}::uuid, ${`Race ${round}`}::text) as response`,
+    );
+    assert.equal(created.ok, true);
+    const projectId = created.data.id;
+    const list = await runAs(
+      ids.userA,
+      (sql) =>
+        sql`select public.create_list_v2(${requestId()}::uuid, ${`Raced ${round}`}::text, null, null) as response`,
+    );
+    assert.equal(list.ok, true);
+
+    const [moved, deleted] = await Promise.all([
+      runAs(
+        ids.userB,
+        (sql) => sql`
+          select public.set_list_project(
+            ${requestId()}::uuid, ${list.data.id}::uuid, ${list.data.version}::bigint, ${projectId}::uuid
+          ) as response`,
+      ),
+      runAs(
+        ids.userA,
+        (sql) => sql`
+          select public.delete_project(
+            ${requestId()}::uuid, ${projectId}::uuid, ${created.data.version}::bigint
+          ) as response`,
+      ),
+    ]);
+
+    assert.equal(deleted.ok, true, 'the delete always wins eventually');
+    assert.ok(
+      moved.ok === true || moved.error.code === 'NOT_FOUND',
+      'the move succeeds or finds no project',
+    );
+    const [row] = await admin`
+      select
+        (select project_id from public.lists where id = ${list.data.id}) as "projectId",
+        (select count(*)::integer from public.projects where id = ${projectId}) as "projects"
+    `;
+    assert.equal(row.projectId, null, 'no list may point at a deleted project');
+    assert.equal(row.projects, 0);
+  }
+}
+
+// Two members moving lists of one project at once: the swaps serialise on the
+// ordering lock and leave the household's order values distinct.
+async function testGroupedMovesStayConsistent() {
+  const project = await runAs(
+    ids.userA,
+    (sql) => sql`select public.create_project(${requestId()}::uuid, 'Grouped order') as response`,
+  );
+  const listIds = [];
+  for (let index = 0; index < 3; index += 1) {
+    const list = await runAs(
+      ids.userA,
+      (sql) => sql`
+        select public.create_list_v3(
+          ${requestId()}::uuid, ${`Grouped ${index}`}::text, null, null, ${project.data.id}::uuid
+        ) as response`,
+    );
+    assert.equal(list.ok, true);
+    listIds.push(list.data);
+  }
+  const responses = await Promise.all([
+    runAs(
+      ids.userA,
+      (sql) => sql`
+        select public.move_list(${requestId()}::uuid, ${listIds[1].id}::uuid, ${listIds[1].version}::bigint, 'up') as response`,
+    ),
+    runAs(
+      ids.userB,
+      (sql) => sql`
+        select public.move_list(${requestId()}::uuid, ${listIds[2].id}::uuid, ${listIds[2].version}::bigint, 'up') as response`,
+    ),
+  ]);
+  for (const response of responses) {
+    assert.ok(response.ok === true || response.error.code === 'CONFLICT');
+  }
+  const [{ distinctOrders, total }] = await admin`
+    select count(distinct sort_order)::integer as "distinctOrders", count(*)::integer as total
+    from public.lists where project_id = ${project.data.id}
+  `;
+  assert.equal(total, 3);
+  assert.equal(distinctOrders, 3);
+}
+
 try {
   await setupFixtures();
   await testDuplicateCreate();
@@ -570,12 +670,15 @@ try {
   await testStaleClearDoesNotEraseAddition();
   await testAssignmentAfterRevocationIsRejected();
   await testAssignmentBeforeRevocationIsCleared();
+  await testProjectDeleteRacingMoveIn();
+  await testGroupedMovesStayConsistent();
   await assertAssignmentInvariants();
   console.info(
     'Database concurrency tests passed: duplicate create, competing claims, append order, ' +
       'move during neighbour delete, competing adjacent moves, concurrent assignee additions, ' +
       'duplicate assignment, add with remove, editor replacement race, stale clear, ' +
-      'assignment racing revocation (both orders)',
+      'assignment racing revocation (both orders), project delete racing a move in, ' +
+      'simultaneous moves inside a project',
   );
 } finally {
   await cleanFixtures();

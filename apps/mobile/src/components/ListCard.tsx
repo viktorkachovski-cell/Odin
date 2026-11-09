@@ -30,6 +30,8 @@ interface ListCardProps {
   readonly onDelete?: ((list: ListSummaryDto) => void) | undefined;
   readonly onCopy?: ((list: ListSummaryDto) => void) | undefined;
   readonly onSaveTemplate?: ((list: ListSummaryDto) => void) | undefined;
+  /** Offered only when the household has a project to move the list into. */
+  readonly onMoveToProject?: ((list: ListSummaryDto) => void) | undefined;
   readonly reorder?: boolean;
   readonly movePending?: boolean;
   readonly copyPending?: boolean;
@@ -39,8 +41,18 @@ interface ListCardProps {
   readonly moveDownDisabled?: boolean;
 }
 
-function menu({ list, t, onSaveTemplate, onDelete }: ListCardProps): ActionMenuItem[] {
+function menu({
+  list,
+  t,
+  onSaveTemplate,
+  onDelete,
+  onMoveToProject,
+}: ListCardProps): ActionMenuItem[] {
   return [
+    // Only an active list can be in a project.
+    ...(onMoveToProject === undefined || list.kind === 'template'
+      ? []
+      : [{ label: t('list.project.move'), onPress: () => onMoveToProject(list) }]),
     // A template is never saved as another template.
     ...(onSaveTemplate === undefined || list.kind === 'template'
       ? []

@@ -1718,6 +1718,53 @@ a.list-row__name:hover .list-row__title {
   }
 }
 
+/* ---------- Projects ---------- */
+
+.toolbar__group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.project {
+  margin-bottom: var(--space-xl);
+}
+
+.project__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.project__name {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-lg);
+}
+
+.project__name--quiet {
+  color: var(--color-text-muted);
+}
+
+.project__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.project__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: auto;
+}
+
+.project__empty {
+  margin: 0;
+}
+
 /* ---------- Overflow menu additions ---------- */
 
 .overflow__heading {

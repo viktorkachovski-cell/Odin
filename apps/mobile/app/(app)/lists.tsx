@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ListSummaryDto, MoveDirection } from '@odin/contracts';
 import { useListActions } from '@odin/data';
 import { adjacentMoves } from '@odin/domain';
 
 import { useOdin } from '../../src/state/OdinContext.ts';
-import { useHomeQuery } from '../../src/state/queries.ts';
+import { useHomeQuery, useProjectsQuery } from '../../src/state/queries.ts';
 import { useEvent } from '../../src/state/useEvent.ts';
 import { ErrorBanner, LoadFailure } from '../../src/components/Banner.tsx';
 import { Segmented, Surface } from '../../src/components/Blocks.tsx';
@@ -15,30 +15,35 @@ import { NavSpacer } from '../../src/components/BottomNav.tsx';
 import { FloatingActionButton } from '../../src/components/FloatingActionButton.tsx';
 import { ListCard } from '../../src/components/ListCard.tsx';
 import { ListEditor } from '../../src/components/ListEditor.tsx';
-import { EmptyState, LoadingState } from '../../src/components/Screen.tsx';
+import { ListsBody, ListsToolbar, type ListsTab } from '../../src/components/ListsBody.tsx';
+import { useProjectSheets } from '../../src/components/useProjectSheets.tsx';
+import { LoadingState } from '../../src/components/Screen.tsx';
 import { HouseholdScreen } from '../../src/components/HouseholdScreen.tsx';
 import { showToast } from '../../src/components/toast.ts';
-import { useTheme } from '../../src/theme.ts';
 
 /**
  * Lists: active lists and list templates as two tabs. Reordering is a mode, so
  * the arrows are not on every row.
+ *
+ * Once the household has a project, the Active tab groups its lists under
+ * their projects. Templates are never in a project.
  */
-
-type Tab = 'active' | 'templates';
 
 export default function ListsScreen(): ReactNode {
   const { t, client } = useOdin();
-  const theme = useTheme();
   const home = useHomeQuery();
+  const projectsQuery = useProjectsQuery();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<Tab>(params.tab === 'templates' ? 'templates' : 'active');
+  const [tab, setTab] = useState<ListsTab>(params.tab === 'templates' ? 'templates' : 'active');
   const [reordering, setReordering] = useState(false);
-  const [creating, setCreating] = useState(false);
+  /** The project a new list starts in; null while the editor is closed. */
+  const [creating, setCreating] = useState<{ readonly projectId: string | null } | null>(null);
   const { copy, create, saveTemplate, remove, move } = useListActions(client, undefined, {
     opened: (id) => router.push({ pathname: '/list/[id]', params: { id } }),
     templateSaved: () => showToast(t('toast.template_saved')),
   });
+  const projects = projectsQuery.data?.items ?? [];
+  const projectUi = useProjectSheets(projects);
 
   const copyList = useEvent((list: ListSummaryDto) => void copy.run(list.id));
   const moveList = useEvent(
@@ -62,8 +67,42 @@ export default function ListsScreen(): ReactNode {
   const templates = home.data?.items.filter((item) => item.kind === 'template') ?? [];
   const active = home.data?.items.filter((item) => item.kind === 'active') ?? [];
   const shown = tab === 'templates' ? templates : active;
-  const errors = [copy, saveTemplate, remove, move].flatMap((command) =>
-    command.state.error === null ? [] : [command.state.error],
+  const commands = [copy, saveTemplate, remove, move];
+  const busy = projectUi.busy || commands.some((command) => command.state.pending);
+  const errors = [
+    ...commands.flatMap((command) => (command.state.error === null ? [] : [command.state.error])),
+    ...projectUi.errors,
+  ];
+
+  /** Cards for one group; a move only ever swaps within its own group. */
+  const renderCards = (rows: readonly ListSummaryDto[]): ReactNode => (
+    <View style={styles.cards}>
+      {rows.map((list, index) => {
+        const moves = adjacentMoves(rows, index, (item) => item.kind);
+        return (
+          <Surface key={list.id}>
+            <ListCard
+              copyPending={copy.state.pending}
+              deletePending={remove.state.pending}
+              list={list}
+              moveDownDisabled={!moves.down}
+              moveUpDisabled={!moves.up}
+              movePending={move.state.pending}
+              onCopy={copyList}
+              onDelete={confirmDelete}
+              onMove={moveList}
+              onMoveToProject={
+                tab === 'active' && projects.length > 0 ? projectUi.moveList : undefined
+              }
+              onSaveTemplate={saveAsTemplate}
+              reorder={reordering}
+              saveTemplatePending={saveTemplate.state.pending}
+              t={t}
+            />
+          </Surface>
+        );
+      })}
+    </View>
   );
 
   return (
@@ -81,73 +120,60 @@ export default function ListsScreen(): ReactNode {
           value={tab}
         />
         {home.isError && <LoadFailure onRetry={() => void home.refetch()} t={t} />}
+        {projectsQuery.isError && (
+          <LoadFailure onRetry={() => void projectsQuery.refetch()} t={t} />
+        )}
         {errors.map((error, index) => (
           <ErrorBanner error={error} key={`${error.message_key}-${String(index)}`} t={t} />
         ))}
 
-        {shown.length > 1 && (
-          <View style={styles.toolbar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: reordering }}
-              onPress={() => setReordering((current) => !current)}
-              style={[styles.reorder, { minHeight: theme.touchTarget }]}
-            >
-              <Text style={[styles.reorderText, { color: theme.colors.accent }]}>
-                {reordering ? t('lists.reorder.done') : t('lists.reorder')}
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        <ListsToolbar
+          busy={busy}
+          onNewProject={projectUi.newProject}
+          onToggleReorder={() => setReordering((current) => !current)}
+          reorderable={shown.length > 1}
+          reordering={reordering}
+          t={t}
+          tab={tab}
+        />
 
-        {shown.length === 0 ? (
-          <EmptyState
-            label={tab === 'templates' ? t('lists.templates.empty') : t('home.active.empty')}
-          />
-        ) : (
-          <View style={styles.cards}>
-            {shown.map((list, index) => {
-              const moves = adjacentMoves(shown, index, (item) => item.kind);
-              return (
-                <Surface key={list.id}>
-                  <ListCard
-                    copyPending={copy.state.pending}
-                    deletePending={remove.state.pending}
-                    list={list}
-                    moveDownDisabled={!moves.down}
-                    moveUpDisabled={!moves.up}
-                    movePending={move.state.pending}
-                    onCopy={copyList}
-                    onDelete={confirmDelete}
-                    onMove={moveList}
-                    onSaveTemplate={saveAsTemplate}
-                    reorder={reordering}
-                    saveTemplatePending={saveTemplate.state.pending}
-                    t={t}
-                  />
-                </Surface>
-              );
-            })}
-          </View>
-        )}
+        <ListsBody
+          active={active}
+          busy={busy}
+          onAddList={(project) => setCreating({ projectId: project.id })}
+          onDelete={projectUi.deleteProject}
+          onRename={projectUi.renameProject}
+          projects={projects}
+          renderCards={renderCards}
+          shown={shown}
+          t={t}
+          tab={tab}
+        />
         <NavSpacer />
       </ScrollView>
 
-      <FloatingActionButton label={t('lists.new')} onPress={() => setCreating(true)} />
+      <FloatingActionButton
+        label={t('lists.new')}
+        onPress={() => setCreating({ projectId: null })}
+      />
 
-      {creating && (
+      {creating !== null && (
         <ListEditor
           error={create.state.error}
+          initialProjectId={creating.projectId}
           list={null}
           onCancel={() => {
             create.reset();
-            setCreating(false);
+            setCreating(null);
           }}
           onSubmit={(input) => void create.run(input)}
           pending={create.state.pending}
+          projects={projects}
           t={t}
         />
       )}
+
+      {projectUi.sheets}
     </HouseholdScreen>
   );
 }
@@ -155,7 +181,4 @@ export default function ListsScreen(): ReactNode {
 const styles = StyleSheet.create({
   content: { gap: 12, paddingBottom: 16 },
   cards: { gap: 12 },
-  reorder: { justifyContent: 'center', paddingHorizontal: 4 },
-  reorderText: { fontSize: 15, fontWeight: '600' },
-  toolbar: { alignItems: 'flex-end', marginVertical: -8 },
 });

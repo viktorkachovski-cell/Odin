@@ -203,6 +203,22 @@ in `features.md`.
   legacy note-preserving `update_list`, a path that exists for installed builds
   rather than this one.
 
+### Projects on Android
+
+| Action                         | Where it lives                                                      | Command                            |
+| ------------------------------ | ------------------------------------------------------------------- | ---------------------------------- |
+| Create a project               | **New project** above the Active list cards                         | `create_project`                   |
+| Rename or delete a project     | ⋮ beside the project heading (the delete uses a system alert)       | `update_project`, `delete_project` |
+| Create a list inside a project | **+** beside the project heading, or New list with a Project choice | `create_list_v3`                   |
+| Move a list into or out of one | List card overflow, **Move to project**                             | `set_list_project`                 |
+
+- With a project, the Active tab lists one group per project (empty ones show
+  "No lists in this project yet.") and an **Other lists** group. Headings are
+  accessibility headers; the + and ⋮ keep the 48dp target.
+- Project and move sheets reuse `Sheet`; the project choice is the same wrapping
+  `ChoiceGroup` the other pickers use, with No project first.
+- Reorder arrows act within a group, matching `move_list`.
+
 ## Notifications
 
 What they do is `features.md`; this is how Android does it. Added 2026-09-22

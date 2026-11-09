@@ -184,7 +184,7 @@ begin
 
   -- Templates first, then active lists, each in shared household order.
   with summaries as (
-    select l.id, l.kind, l.title, l.subtitle, l.notes, l.status, l.sort_order, l.version,
+    select l.id, l.kind, l.title, l.subtitle, l.notes, l.status, l.sort_order, l.project_id, l.version,
       count(t.id)::integer as total_tasks,
       count(t.id) filter (where t.completed)::integer as completed_tasks
     from public.lists l
@@ -601,3 +601,49 @@ $$;
 create or replace function public.get_task_v2(p_task_id uuid)
 returns jsonb language sql stable security invoker set search_path = ''
 as $$ select private.get_task_v2(p_task_id); $$;
+
+-- Every project of the household with how many open active lists it holds,
+-- alphabetical so both clients show one order. One snapshot, TOO_LARGE above
+-- the collection ceiling (create_project refuses to create past it).
+create or replace function private.get_projects()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_household uuid := private.active_household_id();
+  v_count integer;
+  v_items jsonb;
+begin
+  if auth.uid() is null then return private.error_response('UNAUTHENTICATED', 'error.unauthenticated'); end if;
+  if v_household is null then return private.error_response('NOT_FOUND', 'error.household_required'); end if;
+
+  with summaries as (
+    select p.id, p.household_id, p.name, p.created_by, p.created_at, p.updated_at, p.version,
+      count(l.id)::integer as list_count
+    from public.projects p
+    left join public.lists l
+      on l.project_id = p.id and l.household_id = p.household_id
+      and l.kind = 'active' and l.status = 'open'
+    where p.household_id = v_household
+    group by p.id
+    order by lower(p.name), p.id
+    limit private.collection_limit() + 1
+  )
+  select count(*)::integer,
+    coalesce(jsonb_agg(to_jsonb(s) order by lower(s.name), s.id), '[]'::jsonb)
+  into v_count, v_items
+  from summaries s;
+
+  if v_count > private.collection_limit() then
+    return private.error_response('TOO_LARGE', 'error.too_large');
+  end if;
+  return private.ok_response(jsonb_build_object('items', v_items));
+end;
+$$;
+
+create or replace function public.get_projects()
+returns jsonb language sql stable security invoker set search_path = ''
+as $$ select private.get_projects(); $$;

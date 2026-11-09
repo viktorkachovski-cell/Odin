@@ -32,6 +32,7 @@ const assigneesMigration = await readFile(
   'supabase/migrations/20261104190000_multiple_task_assignees.sql',
   'utf8',
 );
+const projectsMigration = await readFile('supabase/migrations/20261109120000_projects.sql', 'utf8');
 
 test('database schema preserves product boundaries', () => {
   const listTable = schema.match(/create table public\.lists \(([\s\S]*?)\n\);/i)?.[1];
@@ -47,6 +48,7 @@ test('every exposed table enables RLS and direct client writes stay revoked', ()
     'profiles',
     'households',
     'memberships',
+    'projects',
     'lists',
     'tasks',
     'task_assignees',
@@ -317,4 +319,76 @@ test('smoke scripts stay outside the collected test tree', async () => {
       `${entry.name} declares a pgTAP plan, so it belongs under supabase/tests/`,
     );
   }
+});
+
+test('projects group active lists without owning, deleting or exposing them', () => {
+  // The project is only a name: no deadline, status or order of its own.
+  const projectTable = schema.match(/create table public\.projects \(([\s\S]*?)\n\);/i)?.[1];
+  assert.ok(projectTable, 'projects table declaration missing');
+  assert.doesNotMatch(projectTable, /\b(due_at|status|sort_order)\b/i);
+
+  // A template is never in a project, and the link is household-scoped.
+  assert.match(
+    schema,
+    /constraint lists_project_active_only check \(project_id is null or kind = 'active'\)/i,
+  );
+  assert.match(
+    schema,
+    /foreign key \(household_id, project_id\)\s+references public\.projects \(household_id, id\)/i,
+  );
+
+  // Deleting a project ungroups its lists; it must never delete or archive one.
+  const deleteProject = schema.match(
+    /create or replace function private\.delete_project\([\s\S]*?\n\$\$;/i,
+  )?.[0];
+  assert.ok(deleteProject, 'delete_project missing');
+  assert.match(deleteProject, /update public\.lists set project_id = null/i);
+  assert.doesNotMatch(deleteProject, /delete from public\.(lists|tasks)/i);
+  assert.doesNotMatch(deleteProject, /status = 'archived'/i);
+});
+
+function helperBody(name) {
+  return projectsMigration.match(
+    new RegExp(`create or replace function private\\.${name}\\([\\s\\S]*?\\n\\$\\$;`, 'i'),
+  )?.[0];
+}
+
+test('project commands keep the actor, version and grant boundaries', () => {
+  for (const name of [
+    'create_project',
+    'update_project',
+    'delete_project',
+    'create_list_v3',
+    'set_list_project',
+  ]) {
+    const helper = helperBody(name);
+    assert.ok(helper, `${name} helper missing from the projects migration`);
+    assert.match(helper, /security definer/i);
+    assert.match(helper, /set search_path = ''/i);
+    assert.match(helper, /v_actor uuid := auth\.uid\(\)/i);
+    assert.match(helper, /private\.lock_active_members\(v_household, array\[v_actor\]\)/i);
+    assert.match(helper, /private\.replay_command\(/i);
+    assert.match(
+      projectsMigration,
+      new RegExp(`revoke all on function public\\.${name}\\([^)]*\\) from public, anon`, 'i'),
+    );
+    assert.match(
+      projectsMigration,
+      new RegExp(`grant execute on function public\\.${name}\\([^)]*\\) to authenticated`, 'i'),
+    );
+    assert.match(schema, new RegExp(`function private\\.${name}\\(`, 'i'));
+  }
+  for (const name of ['update_project', 'delete_project', 'set_list_project']) {
+    assert.match(
+      helperBody(name) ?? '',
+      /p_expected_version bigint/i,
+      `${name} must check the version the member saw`,
+    );
+  }
+  assert.match(
+    projectsMigration,
+    /revoke all on public\.projects from public, anon, authenticated/i,
+  );
+  assert.match(projectsMigration, /grant select on public\.projects to authenticated/i);
+  assert.doesNotMatch(projectsMigration, /grant[^;]+to anon/i);
 });

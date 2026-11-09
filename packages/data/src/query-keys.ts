@@ -10,6 +10,7 @@ export const queryKeys = {
   household: ['household'] as const,
   members: ['members'] as const,
   home: ['home'] as const,
+  projects: ['projects'] as const,
   taskTemplates: ['task-templates'] as const,
   list: (listId: string) => ['list', listId] as const,
   task: (taskId: string) => ['task', taskId] as const,
@@ -37,7 +38,18 @@ export function keysAffectedByTaskTemplateChange(): readonly (readonly string[])
   return [queryKeys.taskTemplates];
 }
 
-export const keysAffectedByListChange = keysAffectedByTaskChange;
+/** A list write also moves a project's list count. */
+export function keysAffectedByListChange(listId?: string): readonly (readonly string[])[] {
+  return [...keysAffectedByTaskChange(listId), queryKeys.projects];
+}
+
+/**
+ * A project write regroups lists on the household summary and changes what
+ * every open list says about its project.
+ */
+export function keysAffectedByProjectChange(): readonly (readonly string[])[] {
+  return [queryKeys.projects, queryKeys.home, ['list']];
+}
 
 /**
  * The keys a batch of realtime hints invalidates, each once. Invalidating the
@@ -51,7 +63,9 @@ export function keysAffectedByChanges(kinds: Iterable<ChangeKind>): readonly (re
         ? keysAffectedByTaskChange()
         : kind === 'list'
           ? keysAffectedByListChange()
-          : keysAffectedByMembershipChange();
+          : kind === 'project'
+            ? keysAffectedByProjectChange()
+            : keysAffectedByMembershipChange();
     for (const key of keys) byId.set(key.join('\u0000'), key);
   }
   return [...byId.values()];
@@ -67,6 +81,7 @@ export function keysAffectedByMembershipChange(): readonly (readonly string[])[]
     queryKeys.household,
     queryKeys.members,
     queryKeys.home,
+    queryKeys.projects,
     queryKeys.myTasks,
     queryKeys.unassigned,
   ];

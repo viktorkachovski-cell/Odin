@@ -150,7 +150,15 @@ describe('keysAffectedByChanges', () => {
     const keys = ids(keysAffectedByChanges(['task', 'list', 'task']));
 
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys.sort()).toEqual(['all-tasks', 'home', 'list', 'my-tasks', 'task', 'unassigned']);
+    expect(keys.sort()).toEqual([
+      'all-tasks',
+      'home',
+      'list',
+      'my-tasks',
+      'projects',
+      'task',
+      'unassigned',
+    ]);
   });
 
   it('covers everything a membership change affects', () => {

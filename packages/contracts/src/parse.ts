@@ -18,6 +18,9 @@ import type {
   Locale,
   MemberDto,
   ProfileDto,
+  ProjectDto,
+  ProjectsDto,
+  ProjectSummaryDto,
   TaskCollectionDto,
   TaskDto,
   TaskTemplateDto,
@@ -121,6 +124,8 @@ export function parseList(value: unknown, field = 'list'): ListDto {
   const raw = obj(value, field);
   return {
     sort_order: raw['sort_order'] === undefined ? 0 : num(raw['sort_order'], `${field}.sort_order`),
+    // Absent on a database that predates projects: the list is in no project.
+    project_id: nullableStr(raw['project_id'], `${field}.project_id`),
     id: str(raw['id'], `${field}.id`),
     household_id: str(raw['household_id'], `${field}.household_id`),
     kind: parseListKind(raw['kind'], `${field}.kind`),
@@ -142,6 +147,7 @@ function parseListSummary(value: unknown, field: string): ListSummaryDto {
   const raw = obj(value, field);
   return {
     sort_order: raw['sort_order'] === undefined ? 0 : num(raw['sort_order'], `${field}.sort_order`),
+    project_id: nullableStr(raw['project_id'], `${field}.project_id`),
     id: str(raw['id'], `${field}.id`),
     kind: parseListKind(raw['kind'], `${field}.kind`),
     title: str(raw['title'], `${field}.title`),
@@ -151,6 +157,35 @@ function parseListSummary(value: unknown, field: string): ListSummaryDto {
     version: num(raw['version'], `${field}.version`),
     total_tasks: num(raw['total_tasks'], `${field}.total_tasks`),
     completed_tasks: num(raw['completed_tasks'], `${field}.completed_tasks`),
+  };
+}
+
+export function parseProject(value: unknown, field = 'project'): ProjectDto {
+  const raw = obj(value, field);
+  return {
+    id: str(raw['id'], `${field}.id`),
+    household_id: str(raw['household_id'], `${field}.household_id`),
+    name: str(raw['name'], `${field}.name`),
+    created_by: str(raw['created_by'], `${field}.created_by`),
+    created_at: str(raw['created_at'], `${field}.created_at`),
+    updated_at: str(raw['updated_at'], `${field}.updated_at`),
+    version: num(raw['version'], `${field}.version`),
+  };
+}
+
+function parseProjectSummary(value: unknown, field: string): ProjectSummaryDto {
+  return {
+    ...parseProject(value, field),
+    list_count: num(obj(value, field)['list_count'], `${field}.list_count`),
+  };
+}
+
+export function parseProjects(value: unknown): ProjectsDto {
+  const raw = obj(value, 'projects');
+  return {
+    items: arr(raw['items'], 'projects.items').map((entry, index) =>
+      parseProjectSummary(entry, `projects.items[${index}]`),
+    ),
   };
 }
 
@@ -243,6 +278,10 @@ export function parseHouseholdId(value: unknown): string {
 
 export function parseListId(value: unknown): string {
   return str(obj(value, 'result')['list_id'], 'result.list_id');
+}
+
+export function parseProjectId(value: unknown): string {
+  return str(obj(value, 'result')['project_id'], 'result.project_id');
 }
 
 export function parseTaskId(value: unknown): string {
