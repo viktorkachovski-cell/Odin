@@ -334,7 +334,8 @@ hook validates that both values target the hosted Odin project and fails the
 remote build before dependency installation if they are missing or wrong.
 
 The production profile creates an installable APK with internal distribution,
-continuing the existing release route. Keep the existing EAS-managed signing
+continuing the existing release route. The preview profile also builds an APK,
+for test installs from a branch; it is not a release. Keep the existing EAS-managed signing
 credentials (`--freeze-credentials`); do not mint another app identity or key.
 `EXPO_PUBLIC_WEB_ORIGIN` in that environment must point at
 `https://odin-ten-tau.vercel.app` so copied invitations open the web flow.
