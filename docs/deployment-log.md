@@ -504,3 +504,37 @@ browser or on a device against the hosted project.
 Rollback is a reviewed forward migration only: once members group lists,
 dropping `projects` ungroups them. To stop new project use while keeping data,
 revoke `authenticated` execute on the six project RPCs.
+
+## 2026-11-10 — Advisor indexes and invitation-attempts key, database
+
+Applied `supabase/migrations/20261110070000_advisor_indexes_and_attempts_key.sql`
+unchanged to the hosted project (Odin, eu-central-1) through the Supabase MCP
+`apply_migration`; it is recorded as `20261110063441
+advisor_indexes_and_attempts_key`. Applied from PR 27 head `1c4688e`, before the
+PR was merged. GitHub `Database` (`verify`) passed on that commit; `Quality`
+failed only on `expo-doctor` (the patch-version mismatch that also fails on
+`main`).
+
+- **Data:** households, lists, tasks, task assignments, invitations and
+  invitation attempts counted 1 / 27 / 262 / 112 / 1 / 0 before and after.
+- **Shape:** `households_created_by_idx`, `lists_created_by_idx`,
+  `invitations_redeemed_by_idx` and `task_assignees_task_idx` exist and are
+  valid. `private.invitation_attempts` has `invitation_attempts_pkey` on a new
+  identity column `id`. A catalog query finds no foreign key in `public` or
+  `private` without a covering index. `anon` and `authenticated` still have no
+  privilege on `private.invitation_attempts`.
+- **Smoke:** none against the hosted project; no RPC changed. The attempts
+  table was empty, so the redeem rate-limit insert path was exercised only by
+  the pgTAP suites in CI and on a disposable local database.
+- **Advisors:** performance no longer reports `unindexed_foreign_keys` (was 4)
+  or `no_primary_key` (was 1). `unused_index` (INFO) rises from 2 to 6: the
+  earlier `task_templates_created_by_idx` and `projects_created_by_idx` plus the
+  four new indexes, which have no scans yet (`database.md`, "Index baseline").
+  Security unchanged: the standing findings in `operations.md` and
+  `rls_enabled_no_policy` for `task_assignees`.
+
+Compatible with every installed client: no function, grant, policy or payload
+changed. Nothing client-visible was exercised in a browser or on a device.
+
+Rollback is a forward migration dropping the four indexes and the `id` column;
+no data depends on them.
