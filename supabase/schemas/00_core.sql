@@ -41,6 +41,8 @@ create table public.households (
   unique (id, created_by)
 );
 
+create index households_created_by_idx on public.households (created_by);
+
 create table public.memberships (
   household_id uuid not null references public.households(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -137,6 +139,8 @@ on public.lists (household_id, kind, status, id);
 create index lists_project_idx
 on public.lists (household_id, project_id)
 where project_id is not null;
+
+create index lists_created_by_idx on public.lists (created_by);
 
 create table public.tasks (
   id uuid primary key default gen_random_uuid(),
@@ -275,7 +279,10 @@ on private.invitations (household_id, created_at desc);
 create index invitations_creator_rate_limit_idx
 on private.invitations (created_by, created_at desc);
 
+create index invitations_redeemed_by_idx on private.invitations (redeemed_by);
+
 create table private.invitation_attempts (
+  id bigint generated always as identity primary key,
   actor_user_id uuid not null references auth.users(id) on delete cascade,
   attempted_at timestamptz not null default now()
 );
@@ -416,6 +423,11 @@ create table public.task_assignees (
 
 create index task_assignees_member_task_idx
 on public.task_assignees (household_id, user_id, task_id);
+
+-- Covers task_assignees_task_fk: the primary key leads with task_id alone, so
+-- a task delete's cascade had no index matching (household_id, task_id).
+create index task_assignees_task_idx
+on public.task_assignees (household_id, task_id);
 
 create or replace function private.validate_task_assignee()
 returns trigger
