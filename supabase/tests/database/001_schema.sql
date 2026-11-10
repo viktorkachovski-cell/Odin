@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(37);
 
 select has_schema('private', 'private schema exists');
 select has_table('public', 'profiles', 'profiles table exists');
@@ -40,6 +40,11 @@ select has_function(
 select has_function('public', 'copy_template', array['uuid', 'uuid'], 'copy_template RPC exists');
 select has_function('public', 'claim_task', array['uuid', 'uuid', 'bigint'], 'claim_task RPC exists');
 select has_function('public', 'redeem_invitation', array['uuid', 'text'], 'redeem_invitation RPC exists');
+select has_pk('private', 'invitation_attempts', 'invitation attempts have a primary key');
+select has_index('public', 'households', 'households_created_by_idx', array['created_by'], 'household creator foreign key is indexed');
+select has_index('public', 'lists', 'lists_created_by_idx', array['created_by'], 'list creator foreign key is indexed');
+select has_index('private', 'invitations', 'invitations_redeemed_by_idx', array['redeemed_by'], 'invitation redeemer foreign key is indexed');
+select has_index('public', 'task_assignees', 'task_assignees_task_idx', array['household_id', 'task_id'], 'assignment task foreign key is indexed');
 
 select * from finish();
 rollback;

@@ -119,6 +119,16 @@ candidates for removal once `EXPLAIN` on real data confirms nothing uses them. R
 are uniquely indexed. Inspect `EXPLAIN (ANALYZE, BUFFERS)` on representative
 synthetic data before adding overlapping indexes. Progress is never stored.
 
+Every foreign key has a covering index, including the creator and redeemer
+references to `auth.users` (`households_created_by_idx`, `lists_created_by_idx`,
+`invitations_redeemed_by_idx`, `task_templates_created_by_idx`,
+`projects_created_by_idx`) and `task_assignees_task_idx` on `(household_id,
+task_id)` for the task cascade. The creator indexes are read only when an Auth
+user is deleted, so the Supabase performance advisor reports them as
+`unused_index` (INFO); that is expected, and dropping one brings back
+`unindexed_foreign_keys` for the same column. `private.invitation_attempts` has
+a surrogate identity primary key.
+
 ## Tests
 
 - `supabase/tests/database/001_schema.sql` — tables, deadline and assignee
